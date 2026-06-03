@@ -291,8 +291,9 @@ Panel {
       spacing: Style.spacing.md
 
       Rectangle {
-        width: Style.space(48)
-        height: Style.space(48)
+        id: badge
+        width: labelColumn.implicitHeight
+        height: width
         radius: Style.cornerRadius
         color: Qt.rgba(row.accent.r, row.accent.g, row.accent.b, 0.22)
         anchors.verticalCenter: parent.verticalCenter
@@ -307,7 +308,8 @@ Panel {
       }
 
       Column {
-        width: parent.width - Style.space(48) - meterColumn.width - Style.spacing.md * 2
+        id: labelColumn
+        width: parent.width - badge.width - meterColumn.width - Style.spacing.md * 2
         anchors.verticalCenter: parent.verticalCenter
         spacing: Style.space(4)
 
