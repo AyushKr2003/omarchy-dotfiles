@@ -497,16 +497,15 @@ func runToggle(stateFile, binary, filteredList, allList string) {
 
 // ── List printer (called by reload inside fzf) ────────────────────────────────
 
-// runList prints pre-built tab-lines from a file, sorted.
-// The lines were written at startup; we just cat+sort them here so fzf
-// gets fresh sorted output without re-scanning all desktop files.
+// runList prints pre-built tab-lines from a file in their stored order.
+// The lines were written at startup, so reloads can reuse the same icon and
+// category formatting without re-scanning desktop files or reshuffling rows.
 func runList(path string) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return
 	}
 	lines := strings.Split(strings.TrimRight(string(data), "\n"), "\n")
-	sort.Strings(lines)
 	for _, l := range lines {
 		if l != "" {
 			fmt.Println(l)
@@ -632,8 +631,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Sort both lists by name A→Z, case-insensitive, stable so equal names
-	// keep their original scan order (local > system > flatpak).
+	// Sort by name A→Z, case-insensitive, stable so equal names keep their
+	// original scan order.
 	sortApps := func(apps []App) {
 		sort.SliceStable(apps, func(i, j int) bool {
 			return strings.ToLower(apps[i].Name) < strings.ToLower(apps[j].Name)
