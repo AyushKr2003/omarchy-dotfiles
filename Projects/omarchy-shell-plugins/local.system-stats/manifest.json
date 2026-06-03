@@ -3,7 +3,7 @@
   "id": "local.system-stats",
   "name": "Local System Stats",
   "version": "1.0.0",
-  "author": "Omarchy, local port",
+  "author": "AyushKr2003",
   "description": "System stats bar widget with a detailed hardware panel.",
   "kinds": [
     "bar-widget"

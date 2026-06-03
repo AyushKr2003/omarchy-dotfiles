@@ -3,7 +3,7 @@
   "id": "local.clock",
   "name": "Local Clock",
   "version": "1.0.0",
-  "author": "Omarchy, local port",
+  "author": "AyushKr2003",
   "description": "Clock bar widget with a monthly calendar popup.",
   "kinds": [
     "bar-widget"
