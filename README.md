@@ -7,10 +7,11 @@ This is my custom Omarchy dotfiles setup for personal use.
 - `.config/` - my own overrides and additions for the Omarchy system
 - `.local/` - my own local files, helpers, and custom additions
 - `Projects/` - my developed tools and plugins used in Omarchy shell or terminal tools
+- `Legacy/` - my developed tools and plugins not used anymore just keep for the reference
 
 ## Projects
 
-- `omarchy-shell-plugins/` - custom Omarchy shell plugins and panels
-- `omarchy-tui-apps/` - custom TUI tools for omarchy system
+- `omarchy-shell-plugins/` - development folder for custom Omarchy shell plugins and panels 
+- `omarchy-tui-apps/` - development folder for custom Omarchy TUIs
 
 This repo is meant for my own machine, so the layout is intentionally simple.
