@@ -16,33 +16,22 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Icons (Nerd Font)
-// ─────────────────────────────────────────────────────────────────────────────
-
 const (
-	iconApp      = "󱗼" //"󰀻"
-	iconTerminal = "" 
+	iconApp      = "󰀻"
+	iconTerminal = ""
 	iconFlatpak  = "󰏖"
-	iconPrompt   = ""
+	iconPrompt   = ""
 )
-// iconPad pads/trims icon to exactly `w` visible columns.
+
 func iconPad(icon string, w int) string {
 	cur := runewidth.StringWidth(icon)
 	if cur >= w {
 		return icon
 	}
 	pad := w - cur
-	l := pad / 2
-	r := pad - l
-	return strings.Repeat(" ", l) + icon + strings.Repeat(" ", r)
+	return strings.Repeat(" ", pad/2) + icon + strings.Repeat(" ", pad-pad/2)
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// String helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-// truncate cuts s to at most maxW visible columns, appending "…" if cut.
 func truncate(s string, maxW int) string {
 	if maxW <= 0 {
 		return ""
@@ -64,9 +53,6 @@ func truncate(s string, maxW int) string {
 	return string(out) + "…"
 }
 
-
-// wrapToLines wraps s into lines each at most maxW visible columns wide.
-// Prefers breaking at '/' for paths; falls back to character-level.
 func wrapToLines(s string, maxW int) []string {
 	if maxW <= 0 {
 		return []string{s}
@@ -77,7 +63,6 @@ func wrapToLines(s string, maxW int) []string {
 			lines = append(lines, s)
 			break
 		}
-		// find last '/' within maxW
 		cut := -1
 		cur := 0
 		for i, r := range s {
@@ -91,7 +76,6 @@ func wrapToLines(s string, maxW int) []string {
 			cur += rw
 		}
 		if cut <= 0 {
-			// no slash: hard cut
 			cut = 0
 			cur = 0
 			for i, r := range s {
@@ -112,39 +96,56 @@ func wrapToLines(s string, maxW int) []string {
 	return lines
 }
 
+// stripANSI removes escape sequences so we can measure visible width.
+func stripANSI(s string) string {
+	var out []rune
+	inESC := false
+	for _, r := range s {
+		if inESC {
+			if r == 'm' {
+				inESC = false
+			}
+			continue
+		}
+		if r == '\x1b' {
+			inESC = true
+			continue
+		}
+		out = append(out, r)
+	}
+	return string(out)
+}
+
+func vw(s string) int { return runewidth.StringWidth(stripANSI(s)) }
+
+// pad fills s to exactly w visible columns by appending spaces.
+// If s is already >= w, it is returned as-is.
+func pad(s string, w int) string {
+	n := w - vw(s)
+	if n <= 0 {
+		return s
+	}
+	return s + strings.Repeat(" ", n)
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // App item
 // ─────────────────────────────────────────────────────────────────────────────
 
 type appItem struct {
-	Icon        string
-	Name        string
-	SubTitle    string
-	ID          string
-	DesktopFile string
-	SearchText  string
-	Exec        string
-	Terminal    bool
-	rawType     string
-	rawComment  string
+	Icon, Name, SubTitle, ID, DesktopFile, SearchText, Exec string
+	Terminal                                                  bool
+	rawType, rawComment                                       string
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Theme
 // ─────────────────────────────────────────────────────────────────────────────
 
-type theme struct {
-	fg, bg, accent, selBg, muted string
-}
+type theme struct{ fg, bg, accent, selBg, muted string }
 
 func defaultTheme() theme {
-	return theme{
-		fg:     "#c0caf5",
-		bg:     "#1a1b26",
-		accent: "#7aa2f7",
-		selBg:  "#283457",
-		muted:  "#565f89",
-	}
+	return theme{fg: "#c0caf5", bg: "#1a1b26", accent: "#7aa2f7", selBg: "#283457", muted: "#565f89"}
 }
 
 func loadTheme(tomlPath string) theme {
@@ -173,8 +174,7 @@ func readColor(path, key, fallback string) string {
 		if strings.TrimSpace(line[:idx]) != key {
 			continue
 		}
-		v := strings.TrimSpace(line[idx+1:])
-		v = strings.TrimFunc(v, func(r rune) bool {
+		v := strings.TrimFunc(strings.TrimSpace(line[idx+1:]), func(r rune) bool {
 			return r == '"' || unicode.IsSpace(r)
 		})
 		if v != "" {
@@ -185,47 +185,76 @@ func readColor(path, key, fallback string) string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Layout
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Every row is W columns wide.
+//
+// ╭──────────────────────── W-2 dashes ────────────────────────╮   fixed outer top
+// │ ╭── listBW ──╮  ╭── prevBW ──╮                             │   inner tops
+// │ │  header    │  │            │                             │
+// │ ├────────────┤  ├────────────┤                             │   hSep
+// │ │  search    │  │            │                             │
+// │ ├────────────┤  │            │                             │   sSep
+// │ │  rows…     │  │  preview…  │                             │
+// │ ╰────────────╯  ╰────────────╯                             │   inner bots
+// ╰──────────────────────── W-2 dashes ────────────────────────╯   fixed outer bot
+//
+// innerW  = W - 2                  (between the two outer │ chars)
+// prevBW  = floor(innerW * 0.46)   preview box total width
+// listBW  = innerW - prevBW - gap  list box total width  (gap=2 spaces)
+//
+// Each inner box is drawn with its own ╭╮╰╯ and │ on left+right.
+// listBodyW = listBW - 2 - 2*listPad
+// prevBodyW = prevBW - 2 - 2*prevPad
+//
+// fixedRows = 8:
+//   outer-top + inner-top + header + hSep + search + sSep + inner-bot + outer-bot
+
+const (
+	gap      = 2 // blank columns between the two inner boxes
+	listPad  = 1 // horizontal padding inside list box (each side)
+	prevPad  = 1 // horizontal padding inside preview box (each side)
+	fixedRows = 8
+)
+
+type layout struct {
+	innerW, listBW, listBodyW, prevBW, prevBodyW, bodyH int
+}
+
+func computeLayout(w, h int) layout {
+	innerW   := max(0, w-2)
+	prevBW   := int(float64(innerW) * 0.46)
+	listBW   := max(0, innerW-prevBW-gap)
+	return layout{
+		innerW:    innerW,
+		listBW:    listBW,
+		listBodyW: max(0, listBW-2-2*listPad),
+		prevBW:    prevBW,
+		prevBodyW: max(0, prevBW-2-2*prevPad),
+		bodyH:     max(0, h-fixedRows),
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Model
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Layout constants (terminal rows / cols consumed by chrome).
-//
-//	total height = 1 (border top) + 1 (header) + 1 (search) + bodyH + 1 (border bottom)
-//	bodyH = height - 4
-//	total width  = 1 (border left) + innerW + 1 (border right)
-//	innerW = width - 2
-const (
-	chromeH = 4 // border(2) + header(1) + search(1)
-	chromeW = 2 // border left + right
-)
-
 type model struct {
-	th theme
-
-	// all items before any query filter
-	filteredItems []appItem // hidden-app-filtered, desktop-env-filtered
-	allItems      []appItem // everything including hidden/NoDisplay
-
-	// current displayed slice (after query filter)
-	visible []appItem
-
-	showAll bool
-	query   string
-	cursor  int // index into visible
-	offset  int // first visible row in list viewport
-
-	width, height int // terminal dimensions
-
-	launchErr string
+	th            theme
+	filteredItems []appItem
+	allItems      []appItem
+	visible       []appItem
+	showAll       bool
+	query         string
+	cursor        int
+	offset        int
+	width, height int
+	launchErr     string
 }
 
 func newModel(filtered, all []appItem, showAll bool, th theme) model {
-	m := model{
-		th:            th,
-		filteredItems: filtered,
-		allItems:      all,
-		showAll:       showAll,
-	}
+	m := model{th: th, filteredItems: filtered, allItems: all, showAll: showAll}
 	m.rebuildVisible()
 	return m
 }
@@ -247,15 +276,16 @@ func (m *model) rebuildVisible() {
 		}
 		m.visible = out
 	}
-	// clamp cursor
 	if m.cursor >= len(m.visible) {
 		m.cursor = max(0, len(m.visible)-1)
 	}
 	m.clampOffset()
 }
 
+func (m *model) lay() layout { return computeLayout(m.width, m.height) }
+
 func (m *model) clampOffset() {
-	h := m.listHeight()
+	h := m.lay().bodyH
 	if h <= 0 {
 		m.offset = 0
 		return
@@ -271,75 +301,44 @@ func (m *model) clampOffset() {
 	}
 }
 
-// listHeight returns the number of rows available for list items.
-func (m *model) listHeight() int {
-	return max(0, m.height-chromeH)
-}
-
-// listWidth returns the column width for the list pane.
-func (m *model) listWidth() int {
-	innerW := max(0, m.width-chromeW)
-	previewW := int(float64(innerW) * 0.46)
-	return max(0, innerW-previewW-1) // -1 for divider column
-}
-
-// previewWidth returns the column width for the preview pane (including the │ border col).
-func (m *model) previewWidth() int {
-	innerW := max(0, m.width-chromeW)
-	return int(float64(innerW) * 0.46)
-}
-
 func (m model) Init() tea.Cmd { return nil }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
+		m.width, m.height = msg.Width, msg.Height
 		m.clampOffset()
-		return m, nil
-
 	case tea.KeyMsg:
+		l := m.lay()
 		switch msg.String() {
-
 		case "ctrl+c", "esc":
 			return m, tea.Quit
-
 		case "ctrl+h":
 			m.showAll = !m.showAll
-			m.cursor = 0
-			m.offset = 0
+			m.cursor, m.offset = 0, 0
 			m.rebuildVisible()
-
 		case "up", "ctrl+p", "ctrl+k":
 			if m.cursor > 0 {
 				m.cursor--
 				m.clampOffset()
 			}
-
 		case "down", "ctrl+n", "ctrl+j":
 			if m.cursor < len(m.visible)-1 {
 				m.cursor++
 				m.clampOffset()
 			}
-
 		case "pgup":
-			m.cursor = max(0, m.cursor-m.listHeight())
+			m.cursor = max(0, m.cursor-l.bodyH)
 			m.clampOffset()
-
 		case "pgdown":
-			m.cursor = min(len(m.visible)-1, m.cursor+m.listHeight())
+			m.cursor = min(len(m.visible)-1, m.cursor+l.bodyH)
 			m.clampOffset()
-
 		case "home":
 			m.cursor = 0
 			m.clampOffset()
-
 		case "end":
 			m.cursor = max(0, len(m.visible)-1)
 			m.clampOffset()
-
 		case "enter":
 			if m.cursor < len(m.visible) {
 				sel := m.visible[m.cursor]
@@ -349,22 +348,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, tea.Quit
 				}
 			}
-
-		case "backspace", "ctrl+h ":
+		case "backspace":
 			if len(m.query) > 0 {
 				runes := []rune(m.query)
 				m.query = string(runes[:len(runes)-1])
-				m.cursor = 0
-				m.offset = 0
+				m.cursor, m.offset = 0, 0
 				m.rebuildVisible()
 			}
-
 		default:
-			// printable rune → append to query
 			if msg.Type == tea.KeyRunes {
 				m.query += string(msg.Runes)
-				m.cursor = 0
-				m.offset = 0
+				m.cursor, m.offset = 0, 0
 				m.rebuildVisible()
 			}
 		}
@@ -373,7 +367,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// View  – one strings.Builder pass, row by row
+// View
 // ─────────────────────────────────────────────────────────────────────────────
 
 func (m model) View() string {
@@ -381,101 +375,135 @@ func (m model) View() string {
 		return "loading…\n"
 	}
 
+	l  := m.lay()
 	th := m.th
-	W := m.width
-	H := m.height
-	innerW := W - chromeW          // content columns between the two border chars
-	lW := m.listWidth()            // list pane width
-	pW := m.previewWidth()         // preview pane width (includes │ col)
-	pContentW := max(0, pW-2)      // usable preview content width (strip │ and 1 padding col)
-	bodyH := max(0, H-chromeH)     // rows for list+preview body
 
-	// lipgloss colour helpers (only used for ANSI colour codes, not layout)
-	col := func(hex string) lipgloss.Style {
+	// styles
+	mkCol := func(hex string) lipgloss.Style {
 		return lipgloss.NewStyle().Foreground(lipgloss.Color(hex))
 	}
-	bg := func(hex string) lipgloss.Style {
-		return lipgloss.NewStyle().Background(lipgloss.Color(hex))
+	mkColBg := func(fg, bg string) lipgloss.Style {
+		return lipgloss.NewStyle().Foreground(lipgloss.Color(fg)).Background(lipgloss.Color(bg))
 	}
-	both := func(fg, bgHex string) lipgloss.Style {
-		return lipgloss.NewStyle().
-			Foreground(lipgloss.Color(fg)).
-			Background(lipgloss.Color(bgHex))
-	}
+	bdrS     := mkCol(th.muted)
+	accentS  := mkCol(th.accent).Bold(true)
+	mutedS   := mkCol(th.muted)
+	fgS      := mkCol(th.fg)
+	selNameS := mkColBg(th.accent, th.selBg).Bold(true)
+	selBgS   := lipgloss.NewStyle().Background(lipgloss.Color(th.selBg))
+	selSubS  := mkColBg(th.muted, th.selBg)
 
-	accentS := col(th.accent).Bold(true)
-	mutedS  := col(th.muted)
-	fgS     := col(th.fg)
-	borderS := col(th.muted)
-
-	selNameS := both(th.accent, th.selBg).Bold(true)
-	selBgS   := bg(th.selBg)
-	selSubS  := both(th.muted, th.selBg)
-
-	// round-corner border chars
 	const (
-		tl = "╭"; tr = "╮"; bl = "╰"; br = "╯"
-		h  = "─"; v  = "│"
+		TL = "╭"; TR = "╮"; BL = "╰"; BR = "╯"
+		H  = "─"; V  = "│"; LT = "├"; RT = "┤"
 	)
 
 	var sb strings.Builder
-	writeln := func(line string) {
-		sb.WriteString(line)
-		sb.WriteByte('\n')
+	emit := func(s string) { sb.WriteString(s); sb.WriteByte('\n') }
+
+	// outerRow wraps pre-built inner content between the outer │ chars.
+	// inner must be EXACTLY l.innerW visible columns — we enforce this here.
+	outerRow := func(inner string) string {
+		// measure and pad/trim to innerW
+		w := vw(inner)
+		if w < l.innerW {
+			inner += strings.Repeat(" ", l.innerW-w)
+		}
+		return inner                       // outer left and right borders are drawn as part of inner content now
+		// return bdrS.Render(V) + inner + bdrS.Render(V)
+
 	}
 
-	// ── ROW 0: top border ─────────────────────────────────────────────────
-	writeln(borderS.Render(tl + strings.Repeat(h, innerW) + tr))
+	// innerBox builds one row of an inner box:
+	//   │ <pad> <content padded to bodyW> <pad> │
+	// total visible width = boxW
+	innerBox := func(content string, boxW, padding int) string {
+		bodyW := max(0, boxW-2-2*padding)
+		return bdrS.Render(V) +
+			strings.Repeat(" ", padding) +
+			pad(content, bodyW) +
+			strings.Repeat(" ", padding) +
+			bdrS.Render(V)
+	}
 
-	// ── ROW 1: header ─────────────────────────────────────────────────────
+	// twoBoxRow builds the inner content of one row with both boxes side by side:
+	//   " " + listBox + "  " + prevBox + trailing
+	// total = innerW
+	twoBoxRow := func(listContent, prevContent string) string {
+		lBox := innerBox(listContent, l.listBW, listPad)
+		pBox := innerBox(prevContent, l.prevBW, prevPad)
+		inner := " " + lBox + strings.Repeat(" ", gap) + pBox
+		return inner // outerRow will pad to innerW
+	}
+
+	// ── outer top border ─────────────────────────────────────────────────
+	// emit(bdrS.Render(TL + strings.Repeat(H, l.innerW) + TR))
+
+	// ── inner top borders ─────────────────────────────────────────────────
 	{
-		// "󱗼  Apps  󰏖  Flatpaks    Terminal  [hint]"
-		apI  := iconPad("󱗼", 4) // wider app icon
-		fpI  := iconPad(iconFlatpak, 3)
-		tmI  := iconPad(iconTerminal, 3)
+		lTop := TL + strings.Repeat(H, l.listBW-2) + TR
+		pTop := TL + strings.Repeat(H, l.prevBW-2) + TR
+		inner := " " + bdrS.Render(lTop) + strings.Repeat(" ", gap) + bdrS.Render(pTop)
+		emit(outerRow(inner))
+	}
+
+	// ── header row ───────────────────────────────────────────────────────
+	{
 		hint := " [Ctrl+H: Show all]"
 		if m.showAll {
 			hint = " [Ctrl+H: Show filtered]"
 		}
-		content := accentS.Render(apI+"Apps  "+fpI+"Flatpaks  "+tmI+"Terminal") +
+		hdrContent := accentS.Render(
+			iconPad(iconApp, 3)+"Apps  "+
+				iconPad(iconFlatpak, 3)+"Flatpaks  "+
+				iconPad(iconTerminal, 3)+"Terminal") +
 			mutedS.Render(hint)
-		// pad to innerW
-		raw := stripANSI(content) // visible width
-		padded := content + strings.Repeat(" ", max(0, innerW-runewidth.StringWidth(raw)))
-		writeln(borderS.Render(v) + padded + borderS.Render(v))
+		emit(outerRow(twoBoxRow(hdrContent, "")))
 	}
 
-	// ── ROW 2: search ─────────────────────────────────────────────────────
+	// ── header separator ─────────────────────────────────────────────────
 	{
-		prompt := accentS.Render(iconPrompt+" Apps  ")
-		cursor := "█"
-		rawLen := runewidth.StringWidth(iconPrompt+" Apps  ") +
-			runewidth.StringWidth(m.query) + 1
-		// pad to innerW
-		line := prompt + fgS.Render(m.query) + col(th.accent).Render(cursor) +
-			strings.Repeat(" ", max(0, innerW-rawLen))
-		writeln(borderS.Render(v) + line + borderS.Render(v))
+		lSep := LT + strings.Repeat(H, l.listBW-2) + RT
+		pSep := LT + strings.Repeat(H, l.prevBW-2) + RT
+		inner := " " + bdrS.Render(lSep) + strings.Repeat(" ", gap) + bdrS.Render(pSep)
+		emit(outerRow(inner))
 	}
 
-	// ── ROWS 3 … 3+bodyH-1: body (list | preview) ────────────────────────
+	// ── search row ───────────────────────────────────────────────────────
 	{
-		// Pre-render the preview lines so we can join them with list rows
-		prevLines := m.buildPreviewLines(pContentW, bodyH)
+		searchContent := accentS.Render(iconPrompt+" Apps  ") +
+			fgS.Render(m.query) +
+			mkCol(th.accent).Render("█")
+		emit(outerRow(twoBoxRow(searchContent, "")))
+	}
 
-		for row := 0; row < bodyH; row++ {
-			idx := m.offset + row // index into m.visible
+	// ── search separator (list only; preview continues unbroken) ─────────
+	{
+		lSep := LT + strings.Repeat(H, l.listBW-2) + RT
+		// preview: just a plain row with no separator
+		pMid := V + strings.Repeat(" ", l.prevBW-2) + V
+		inner := " " + bdrS.Render(lSep) + strings.Repeat(" ", gap) + bdrS.Render(pMid)
+		emit(outerRow(inner))
+	}
 
-			// ── list cell ──────────────────────────────────────────────
-			var listCell string
+	// ── body rows ────────────────────────────────────────────────────────
+	{
+		prevLines := m.buildPreviewLines(l.prevBodyW, l.bodyH)
+
+		for row := 0; row < l.bodyH; row++ {
+			idx := m.offset + row
+
+			// list content
+			var listContent string
 			if idx < len(m.visible) {
-				app := m.visible[idx]
+				app      := m.visible[idx]
 				selected := idx == m.cursor
 
-				const iconColW = 5 // fixed: 1 space + icon(3) + 1 space
-				nameMax := (lW - iconColW) * 55 / 100
-				subMax  := lW - iconColW - nameMax - 2
+				const icW = 4 // " " + icon(2) + " "
+				nameMax := (l.listBodyW - icW) * 6 / 10
+				subMax  := l.listBodyW - icW - nameMax - 1
 
-				iconStr := iconPad(app.Icon, 3)
+				ic      := iconPad(app.Icon, 2)
 				nameStr := truncate(app.Name, nameMax)
 				subStr  := ""
 				if app.SubTitle != "" && subMax > 3 {
@@ -483,203 +511,167 @@ func (m model) View() string {
 				}
 
 				if selected {
-					iconPart := selBgS.Render(" " + iconStr + " ")
-					namePart := selNameS.Render(nameStr)
-					var cell string
+					iP := selBgS.Render(" " + ic + " ")
+					nP := selNameS.Render(nameStr)
+					sP := ""
 					if subStr != "" {
-						subPart := selSubS.Render("  " + subStr)
-						cell = iconPart + namePart + subPart
-					} else {
-						cell = iconPart + namePart
+						sP = selSubS.Render(" " + subStr)
 					}
-					// pad to lW with selBg
-					visW := 1 + 3 + 1 + runewidth.StringWidth(nameStr)
+					used := 1 + 2 + 1 + vw(nameStr)
 					if subStr != "" {
-						visW += 2 + runewidth.StringWidth(subStr)
+						used += 1 + vw(subStr)
 					}
-					listCell = cell + selBgS.Render(strings.Repeat(" ", max(0, lW-visW)))
+					listContent = iP + nP + sP +
+						selBgS.Render(strings.Repeat(" ", max(0, l.listBodyW-used)))
 				} else {
-					iconPart := " " + mutedS.Render(iconStr) + " "
-					namePart := fgS.Bold(true).Render(nameStr)
-					var cell string
+					iP := " " + mutedS.Render(ic) + " "
+					nP := fgS.Bold(true).Render(nameStr)
+					sP := ""
 					if subStr != "" {
-						subPart := mutedS.Render("  " + subStr)
-						cell = iconPart + namePart + subPart
-					} else {
-						cell = iconPart + namePart
+						sP = mutedS.Render(" " + subStr)
 					}
-					visW := 1 + 3 + 1 + runewidth.StringWidth(nameStr)
+					used := 1 + 2 + 1 + vw(nameStr)
 					if subStr != "" {
-						visW += 2 + runewidth.StringWidth(subStr)
+						used += 1 + vw(subStr)
 					}
-					listCell = cell + strings.Repeat(" ", max(0, lW-visW))
+					listContent = iP + nP + sP +
+						strings.Repeat(" ", max(0, l.listBodyW-used))
 				}
 			} else {
-				// empty row
-				listCell = strings.Repeat(" ", lW)
+				listContent = strings.Repeat(" ", l.listBodyW)
 			}
 
-			// ── preview cell ───────────────────────────────────────────
-			var prevCell string
+			// scroll indicator replaces the list box right │
+			scrollChar := V
+			if len(m.visible) > l.bodyH {
+				thumbTop := m.offset * l.bodyH / len(m.visible)
+				thumbH   := max(1, l.bodyH*l.bodyH/len(m.visible))
+				if row >= thumbTop && row < thumbTop+thumbH {
+					scrollChar = "┃"
+				}
+			}
+
+			// preview content
+			prevContent := ""
 			if row < len(prevLines) {
-				pl := prevLines[row]
-				visW := runewidth.StringWidth(stripANSI(pl))
-				prevCell = borderS.Render(v) + " " + pl +
-					strings.Repeat(" ", max(0, pContentW-visW))
-			} else {
-				prevCell = borderS.Render(v) + strings.Repeat(" ", pW-1)
+				prevContent = prevLines[row]
 			}
 
-			// ── scroll indicator embedded in divider column ──────────
-			divider := borderS.Render(v)
-			if len(m.visible) > bodyH {
-				thumbTop := m.offset * bodyH / len(m.visible)
-				thumbH   := max(1, bodyH*bodyH/len(m.visible))
-				thumbBot := thumbTop + thumbH - 1
-				if row >= thumbTop && row <= thumbBot {
-					divider = mutedS.Render("┃")
-				} else {
-					divider = mutedS.Render("│")
-				}
-			}
-			writeln(borderS.Render(v) + listCell + divider + prevCell + borderS.Render(v))
+			// assemble: list box uses scrollChar instead of right │
+			lBox := bdrS.Render(V) +
+				strings.Repeat(" ", listPad) +
+				pad(listContent, l.listBodyW) +
+				strings.Repeat(" ", listPad) +
+				bdrS.Render(scrollChar)
+			pBox := innerBox(prevContent, l.prevBW, prevPad)
+			inner := " " + lBox + strings.Repeat(" ", gap) + pBox
+			emit(outerRow(inner))
 		}
 	}
 
-	// ── last row: bottom border ────────────────────────────────────────────
+	// ── inner bottom borders ──────────────────────────────────────────────
 	{
-		// show item count + scroll position in the border
 		total := len(m.visible)
 		info := fmt.Sprintf(" %d/%d ", m.cursor+1, total)
 		if total == 0 {
-			info = " 0 results "
+			info = " 0 "
 		}
 		infoW := runewidth.StringWidth(info)
-		leftDashes  := (innerW - infoW) / 2
-		rightDashes := innerW - infoW - leftDashes
-		bottomRow := borderS.Render(bl) +
-			borderS.Render(strings.Repeat(h, leftDashes)) +
+		avail := l.listBW - 2
+		ld    := (avail - infoW) / 2
+		rd    := avail - infoW - ld
+		if ld < 0 {
+			ld, rd = 0, 0
+			info = ""
+		}
+		lBot := bdrS.Render(BL+strings.Repeat(H, ld)) +
 			mutedS.Render(info) +
-			borderS.Render(strings.Repeat(h, rightDashes)) +
-			borderS.Render(br)
-		writeln(bottomRow)
+			bdrS.Render(strings.Repeat(H, rd)+BR)
+		pBot := bdrS.Render(BL + strings.Repeat(H, l.prevBW-2) + BR)
+		inner := " " + lBot + strings.Repeat(" ", gap) + pBot
+		emit(outerRow(inner))
 	}
 
-	// error line (outside the box, only when set)
+	// ── outer bottom border ───────────────────────────────────────────────
+	// emit(bdrS.Render(BL + strings.Repeat(H, l.innerW) + BR))
+
 	if m.launchErr != "" {
-		writeln(col("#f7768e").Render("error: " + m.launchErr))
+		emit(mkCol("#f7768e").Render("error: " + m.launchErr))
 	}
 
 	return sb.String()
 }
 
-// stripANSI removes ANSI escape sequences for width measurement.
-func stripANSI(s string) string {
-	var out []rune
-	inESC := false
-	for _, r := range s {
-		if inESC {
-			if r == 'm' {
-				inESC = false
-			}
-			continue
-		}
-		if r == '\x1b' {
-			inESC = true
-			continue
-		}
-		out = append(out, r)
-	}
-	return string(out)
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// Preview lines
+// ─────────────────────────────────────────────────────────────────────────────
 
-// buildPreviewLines builds the preview panel as a slice of styled strings,
-// each at most contentW visible columns wide, total bodyH rows.
 func (m model) buildPreviewLines(contentW, bodyH int) []string {
 	th := m.th
-	col := func(hex string) lipgloss.Style {
+	mkCol := func(hex string) lipgloss.Style {
 		return lipgloss.NewStyle().Foreground(lipgloss.Color(hex))
 	}
-	accentS := col(th.accent).Bold(true)
-	mutedS  := col(th.muted)
-	fgS     := col(th.fg)
+	accentS := mkCol(th.accent).Bold(true)
+	mutedS  := mkCol(th.muted)
+	fgS     := mkCol(th.fg)
 
-	label := func(k string) string {
-		return mutedS.Render(fmt.Sprintf("%-10s", k))
-	}
-	val := func(v string) string {
-		if v == "" {
-			v = "-"
-		}
-		return fgS.Render(truncate(v, contentW-10))
+	lbl   := func(k string) string { return mutedS.Render(fmt.Sprintf("%-10s", k)) }
+	val   := func(v string) string {
+		if v == "" { v = "-" }
+		return fgS.Render(truncate(v, max(0, contentW-10)))
 	}
 	block := func(v string) []string {
-		if v == "" {
-			v = "-"
-		}
-		ls := wrapToLines(v, contentW)
+		if v == "" { v = "-" }
 		var out []string
-		for _, l := range ls {
+		for _, l := range wrapToLines(v, contentW) {
 			out = append(out, fgS.Render(l))
 		}
 		return out
 	}
 
 	var lines []string
-	addLine := func(s string) { lines = append(lines, s) }
-	addLines := func(ss []string) {
-		for _, s := range ss {
-			lines = append(lines, s)
-		}
-	}
+	add  := func(s string)    { lines = append(lines, s) }
+	adds := func(ss []string) { lines = append(lines, ss...) }
 
 	if len(m.visible) == 0 || m.cursor >= len(m.visible) {
-		addLine(mutedS.Render("no selection"))
+		add(mutedS.Render("no selection"))
+		for len(lines) < bodyH { lines = append(lines, "") }
 		return lines
 	}
 
-	sel := m.visible[m.cursor]
+	sel     := m.visible[m.cursor]
 	typeVal := sel.rawType
-	if typeVal == "" {
-		typeVal = "Application"
-	}
+	if typeVal == "" { typeVal = "Application" }
 	termVal := "false"
-	if sel.Terminal {
-		termVal = "true"
-	}
+	if sel.Terminal { termVal = "true" }
 	comment := sel.rawComment
-	if comment == "" {
-		comment = sel.SubTitle
-	}
+	if comment == "" { comment = sel.SubTitle }
 
-	addLine("")
-	addLine(accentS.Render(truncate(sel.Name, contentW)))
+	add("")
+	add(accentS.Render(truncate(sel.Name, contentW)))
 	if sel.SubTitle != "" {
-		addLine(mutedS.Render(truncate(sel.SubTitle, contentW)))
+		add(mutedS.Render(truncate(sel.SubTitle, contentW)))
 	}
-	addLine("")
-	addLine(label("Type") + val(typeVal))
-	addLine(label("Terminal") + val(termVal))
-	addLine(label("ID") + val(sel.ID))
-	addLine("")
-	addLine(mutedS.Render("Exec"))
-	addLines(block(sel.Exec))
-	addLine("")
-	addLine(mutedS.Render("Comment"))
-	addLines(block(comment))
-	addLine("")
-	addLine(mutedS.Render("Desktop file"))
-	addLines(block(sel.DesktopFile))
+	add("")
+	add(lbl("Type") + val(typeVal))
+	add(lbl("Terminal") + val(termVal))
+	add(lbl("ID") + val(sel.ID))
+	add("")
+	add(mutedS.Render("Exec"))
+	adds(block(sel.Exec))
+	add("")
+	add(mutedS.Render("Comment"))
+	adds(block(comment))
+	add("")
+	add(mutedS.Render("Desktop file"))
+	adds(block(sel.DesktopFile))
 
-	// pad to bodyH
-	for len(lines) < bodyH {
-		lines = append(lines, "")
-	}
+	for len(lines) < bodyH { lines = append(lines, "") }
 	return lines
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Desktop file scanner (unchanged from original)
+// Desktop scanner
 // ─────────────────────────────────────────────────────────────────────────────
 
 type desktopEntry struct {
@@ -711,37 +703,26 @@ func parseDesktopFile(path string) (desktopEntry, bool) {
 			continue
 		}
 		key := strings.TrimSpace(line[:idx])
-		v   := strings.TrimSpace(line[idx+1:])
+		val := strings.TrimSpace(line[idx+1:])
 		switch key {
-		case "Type":
-			if e.entryType == "" { e.entryType = v }
-		case "Name":
-			if e.name == "" { e.name = v }
-		case "GenericName":
-			if e.genericName == "" { e.genericName = v }
-		case "Comment":
-			if e.comment == "" { e.comment = v }
-		case "Exec":
-			if e.exec == "" { e.exec = v }
-		case "Terminal":
-			if !e.terminal { e.terminal = strings.EqualFold(v, "true") }
-		case "Hidden":
-			e.hidden = strings.EqualFold(v, "true")
-		case "NoDisplay":
-			e.noDisplay = strings.EqualFold(v, "true")
-		case "OnlyShowIn":
-			if e.onlyShowIn == nil { e.onlyShowIn = splitSemi(v) }
-		case "NotShowIn":
-			if e.notShowIn == nil { e.notShowIn = splitSemi(v) }
+		case "Type":        if e.entryType == ""  { e.entryType = val }
+		case "Name":        if e.name == ""        { e.name = val }
+		case "GenericName": if e.genericName == "" { e.genericName = val }
+		case "Comment":     if e.comment == ""     { e.comment = val }
+		case "Exec":        if e.exec == ""        { e.exec = val }
+		case "Terminal":    if !e.terminal         { e.terminal = strings.EqualFold(val, "true") }
+		case "Hidden":      e.hidden = strings.EqualFold(val, "true")
+		case "NoDisplay":   e.noDisplay = strings.EqualFold(val, "true")
+		case "OnlyShowIn":  if e.onlyShowIn == nil { e.onlyShowIn = splitSemi(val) }
+		case "NotShowIn":   if e.notShowIn == nil  { e.notShowIn = splitSemi(val) }
 		}
 	}
 	return e, true
 }
 
 func splitSemi(s string) []string {
-	parts := strings.Split(s, ";")
-	out := parts[:0]
-	for _, p := range parts {
+	var out []string
+	for _, p := range strings.Split(s, ";") {
 		if p != "" {
 			out = append(out, p)
 		}
@@ -790,7 +771,7 @@ func scanDir(dir string, cfg scanCfg, seenAll, seenFilt map[string]bool) (all, f
 	for _, e := range entries {
 		if e.IsDir() {
 			a, f := scanDir(filepath.Join(dir, e.Name()), cfg, seenAll, seenFilt)
-			all  = append(all, a...)
+			all = append(all, a...)
 			filt = append(filt, f...)
 			continue
 		}
@@ -807,7 +788,7 @@ func scanDir(dir string, cfg scanCfg, seenAll, seenFilt map[string]bool) (all, f
 		if e.name == "" || e.exec == "" {
 			continue
 		}
-		id := desktopID(dir, path)
+		id   := desktopID(dir, path)
 		icon := iconApp
 		if isFP {
 			icon = iconFlatpak
@@ -829,18 +810,10 @@ func scanDir(dir string, cfg scanCfg, seenAll, seenFilt map[string]bool) (all, f
 				all = append(all, item)
 			}
 		}
-		if seenFilt[id] || cfg.hiddenIDs[id] || e.hidden || e.noDisplay {
-			continue
-		}
-		if len(e.onlyShowIn) > 0 && !matchesDesktop(e.onlyShowIn, cfg.currentDesktops) {
-			continue
-		}
-		if len(e.notShowIn) > 0 && matchesDesktop(e.notShowIn, cfg.currentDesktops) {
-			continue
-		}
-		if !cfg.includeTerminal && e.terminal {
-			continue
-		}
+		if seenFilt[id] || cfg.hiddenIDs[id] || e.hidden || e.noDisplay { continue }
+		if len(e.onlyShowIn) > 0 && !matchesDesktop(e.onlyShowIn, cfg.currentDesktops) { continue }
+		if len(e.notShowIn) > 0 && matchesDesktop(e.notShowIn, cfg.currentDesktops) { continue }
+		if !cfg.includeTerminal && e.terminal { continue }
 		seenFilt[id] = true
 		filt = append(filt, item)
 	}
@@ -854,8 +827,7 @@ func readHides(path string) map[string]bool {
 	defer f.Close()
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
-		id := strings.TrimRight(sc.Text(), "\r\n")
-		id = strings.TrimSuffix(id, ".desktop")
+		id := strings.TrimSuffix(strings.TrimRight(sc.Text(), "\r\n"), ".desktop")
 		if id != "" { out[id] = true }
 	}
 	return out
@@ -867,14 +839,10 @@ func readHides(path string) map[string]bool {
 
 func launchApp(id, desktopFile string) error {
 	if p, err := exec.LookPath("gtk-launch"); err == nil {
-		if err := exec.Command(p, id).Start(); err == nil {
-			return nil
-		}
+		if exec.Command(p, id).Start() == nil { return nil }
 	}
 	if p, err := exec.LookPath("gio"); err == nil {
-		if err := exec.Command(p, "launch", desktopFile).Start(); err == nil {
-			return nil
-		}
+		if exec.Command(p, "launch", desktopFile).Start() == nil { return nil }
 	}
 	line := rawExec(desktopFile)
 	if line == "" {
@@ -917,14 +885,11 @@ func main() {
 		if a == "-a" || a == "--all" { showAll = true }
 	}
 
-	home := os.Getenv("HOME")
-	themeFile      := envOr("OMARCHY_THEME_COLORS",
-		filepath.Join(home, ".config/omarchy/current/theme/colors.toml"))
-	hidesFile      := envOr("OMARCHY_LAUNCHER_HIDES",
-		filepath.Join(home, ".local/share/omarchy/default/omarchy/launcher.hides"))
+	home           := os.Getenv("HOME")
+	themeFile      := envOr("OMARCHY_THEME_COLORS", filepath.Join(home, ".config/omarchy/current/theme/colors.toml"))
+	hidesFile      := envOr("OMARCHY_LAUNCHER_HIDES", filepath.Join(home, ".local/share/omarchy/default/omarchy/launcher.hides"))
 	includeTerminal := envOr("INCLUDE_TERMINAL_APPS", "true") == "true"
-	desktopEnv     := envOr("XDG_CURRENT_DESKTOP",
-		envOr("XDG_SESSION_DESKTOP", envOr("DESKTOP_SESSION", "")))
+	desktopEnv     := envOr("XDG_CURRENT_DESKTOP", envOr("XDG_SESSION_DESKTOP", envOr("DESKTOP_SESSION", "")))
 
 	cfg := scanCfg{
 		hiddenIDs:       readHides(hidesFile),
@@ -932,10 +897,9 @@ func main() {
 		includeTerminal: includeTerminal,
 	}
 
-	dataDirs := strings.Split(envOr("XDG_DATA_DIRS", "/usr/local/share:/usr/share"), ":")
 	var dirs []string
 	dirs = append(dirs, filepath.Join(home, ".local/share/applications"))
-	for _, d := range dataDirs {
+	for _, d := range strings.Split(envOr("XDG_DATA_DIRS", "/usr/local/share:/usr/share"), ":") {
 		dirs = append(dirs, filepath.Join(d, "applications"))
 	}
 	dirs = append(dirs,
@@ -955,6 +919,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "no launchable desktop applications found")
 		os.Exit(1)
 	}
+
 	sortFn := func(apps []appItem) {
 		sort.SliceStable(apps, func(i, j int) bool {
 			return strings.ToLower(apps[i].Name) < strings.ToLower(apps[j].Name)
@@ -971,10 +936,6 @@ func main() {
 		os.Exit(1)
 	}
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
 
 func envOr(key, def string) string {
 	if v := os.Getenv(key); v != "" { return v }
