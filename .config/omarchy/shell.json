@@ -47,7 +47,7 @@
           "id": "omarchy.network"
         },
         {
-          "id": "omarchy.system-stats"
+          "id": "local.system-stats"
         },
         {
           "id": "omarchy.audio"
@@ -57,6 +57,9 @@
         },
         {
           "id": "omarchy.power"
+        },
+        {
+          "id": "local.system-stats"
         }
       ]
     }
