@@ -1,0 +1,265 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# Terminal application launcher styled after Omarchy's own launcher/menu.
+
+include_terminal_apps=${INCLUDE_TERMINAL_APPS:-true}
+theme_colors="${OMARCHY_THEME_COLORS:-$HOME/.config/omarchy/current/theme/colors.toml}"
+launcher_hides="${OMARCHY_LAUNCHER_HIDES:-$HOME/.local/share/omarchy/default/omarchy/launcher.hides}"
+
+app_icon="󰀻"
+terminal_icon=""
+flatpak_icon="󰏖"
+prompt_icon=""
+
+declare -A seen_ids hidden_ids
+rows_file=$(mktemp)
+preview_file=$(mktemp)
+trap 'rm -f "$rows_file" "$preview_file"' EXIT
+
+create_preview_helper() {
+  cat >"$preview_file" <<'PREVIEW'
+#!/usr/bin/env bash
+
+file=${1:-}
+row_title=${2:-}
+row_subtitle=${3:-}
+desktop_id=${4:-}
+
+[[ -f $file ]] || exit 0
+
+awk -F= -v title="$row_title" -v subtitle="$row_subtitle" -v desktop_id="$desktop_id" -v file="$file" '
+  function value(key) {
+    return values[key] == "" ? "-" : values[key]
+  }
+
+  /^\[/ {
+    in_entry = ($0 == "[Desktop Entry]")
+    next
+  }
+
+  !in_entry || $0 !~ /=/ { next }
+
+  {
+    key = $1
+    val = substr($0, index($0, "=") + 1)
+    sub(/\r$/, "", val)
+    if (values[key] == "") values[key] = val
+  }
+
+  END {
+    gsub(/^[[:space:]]+|[[:space:]]+$/, "", title)
+    gsub(/^[[:space:]]+|[[:space:]]+$/, "", subtitle)
+
+    print ""
+    print "  " title
+    if (subtitle != "" && subtitle != "-") print "  " subtitle
+    print ""
+    print "  Type       " value("Type")
+    print "  Terminal   " value("Terminal")
+    print "  ID         " desktop_id
+    print ""
+    print "  Exec"
+    print "  " value("Exec")
+    print ""
+    print "  Comment"
+    print "  " value("Comment")
+    print ""
+    print "  Desktop file"
+    print "  " file
+  }
+' "$file"
+PREVIEW
+}
+
+theme_color() {
+  local key=$1 fallback=$2 value
+  value=$(sed -nE "s/^${key}[[:space:]]*=[[:space:]]*\"?([^\"#[:space:]][^\"[:space:]]*)\"?.*/\\1/p; s/^${key}[[:space:]]*=[[:space:]]*\"?(#[0-9A-Fa-f]{6})\"?.*/\\1/p" "$theme_colors" 2>/dev/null | tail -n 1)
+  printf '%s\n' "${value:-$fallback}"
+}
+
+desktop_matches() {
+  local list=$1 desktop_name entry
+
+  IFS=":" read -r -a desktop_parts <<<"${XDG_CURRENT_DESKTOP:-${XDG_SESSION_DESKTOP:-${DESKTOP_SESSION:-}}}"
+  IFS=";" read -r -a entries <<<"$list"
+
+  for desktop_name in "${desktop_parts[@]}"; do
+    [[ -z $desktop_name ]] && continue
+    for entry in "${entries[@]}"; do
+      [[ -z $entry ]] && continue
+      [[ $entry == "$desktop_name" ]] && return 0
+    done
+  done
+
+  return 1
+}
+
+desktop_id_for_file() {
+  local dir=$1 file=$2 rel
+  rel=${file#"$dir"/}
+  rel=${rel%.desktop}
+  printf '%s\n' "${rel//\//-}"
+}
+
+load_launcher_hides() {
+  local id
+  [[ -f $launcher_hides ]] || return 0
+
+  while IFS= read -r id || [[ -n $id ]]; do
+    id=${id%$'\r'}
+    id=${id%.desktop}
+    [[ -n $id ]] && hidden_ids["$id"]=1
+  done <"$launcher_hides"
+
+  return 0
+}
+
+read_desktop_entry() {
+  local file=$1
+
+  awk -F= '
+    function strip_cr(value) { sub(/\r$/, "", value); return value }
+    function emit() {
+      printf "%s\034%s\034%s\034%s\034%s\034%s\034%s\034%s\034%s\n", type, name, generic, comment, exec, terminal, hidden, nodisplay, onlyshowin "|" notshowin
+    }
+
+    /^\[/ {
+      in_entry = ($0 == "[Desktop Entry]")
+      next
+    }
+
+    !in_entry || $0 !~ /=/ { next }
+
+    {
+      key = $1
+      value = strip_cr(substr($0, index($0, "=") + 1))
+    }
+
+    key == "Type" && type == "" { type = value }
+    key == "Name" && name == "" { name = value }
+    key == "GenericName" && generic == "" { generic = value }
+    key == "Comment" && comment == "" { comment = value }
+    key == "Exec" && exec == "" { exec = value }
+    key == "Terminal" && terminal == "" { terminal = tolower(value) }
+    key == "Hidden" && hidden == "" { hidden = tolower(value) }
+    key == "NoDisplay" && nodisplay == "" { nodisplay = tolower(value) }
+    key == "OnlyShowIn" && onlyshowin == "" { onlyshowin = value }
+    key == "NotShowIn" && notshowin == "" { notshowin = value }
+
+    END { emit() }
+  ' "$file"
+}
+
+add_desktop_file() {
+  local dir=$1 file=$2 id type name generic comment exec terminal hidden nodisplay visibility icon search
+
+  id=$(desktop_id_for_file "$dir" "$file")
+  [[ -z $id || -n ${seen_ids[$id]+set} || -n ${hidden_ids[$id]+set} ]] && return
+  seen_ids["$id"]=1
+
+  IFS=$'\034' read -r type name generic comment exec terminal hidden nodisplay visibility < <(read_desktop_entry "$file")
+
+  [[ ${type:-Application} == "Application" ]] || return
+  [[ -n ${name:-} && -n ${exec:-} ]] || return
+  [[ ${hidden:-false} == "true" || ${nodisplay:-false} == "true" ]] && return
+
+  local only_show_in=${visibility%%|*}
+  local not_show_in=${visibility#*|}
+  [[ -n $only_show_in ]] && ! desktop_matches "$only_show_in" && return
+  [[ -n $not_show_in ]] && desktop_matches "$not_show_in" && return
+  [[ $include_terminal_apps != "true" && ${terminal:-false} == "true" ]] && return
+
+  icon=$app_icon
+  [[ ${terminal:-false} == "true" ]] && icon=$terminal_icon
+  [[ $exec == xdg-terminal-exec* || $exec == *" xdg-terminal-exec "* ]] && icon=$terminal_icon
+  [[ $file == *flatpak/exports/share/applications/* ]] && icon=$flatpak_icon
+
+  generic=${generic:-$comment}
+  search="$name $generic $comment $id"
+  printf '%s %s\t%s\t%s\t%s\t%s\n' "$icon" "$name" "$generic" "$id" "$file" "$search" >>"$rows_file"
+}
+
+scan_dir() {
+  local dir=$1 file
+  [[ -d $dir ]] || return 0
+
+  while IFS= read -r -d '' file; do
+    add_desktop_file "$dir" "$file" || true
+  done < <(find -L "$dir" -type f -name '*.desktop' -print0 2>/dev/null | sort -z)
+
+  return 0
+}
+
+launch_desktop_file() {
+  local desktop_id=$1 file=$2
+
+  if command -v gtk-launch >/dev/null 2>&1 && gtk-launch "$desktop_id" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if command -v gio >/dev/null 2>&1 && gio launch "$file" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  local exec_line
+  exec_line=$(sed -nE 's/^Exec=//p' "$file" | head -n 1 | sed -E 's/[[:space:]]+%[A-Za-z]//g; s/%[A-Za-z]//g')
+  [[ -n $exec_line ]] || return 1
+  setsid bash -lc "$exec_line" >/dev/null 2>&1 &
+}
+
+load_launcher_hides
+scan_dir "$HOME/.local/share/applications"
+
+IFS=":" read -r -a data_dirs <<<"${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+for data_dir in "${data_dirs[@]}"; do
+  scan_dir "$data_dir/applications"
+done
+
+scan_dir "$HOME/.nix-profile/share/applications"
+scan_dir "/var/lib/flatpak/exports/share/applications"
+scan_dir "$HOME/.local/share/flatpak/exports/share/applications"
+
+if [[ ! -s $rows_file ]]; then
+  printf 'No launchable desktop applications found.\n' >&2
+  exit 1
+fi
+
+create_preview_helper
+
+foreground=$(theme_color foreground "#c0caf5")
+background=$(theme_color background "#1a1b26")
+accent=$(theme_color accent "#7aa2f7")
+selected_foreground=$(theme_color foreground "#c0caf5")
+selected_background=$(theme_color color0 "$background")
+muted=$(theme_color color8 "$foreground")
+
+fzf_args=(
+  --style full
+  --layout reverse
+  --border rounded
+  --prompt "$prompt_icon Apps  "
+  --header "$app_icon Apps  $flatpak_icon Flatpaks  $terminal_icon Terminal"
+  --delimiter $'\t'
+  --with-nth '1,2'
+  --nth '1,2,3,5'
+  --no-multi
+  --preview "bash '$preview_file' {4} {1} {2} {3}"
+  --preview-window 'right,46%,border-left,wrap'
+  --color "fg:${foreground},bg:${background},hl:${accent},fg+:${selected_foreground},bg+:${selected_background},hl+:${accent}"
+  --color "prompt:${accent},pointer:${accent},marker:${accent},spinner:${accent},header:${muted},border:${muted},preview-border:${muted},info:${accent}"
+)
+
+if [[ -n ${APPS_FZF_HEIGHT:-} ]]; then
+  fzf_args+=(--height "$APPS_FZF_HEIGHT")
+fi
+
+selected=$(
+  sort -fu "$rows_file" |
+    fzf "${fzf_args[@]}"
+) || exit 0
+
+desktop_id=$(cut -f3 <<<"$selected")
+desktop_file=$(cut -f4 <<<"$selected")
+launch_desktop_file "$desktop_id" "$desktop_file"
