@@ -17,10 +17,10 @@ import (
 )
 
 const (
-	iconApp      = "󰀻"
-	iconTerminal = ""
+	iconApp      = "󱗼"
+	iconTerminal = "" 
 	iconFlatpak  = "󰏖"
-	iconPrompt   = ""
+	iconPrompt   = ""
 )
 
 func iconPad(icon string, w int) string {
