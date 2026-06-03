@@ -3,6 +3,7 @@
 set -euo pipefail
 
 # Terminal application launcher styled after Omarchy's own launcher/menu.
+# Press Ctrl+H to toggle between filtered view and show-all view.
 
 include_terminal_apps=${INCLUDE_TERMINAL_APPS:-true}
 theme_colors="${OMARCHY_THEME_COLORS:-$HOME/.config/omarchy/current/theme/colors.toml}"
@@ -13,10 +14,11 @@ terminal_icon=""
 flatpak_icon="󰏖"
 prompt_icon=""
 
-declare -A seen_ids hidden_ids
+declare -A seen_ids seen_ids_all hidden_ids
 rows_file=$(mktemp)
+rows_all_file=$(mktemp)
 preview_file=$(mktemp)
-trap 'rm -f "$rows_file" "$preview_file"' EXIT
+trap 'rm -f "$rows_file" "$rows_all_file" "$preview_file"' EXIT
 
 create_preview_helper() {
   cat >"$preview_file" <<'PREVIEW'
@@ -152,7 +154,8 @@ read_desktop_entry() {
   ' "$file"
 }
 
-add_desktop_file() {
+# Add to filtered rows_file (applies all filters: hidden, nodisplay, OnlyShowIn, etc.)
+add_desktop_file_filtered() {
   local dir=$1 file=$2 id type name generic comment exec terminal hidden nodisplay visibility icon search
 
   id=$(desktop_id_for_file "$dir" "$file")
@@ -181,12 +184,37 @@ add_desktop_file() {
   printf '%s %s\t%s\t%s\t%s\t%s\n' "$icon" "$name" "$generic" "$id" "$file" "$search" >>"$rows_file"
 }
 
+# Add to unfiltered rows_all_file (only skips duplicate IDs and non-Application types)
+add_desktop_file_all() {
+  local dir=$1 file=$2 id type name generic comment exec terminal hidden nodisplay visibility icon search
+
+  id=$(desktop_id_for_file "$dir" "$file")
+  [[ -z $id || -n ${seen_ids_all[$id]+set} ]] && return
+  seen_ids_all["$id"]=1
+
+  IFS=$'\034' read -r type name generic comment exec terminal hidden nodisplay visibility < <(read_desktop_entry "$file")
+
+  [[ ${type:-Application} == "Application" ]] || return
+  [[ -n ${name:-} && -n ${exec:-} ]] || return
+  [[ $include_terminal_apps != "true" && ${terminal:-false} == "true" ]] && return
+
+  icon=$app_icon
+  [[ ${terminal:-false} == "true" ]] && icon=$terminal_icon
+  [[ $exec == xdg-terminal-exec* || $exec == *" xdg-terminal-exec "* ]] && icon=$terminal_icon
+  [[ $file == *flatpak/exports/share/applications/* ]] && icon=$flatpak_icon
+
+  generic=${generic:-$comment}
+  search="$name $generic $comment $id"
+  printf '%s %s\t%s\t%s\t%s\t%s\n' "$icon" "$name" "$generic" "$id" "$file" "$search" >>"$rows_all_file"
+}
+
 scan_dir() {
   local dir=$1 file
   [[ -d $dir ]] || return 0
 
   while IFS= read -r -d '' file; do
-    add_desktop_file "$dir" "$file" || true
+    add_desktop_file_filtered "$dir" "$file" || true
+    add_desktop_file_all "$dir" "$file" || true
   done < <(find -L "$dir" -type f -name '*.desktop' -print0 2>/dev/null | sort -z)
 
   return 0
@@ -210,6 +238,7 @@ launch_desktop_file() {
 }
 
 load_launcher_hides
+
 scan_dir "$HOME/.local/share/applications"
 
 IFS=":" read -r -a data_dirs <<<"${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
@@ -221,7 +250,7 @@ scan_dir "$HOME/.nix-profile/share/applications"
 scan_dir "/var/lib/flatpak/exports/share/applications"
 scan_dir "$HOME/.local/share/flatpak/exports/share/applications"
 
-if [[ ! -s $rows_file ]]; then
+if [[ ! -s $rows_file && ! -s $rows_all_file ]]; then
   printf 'No launchable desktop applications found.\n' >&2
   exit 1
 fi
@@ -235,12 +264,56 @@ selected_foreground=$(theme_color foreground "#c0caf5")
 selected_background=$(theme_color color0 "$background")
 muted=$(theme_color color8 "$foreground")
 
+# State file for toggling: 0 = filtered (default), 1 = show all
+toggle_state_file=$(mktemp)
+printf '0' >"$toggle_state_file"
+trap 'rm -f "$rows_file" "$rows_all_file" "$preview_file" "$toggle_state_file"' EXIT
+
+# Wrapper script that fzf calls on Ctrl+H to reload with toggled data
+toggle_script=$(mktemp)
+cat >"$toggle_script" <<TOGGLE
+#!/usr/bin/env bash
+state_file="$toggle_state_file"
+rows_file="$rows_file"
+rows_all_file="$rows_all_file"
+
+current=\$(cat "\$state_file")
+if [[ \$current == "0" ]]; then
+  printf '1' >"\$state_file"
+  sort -fu "\$rows_all_file"
+else
+  printf '0' >"\$state_file"
+  sort -fu "\$rows_file"
+fi
+TOGGLE
+chmod +x "$toggle_script"
+
+# Header script: shows current mode in the header
+header_script=$(mktemp)
+cat >"$header_script" <<HEADER
+#!/usr/bin/env bash
+state_file="$toggle_state_file"
+app_icon="󰀻"
+flatpak_icon="󰏖"
+terminal_icon=""
+
+current=\$(cat "\$state_file")
+if [[ \$current == "1" ]]; then
+  printf "%s Apps  %s Flatpaks  %s Terminal  \033[1m[Ctrl+H: Show filtered]\033[0m\n" "\$app_icon" "\$flatpak_icon" "\$terminal_icon"
+else
+  printf "%s Apps  %s Flatpaks  %s Terminal  \033[2m[Ctrl+H: Toggle Hidden]\033[0m\n" "\$app_icon" "\$flatpak_icon" "\$terminal_icon"
+fi
+HEADER
+chmod +x "$header_script"
+trap 'rm -f "$rows_file" "$rows_all_file" "$preview_file" "$toggle_state_file" "$toggle_script" "$header_script"' EXIT
+
 fzf_args=(
   --style full
   --layout reverse
   --border rounded
   --prompt "$prompt_icon Apps  "
-  --header "$app_icon Apps  $flatpak_icon Flatpaks  $terminal_icon Terminal"
+  --header-first
+  --header "$(bash "$header_script")"
   --delimiter $'\t'
   --with-nth '1,2'
   --nth '1,2,3,5'
@@ -249,6 +322,7 @@ fzf_args=(
   --preview-window 'right,46%,border-left,wrap'
   --color "fg:${foreground},bg:${background},hl:${accent},fg+:${selected_foreground},bg+:${selected_background},hl+:${accent}"
   --color "prompt:${accent},pointer:${accent},marker:${accent},spinner:${accent},header:${muted},border:${muted},preview-border:${muted},info:${accent}"
+  --bind "ctrl-h:reload(bash '$toggle_script')+change-header($(bash "$header_script"))"
 )
 
 if [[ -n ${APPS_FZF_HEIGHT:-} ]]; then
