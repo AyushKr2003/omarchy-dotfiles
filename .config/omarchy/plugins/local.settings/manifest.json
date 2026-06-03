@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "local.settings",
+  "name": "Local Settings",
+  "version": "1.0.0",
+  "author": "Omarchy",
+  "description": "Customize Omarchy shell settings, plugins, and the bar",
+  "kinds": [
+    "panel"
+  ],
+  "entryPoints": {
+    "panel": "SettingsPanel.qml"
+  }
+}

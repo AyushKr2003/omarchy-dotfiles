@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "local.weather",
+  "name": "Local Weather",
+  "version": "1.0.0",
+  "author": "Omarchy, local port",
+  "description": "Weather pill with detail popup and configurable location",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Local Weather",
+    "description": "Weather pill with detail popup and configurable location",
+    "category": "Info",
+    "allowMultiple": false,
+    "defaults": {
+      "location": "",
+      "unit": "",
+      "refreshMinutes": 15
+    },
+    "schema": [
+      {
+        "key": "location",
+        "type": "string",
+        "label": "Location"
+      },
+      {
+        "key": "unit",
+        "type": "enum",
+        "label": "Unit",
+        "options": [
+          "",
+          "metric",
+          "imperial"
+        ],
+        "defaultValue": ""
+      },
+      {
+        "key": "refreshMinutes",
+        "type": "integer",
+        "label": "Refresh minutes",
+        "min": 1,
+        "max": 180,
+        "step": 1,
+        "defaultValue": 15
+      }
+    ]
+  }
+}
