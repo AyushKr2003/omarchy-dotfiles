@@ -3,7 +3,7 @@
   "id": "local.settings",
   "name": "Local Settings",
   "version": "1.0.0",
-  "author": "Omarchy",
+  "author": "AyushKr2003",
   "description": "Customize Omarchy shell settings, plugins, and the bar",
   "kinds": [
     "panel"

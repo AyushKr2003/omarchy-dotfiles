@@ -3,7 +3,7 @@
   "id": "local.overview",
   "name": "Overview",
   "version": "1.0.0",
-  "author": "Shanu-Kumawat, local port",
+  "author": "AyushKr2003",
   "description": "Hyprland workspace overview with live window previews.",
   "kinds": [
     "overlay"
