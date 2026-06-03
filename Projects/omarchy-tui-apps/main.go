@@ -190,15 +190,15 @@ func readColor(path, key, fallback string) string {
 //
 // Every row is W columns wide.
 //
-// ╭──────────────────────── W-2 dashes ────────────────────────╮   fixed outer top
-// │ ╭── listBW ──╮  ╭── prevBW ──╮                             │   inner tops
-// │ │  header    │  │            │                             │
-// │ ├────────────┤  ├────────────┤                             │   hSep
-// │ │  search    │  │            │                             │
-// │ ├────────────┤  │            │                             │   sSep
-// │ │  rows…     │  │  preview…  │                             │
-// │ ╰────────────╯  ╰────────────╯                             │   inner bots
-// ╰──────────────────────── W-2 dashes ────────────────────────╯   fixed outer bot
+// ╭──── W-2 dashes ────────────────╮   fixed outer top
+// │ ╭── listBW ──╮  ╭── prevBW ──╮ │   inner tops
+// │ │  header    │  │            │ │
+// │ ├────────────┤  ├────────────┤ │   hSep
+// │ │  search    │  │            │ │
+// │ ├────────────┤  │            │ │   sSep
+// │ │  rows…     │  │  preview…  │ │
+// │ ╰────────────╯  ╰────────────╯ │   inner bots
+// ╰──── W-2 dashes ────────────────╯   fixed outer bot
 //
 // innerW  = W - 2                  (between the two outer │ chars)
 // prevBW  = floor(innerW * 0.46)   preview box total width
@@ -464,8 +464,8 @@ func (m model) View() string {
 	// ── header separator ─────────────────────────────────────────────────
 	{
 		lSep := LT + strings.Repeat(H, l.listBW-2) + RT
-		pSep := LT + strings.Repeat(H, l.prevBW-2) + RT
-		inner := " " + bdrS.Render(lSep) + strings.Repeat(" ", gap) + bdrS.Render(pSep)
+		pMid := V + strings.Repeat(" ", l.prevBW-2) + V
+		inner := " " + bdrS.Render(lSep) + strings.Repeat(" ", gap) + bdrS.Render(pMid)
 		emit(outerRow(inner))
 	}
 
@@ -480,7 +480,6 @@ func (m model) View() string {
 	// ── search separator (list only; preview continues unbroken) ─────────
 	{
 		lSep := LT + strings.Repeat(H, l.listBW-2) + RT
-		// preview: just a plain row with no separator
 		pMid := V + strings.Repeat(" ", l.prevBW-2) + V
 		inner := " " + bdrS.Render(lSep) + strings.Repeat(" ", gap) + bdrS.Render(pMid)
 		emit(outerRow(inner))
