@@ -4,26 +4,180 @@ set -euo pipefail
 
 # Terminal application launcher styled after Omarchy's own launcher/menu.
 # Press Ctrl+H to toggle between filtered view and show-all view.
+# Pass -a to default to show-all mode.
+#
+# Debug logging: export OMARCHY_LAUNCHER_LOG=/tmp/launcher.log before running.
 
 include_terminal_apps=${INCLUDE_TERMINAL_APPS:-true}
 theme_colors="${OMARCHY_THEME_COLORS:-$HOME/.config/omarchy/current/theme/colors.toml}"
 launcher_hides="${OMARCHY_LAUNCHER_HIDES:-$HOME/.local/share/omarchy/default/omarchy/launcher.hides}"
+
+# -a flag: show all apps by default (no filtering); Ctrl+H still toggles
+show_all=false
+[[ ${1:-} == "-a" ]] && show_all=true
 
 app_icon="󰀻"
 terminal_icon=""
 flatpak_icon="󰏖"
 prompt_icon=""
 
-declare -A seen_ids seen_ids_all hidden_ids
 rows_file=$(mktemp)
 rows_all_file=$(mktemp)
 preview_file=$(mktemp)
-trap 'rm -f "$rows_file" "$rows_all_file" "$preview_file"' EXIT
+toggle_script=$(mktemp)
+seen_filtered_ids=$(mktemp)
+seen_all_ids=$(mktemp)
+trap 'rm -f "$rows_file" "$rows_all_file" "$preview_file" "$toggle_script" "$seen_filtered_ids" "$seen_all_ids"' EXIT
+
+# ── Logging ────────────────────────────────────────────────────────────────────
+LOG="${OMARCHY_LAUNCHER_LOG:-}"
+_log() {
+  [[ -z $LOG ]] && return 0
+  printf '[%s] %s\n' "$(date '+%H:%M:%S.%3N')" "$*" >>"$LOG"
+}
+_log "=== launcher start  pid=$$  show_all=$show_all ==="
+
+# Build launcher.hides list as newline-separated string for awk
+hidden_list=""
+if [[ -f $launcher_hides ]]; then
+  hidden_list=$(sed 's/\r//g; s/\.desktop$//; /^$/d' "$launcher_hides")
+fi
+
+# Current desktop for OnlyShowIn/NotShowIn matching
+current_desktop="${XDG_CURRENT_DESKTOP:-${XDG_SESSION_DESKTOP:-${DESKTOP_SESSION:-}}}"
+
+theme_color() {
+  local key=$1 fallback=$2 value
+  value=$(sed -nE "s/^${key}[[:space:]]*=[[:space:]]*\"?([^\"#[:space:]][^\"[:space:]]*)\"?.*/\\1/p; s/^${key}[[:space:]]*=[[:space:]]*\"?(#[0-9A-Fa-f]{6})\"?.*/\\1/p" "$theme_colors" 2>/dev/null | tail -n 1)
+  printf '%s\n' "${value:-$fallback}"
+}
+
+scan_dir() {
+  local dir=$1
+  [[ -d $dir ]] || return 0
+
+  local is_flatpak=0
+  [[ $dir == */flatpak/exports/share/applications* ]] && is_flatpak=1
+
+  local -a files
+  mapfile -t files < <(find -L "$dir" -type f -name '*.desktop' 2>/dev/null | sort)
+  [[ ${#files[@]} -eq 0 ]] && return 0
+
+  awk -F= \
+    -v dir="$dir" \
+    -v hidden_list="$hidden_list" \
+    -v current_desktop="$current_desktop" \
+    -v include_terminal="$include_terminal_apps" \
+    -v is_flatpak_dir="$is_flatpak" \
+    -v app_icon="$app_icon" \
+    -v terminal_icon="$terminal_icon" \
+    -v flatpak_icon="$flatpak_icon" \
+    -v seen_filtered_file="$seen_filtered_ids" \
+    -v seen_all_file="$seen_all_ids" \
+    -v rows_filtered="$rows_file" \
+    -v rows_all="$rows_all_file" \
+    '
+    BEGIN {
+      n = split(hidden_list, h, "\n")
+      for (i = 1; i <= n; i++) if (h[i] != "") hidden[h[i]] = 1
+      while ((getline line < seen_filtered_file) > 0) seen_filtered[line] = 1
+      close(seen_filtered_file)
+      while ((getline line < seen_all_file) > 0) seen_all[line] = 1
+      close(seen_all_file)
+      nd = split(current_desktop, desktop_parts, ":")
+    }
+
+    FNR == 1 {
+      if (current_file != "") process_entry()
+      current_file = FILENAME
+      in_entry = 0
+      type = ""; name = ""; generic = ""; comment = ""
+      exec_val = ""; terminal = ""; hidden_val = ""; nodisplay = ""
+      onlyshowin = ""; notshowin = ""
+    }
+
+    /^\[/ { in_entry = ($0 == "[Desktop Entry]"); next }
+    !in_entry || !/=/ { next }
+
+    {
+      key = $1
+      val = substr($0, index($0, "=") + 1)
+      sub(/\r$/, "", val)
+    }
+
+    key == "Type"        && type       == "" { type       = val }
+    key == "Name"        && name       == "" { name       = val }
+    key == "GenericName" && generic    == "" { generic    = val }
+    key == "Comment"     && comment    == "" { comment    = val }
+    key == "Exec"        && exec_val   == "" { exec_val   = val }
+    key == "Terminal"    && terminal   == "" { terminal   = tolower(val) }
+    key == "Hidden"      && hidden_val == "" { hidden_val = tolower(val) }
+    key == "NoDisplay"   && nodisplay  == "" { nodisplay  = tolower(val) }
+    key == "OnlyShowIn"  && onlyshowin == "" { onlyshowin = val }
+    key == "NotShowIn"   && notshowin  == "" { notshowin  = val }
+
+    END {
+      if (current_file != "") process_entry()
+      for (id in seen_filtered) print id >> seen_filtered_file
+      for (id in seen_all)      print id >> seen_all_file
+    }
+
+    function desktop_matches(list,    parts, nparts, i, j) {
+      nparts = split(list, parts, ";")
+      for (i = 1; i <= nd; i++) {
+        if (desktop_parts[i] == "") continue
+        for (j = 1; j <= nparts; j++) {
+          if (parts[j] == desktop_parts[i]) return 1
+        }
+      }
+      return 0
+    }
+
+    function process_entry(    id, rel, icon, sub_str, search) {
+      if ((type != "" ? type : "Application") != "Application") return
+      if (name == "" || exec_val == "") return
+
+      rel = current_file
+      sub("^" dir "/", "", rel)
+      sub(/\.desktop$/, "", rel)
+      gsub(/\//, "-", rel)
+      id = rel
+
+      # ALL list — no hidden/nodisplay/OnlyShowIn filters
+      if (!(id in seen_all)) {
+        seen_all[id] = 1
+        if (include_terminal == "true" || terminal != "true") {
+          icon = is_flatpak_dir ? flatpak_icon : \
+                 (terminal == "true" || exec_val ~ /^xdg-terminal-exec/ || exec_val ~ / xdg-terminal-exec /) \
+                   ? terminal_icon : app_icon
+          sub_str = (generic != "") ? generic : comment
+          search = name " " sub_str " " comment " " id
+          printf "%s %s\t%s\t%s\t%s\t%s\n", icon, name, sub_str, id, current_file, search >> rows_all
+        }
+      }
+
+      # FILTERED list
+      if (id in seen_filtered) return
+      if (id in hidden) return
+      if (hidden_val == "true" || nodisplay == "true") return
+      if (onlyshowin != "" && !desktop_matches(onlyshowin)) return
+      if (notshowin  != "" &&  desktop_matches(notshowin))  return
+      if (include_terminal != "true" && terminal == "true") return
+
+      seen_filtered[id] = 1
+      icon = is_flatpak_dir ? flatpak_icon : \
+             (terminal == "true" || exec_val ~ /^xdg-terminal-exec/ || exec_val ~ / xdg-terminal-exec /) \
+               ? terminal_icon : app_icon
+      sub_str = (generic != "") ? generic : comment
+      search = name " " sub_str " " comment " " id
+      printf "%s %s\t%s\t%s\t%s\t%s\n", icon, name, sub_str, id, current_file, search >> rows_filtered
+    }
+  ' "${files[@]}"
+}
 
 create_preview_helper() {
   cat >"$preview_file" <<'PREVIEW'
 #!/usr/bin/env bash
-
 file=${1:-}
 row_title=${2:-}
 row_subtitle=${3:-}
@@ -35,25 +189,20 @@ awk -F= -v title="$row_title" -v subtitle="$row_subtitle" -v desktop_id="$deskto
   function value(key) {
     return values[key] == "" ? "-" : values[key]
   }
-
   /^\[/ {
     in_entry = ($0 == "[Desktop Entry]")
     next
   }
-
   !in_entry || $0 !~ /=/ { next }
-
   {
     key = $1
     val = substr($0, index($0, "=") + 1)
     sub(/\r$/, "", val)
     if (values[key] == "") values[key] = val
   }
-
   END {
     gsub(/^[[:space:]]+|[[:space:]]+$/, "", title)
     gsub(/^[[:space:]]+|[[:space:]]+$/, "", subtitle)
-
     print ""
     print "  " title
     if (subtitle != "" && subtitle != "-") print "  " subtitle
@@ -75,158 +224,12 @@ awk -F= -v title="$row_title" -v subtitle="$row_subtitle" -v desktop_id="$deskto
 PREVIEW
 }
 
-theme_color() {
-  local key=$1 fallback=$2 value
-  value=$(sed -nE "s/^${key}[[:space:]]*=[[:space:]]*\"?([^\"#[:space:]][^\"[:space:]]*)\"?.*/\\1/p; s/^${key}[[:space:]]*=[[:space:]]*\"?(#[0-9A-Fa-f]{6})\"?.*/\\1/p" "$theme_colors" 2>/dev/null | tail -n 1)
-  printf '%s\n' "${value:-$fallback}"
-}
-
-desktop_matches() {
-  local list=$1 desktop_name entry
-
-  IFS=":" read -r -a desktop_parts <<<"${XDG_CURRENT_DESKTOP:-${XDG_SESSION_DESKTOP:-${DESKTOP_SESSION:-}}}"
-  IFS=";" read -r -a entries <<<"$list"
-
-  for desktop_name in "${desktop_parts[@]}"; do
-    [[ -z $desktop_name ]] && continue
-    for entry in "${entries[@]}"; do
-      [[ -z $entry ]] && continue
-      [[ $entry == "$desktop_name" ]] && return 0
-    done
-  done
-
-  return 1
-}
-
-desktop_id_for_file() {
-  local dir=$1 file=$2 rel
-  rel=${file#"$dir"/}
-  rel=${rel%.desktop}
-  printf '%s\n' "${rel//\//-}"
-}
-
-load_launcher_hides() {
-  local id
-  [[ -f $launcher_hides ]] || return 0
-
-  while IFS= read -r id || [[ -n $id ]]; do
-    id=${id%$'\r'}
-    id=${id%.desktop}
-    [[ -n $id ]] && hidden_ids["$id"]=1
-  done <"$launcher_hides"
-
-  return 0
-}
-
-read_desktop_entry() {
-  local file=$1
-
-  awk -F= '
-    function strip_cr(value) { sub(/\r$/, "", value); return value }
-    function emit() {
-      printf "%s\034%s\034%s\034%s\034%s\034%s\034%s\034%s\034%s\n", type, name, generic, comment, exec, terminal, hidden, nodisplay, onlyshowin "|" notshowin
-    }
-
-    /^\[/ {
-      in_entry = ($0 == "[Desktop Entry]")
-      next
-    }
-
-    !in_entry || $0 !~ /=/ { next }
-
-    {
-      key = $1
-      value = strip_cr(substr($0, index($0, "=") + 1))
-    }
-
-    key == "Type" && type == "" { type = value }
-    key == "Name" && name == "" { name = value }
-    key == "GenericName" && generic == "" { generic = value }
-    key == "Comment" && comment == "" { comment = value }
-    key == "Exec" && exec == "" { exec = value }
-    key == "Terminal" && terminal == "" { terminal = tolower(value) }
-    key == "Hidden" && hidden == "" { hidden = tolower(value) }
-    key == "NoDisplay" && nodisplay == "" { nodisplay = tolower(value) }
-    key == "OnlyShowIn" && onlyshowin == "" { onlyshowin = value }
-    key == "NotShowIn" && notshowin == "" { notshowin = value }
-
-    END { emit() }
-  ' "$file"
-}
-
-# Add to filtered rows_file (applies all filters: hidden, nodisplay, OnlyShowIn, etc.)
-add_desktop_file_filtered() {
-  local dir=$1 file=$2 id type name generic comment exec terminal hidden nodisplay visibility icon search
-
-  id=$(desktop_id_for_file "$dir" "$file")
-  [[ -z $id || -n ${seen_ids[$id]+set} || -n ${hidden_ids[$id]+set} ]] && return
-  seen_ids["$id"]=1
-
-  IFS=$'\034' read -r type name generic comment exec terminal hidden nodisplay visibility < <(read_desktop_entry "$file")
-
-  [[ ${type:-Application} == "Application" ]] || return
-  [[ -n ${name:-} && -n ${exec:-} ]] || return
-  [[ ${hidden:-false} == "true" || ${nodisplay:-false} == "true" ]] && return
-
-  local only_show_in=${visibility%%|*}
-  local not_show_in=${visibility#*|}
-  [[ -n $only_show_in ]] && ! desktop_matches "$only_show_in" && return
-  [[ -n $not_show_in ]] && desktop_matches "$not_show_in" && return
-  [[ $include_terminal_apps != "true" && ${terminal:-false} == "true" ]] && return
-
-  icon=$app_icon
-  [[ ${terminal:-false} == "true" ]] && icon=$terminal_icon
-  [[ $exec == xdg-terminal-exec* || $exec == *" xdg-terminal-exec "* ]] && icon=$terminal_icon
-  [[ $file == *flatpak/exports/share/applications/* ]] && icon=$flatpak_icon
-
-  generic=${generic:-$comment}
-  search="$name $generic $comment $id"
-  printf '%s %s\t%s\t%s\t%s\t%s\n' "$icon" "$name" "$generic" "$id" "$file" "$search" >>"$rows_file"
-}
-
-# Add to unfiltered rows_all_file (only skips duplicate IDs and non-Application types)
-add_desktop_file_all() {
-  local dir=$1 file=$2 id type name generic comment exec terminal hidden nodisplay visibility icon search
-
-  id=$(desktop_id_for_file "$dir" "$file")
-  [[ -z $id || -n ${seen_ids_all[$id]+set} ]] && return
-  seen_ids_all["$id"]=1
-
-  IFS=$'\034' read -r type name generic comment exec terminal hidden nodisplay visibility < <(read_desktop_entry "$file")
-
-  [[ ${type:-Application} == "Application" ]] || return
-  [[ -n ${name:-} && -n ${exec:-} ]] || return
-  [[ $include_terminal_apps != "true" && ${terminal:-false} == "true" ]] && return
-
-  icon=$app_icon
-  [[ ${terminal:-false} == "true" ]] && icon=$terminal_icon
-  [[ $exec == xdg-terminal-exec* || $exec == *" xdg-terminal-exec "* ]] && icon=$terminal_icon
-  [[ $file == *flatpak/exports/share/applications/* ]] && icon=$flatpak_icon
-
-  generic=${generic:-$comment}
-  search="$name $generic $comment $id"
-  printf '%s %s\t%s\t%s\t%s\t%s\n' "$icon" "$name" "$generic" "$id" "$file" "$search" >>"$rows_all_file"
-}
-
-scan_dir() {
-  local dir=$1 file
-  [[ -d $dir ]] || return 0
-
-  while IFS= read -r -d '' file; do
-    add_desktop_file_filtered "$dir" "$file" || true
-    add_desktop_file_all "$dir" "$file" || true
-  done < <(find -L "$dir" -type f -name '*.desktop' -print0 2>/dev/null | sort -z)
-
-  return 0
-}
-
 launch_desktop_file() {
   local desktop_id=$1 file=$2
 
   if command -v gtk-launch >/dev/null 2>&1 && gtk-launch "$desktop_id" >/dev/null 2>&1; then
     return 0
   fi
-
   if command -v gio >/dev/null 2>&1 && gio launch "$file" >/dev/null 2>&1; then
     return 0
   fi
@@ -237,15 +240,11 @@ launch_desktop_file() {
   setsid bash -lc "$exec_line" >/dev/null 2>&1 &
 }
 
-load_launcher_hides
-
 scan_dir "$HOME/.local/share/applications"
-
 IFS=":" read -r -a data_dirs <<<"${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
 for data_dir in "${data_dirs[@]}"; do
   scan_dir "$data_dir/applications"
 done
-
 scan_dir "$HOME/.nix-profile/share/applications"
 scan_dir "/var/lib/flatpak/exports/share/applications"
 scan_dir "$HOME/.local/share/flatpak/exports/share/applications"
@@ -254,6 +253,8 @@ if [[ ! -s $rows_file && ! -s $rows_all_file ]]; then
   printf 'No launchable desktop applications found.\n' >&2
   exit 1
 fi
+
+_log "scan done  filtered=$(wc -l <"$rows_file" | tr -d ' ')  all=$(wc -l <"$rows_all_file" | tr -d ' ')"
 
 create_preview_helper
 
@@ -264,48 +265,96 @@ selected_foreground=$(theme_color foreground "#c0caf5")
 selected_background=$(theme_color color0 "$background")
 muted=$(theme_color color8 "$foreground")
 
-# State file for toggling: 0 = filtered (default), 1 = show all
-toggle_state_file=$(mktemp)
-printf '0' >"$toggle_state_file"
-trap 'rm -f "$rows_file" "$rows_all_file" "$preview_file" "$toggle_state_file"' EXIT
+# ── State file ─────────────────────────────────────────────────────────────────
+# 0 = filtered (default), 1 = show-all
+state_file=$(mktemp)
+trap 'rm -f "$rows_file" "$rows_all_file" "$preview_file" "$toggle_script" "$seen_filtered_ids" "$seen_all_ids" "$state_file"' EXIT
 
-# Wrapper script that fzf calls on Ctrl+H to reload with toggled data
-toggle_script=$(mktemp)
+if [[ $show_all == "true" ]]; then
+  printf '1' >"$state_file"
+else
+  printf '0' >"$state_file"
+fi
+
+# ── Header builder (inline, not a temp file) ───────────────────────────────────
+# Given state 0 or 1, prints the header line WITHOUT a trailing newline.
+# ANSI escapes are safe inside change-header() because fzf renders --ansi.
+_header_for_state() {
+  if [[ ${1:-0} == "1" ]]; then
+    printf '%s Apps  %s Flatpaks  %s Terminal  \033[2m[Ctrl+H: Show filtered]\033[0m' \
+      "$app_icon" "$flatpak_icon" "$terminal_icon"
+  else
+    printf '%s Apps  %s Flatpaks  %s Terminal  \033[2m[Ctrl+H: Show all]\033[0m' \
+      "$app_icon" "$flatpak_icon" "$terminal_icon"
+  fi
+}
+
+# ── Toggle script ──────────────────────────────────────────────────────────────
+# Called by fzf via:  --bind 'ctrl-h:transform(bash SCRIPT)'
+#
+# The `transform` action runs a command and treats its ENTIRE stdout as a
+# single action-specification string (e.g. "reload(cmd)+change-header(text)").
+# It does NOT mix list items with action directives — that was the bug in the
+# previous version which tried to emit list rows followed by change-header.
+#
+# Correct pattern (verified from fzf ADVANCED.md and 0.45 release notes):
+#   echo "reload(sort -fu FILE)+change-header(NEW HEADER TEXT)"
+#
+# The reload(...) argument is a shell command fzf will run to get the new list.
+# The change-header(...) argument is the literal header text (no shell eval).
+# Both are chained with + and emitted as one line to stdout.
+#
+# All variables are baked in at launcher-startup time so the script is
+# self-contained; no env vars need to be exported to fzf's subprocess.
+
 cat >"$toggle_script" <<TOGGLE
 #!/usr/bin/env bash
-state_file="$toggle_state_file"
-rows_file="$rows_file"
-rows_all_file="$rows_all_file"
+state_file='$state_file'
+rows_file='$rows_file'
+rows_all_file='$rows_all_file'
+app_icon='$app_icon'
+flatpak_icon='$flatpak_icon'
+terminal_icon='$terminal_icon'
+log='${LOG}'
+
+_log() {
+  [[ -z \$log ]] && return 0
+  printf '[%s] toggle: %s\n' "\$(date '+%H:%M:%S.%3N')" "\$*" >>"\$log"
+}
 
 current=\$(cat "\$state_file")
+_log "called  current_state=\$current"
+
 if [[ \$current == "0" ]]; then
+  # Filtered → All
   printf '1' >"\$state_file"
-  sort -fu "\$rows_all_file"
+  header=\$(printf '%s Apps  %s Flatpaks  %s Terminal  \033[2m[Ctrl+H: Show filtered]\033[0m' \
+    "\$app_icon" "\$flatpak_icon" "\$terminal_icon")
+  list_cmd="sort -fu '\$rows_all_file'"
+  _log "new_state=1  list=all  header='[Ctrl+H: Show filtered]'"
 else
+  # All → Filtered
   printf '0' >"\$state_file"
-  sort -fu "\$rows_file"
+  header=\$(printf '%s Apps  %s Flatpaks  %s Terminal  \033[2m[Ctrl+H: Show all]\033[0m' \
+    "\$app_icon" "\$flatpak_icon" "\$terminal_icon")
+  list_cmd="sort -fu '\$rows_file'"
+  _log "new_state=0  list=filtered  header='[Ctrl+H: Show all]'"
 fi
+
+# Output a single action-spec line consumed by fzf's transform action.
+# reload(CMD) re-runs CMD and replaces the list with its stdout.
+# change-header(TEXT) updates the header line.
+# The + chains them; no newlines inside the parens.
+printf 'reload(%s)+change-header(%s)' "\$list_cmd" "\$header"
+_log "emitted: reload(\$list_cmd)+change-header(...)"
 TOGGLE
 chmod +x "$toggle_script"
 
-# Header script: shows current mode in the header
-header_script=$(mktemp)
-cat >"$header_script" <<HEADER
-#!/usr/bin/env bash
-state_file="$toggle_state_file"
-app_icon="󰀻"
-flatpak_icon="󰏖"
-terminal_icon=""
+_log "toggle_script=$toggle_script  state_file=$state_file"
 
-current=\$(cat "\$state_file")
-if [[ \$current == "1" ]]; then
-  printf "%s Apps  %s Flatpaks  %s Terminal  \033[1m[Ctrl+H: Show filtered]\033[0m\n" "\$app_icon" "\$flatpak_icon" "\$terminal_icon"
-else
-  printf "%s Apps  %s Flatpaks  %s Terminal  \033[2m[Ctrl+H: Toggle Hidden]\033[0m\n" "\$app_icon" "\$flatpak_icon" "\$terminal_icon"
-fi
-HEADER
-chmod +x "$header_script"
-trap 'rm -f "$rows_file" "$rows_all_file" "$preview_file" "$toggle_state_file" "$toggle_script" "$header_script"' EXIT
+# Initial header for --header flag (used only at startup)
+initial_header=$(_header_for_state "$(cat "$state_file")")
+_log "initial_header built  state=$(cat "$state_file")"
 
 fzf_args=(
   --style full
@@ -313,26 +362,39 @@ fzf_args=(
   --border rounded
   --prompt "$prompt_icon Apps  "
   --header-first
-  --header "$(bash "$header_script")"
+  --header "$initial_header"
   --delimiter $'\t'
   --with-nth '1,2'
   --nth '1,2,3,5'
   --no-multi
+  --ansi
   --preview "bash '$preview_file' {4} {1} {2} {3}"
   --preview-window 'right,46%,border-left,wrap'
   --color "fg:${foreground},bg:${background},hl:${accent},fg+:${selected_foreground},bg+:${selected_background},hl+:${accent}"
   --color "prompt:${accent},pointer:${accent},marker:${accent},spinner:${accent},header:${muted},border:${muted},preview-border:${muted},info:${accent}"
-  --bind "ctrl-h:reload(bash '$toggle_script')+change-header($(bash "$header_script"))"
+  # transform: stdout is parsed as an action-spec string.
+  # We emit:  reload(sort -fu FILE)+change-header(NEW TEXT)
+  # This is atomic — both the list swap and header update happen from
+  # one subprocess call, with zero race between them.
+  --bind "ctrl-h:transform(bash '$toggle_script')"
 )
 
 if [[ -n ${APPS_FZF_HEIGHT:-} ]]; then
   fzf_args+=(--height "$APPS_FZF_HEIGHT")
 fi
 
+_log "starting fzf"
+
 selected=$(
-  sort -fu "$rows_file" |
+  if [[ $show_all == "true" ]]; then
+    sort -fu "$rows_all_file"
+  else
+    sort -fu "$rows_file"
+  fi |
     fzf "${fzf_args[@]}"
 ) || exit 0
+
+_log "selected: $selected"
 
 desktop_id=$(cut -f3 <<<"$selected")
 desktop_file=$(cut -f4 <<<"$selected")

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Name=Reddit
+Comment=Reddit
+Exec=omarchy-launch-webapp https://www.reddit.com/
+Terminal=false
+Type=Application
+Icon=/home/shadow/.local/share/applications/icons/Reddit.png
+StartupNotify=true
