@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "local.screenTranslator",
+  "name": "Local Screen Translator",
+  "version": "1.0.0",
+  "author": "AyushKr2003",
+  "description": "Fullscreen Omarchy overlay for translating visible screen text.",
+  "kinds": [
+    "overlay"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "overlay": "ScreenTranslator.qml"
+  }
+}
