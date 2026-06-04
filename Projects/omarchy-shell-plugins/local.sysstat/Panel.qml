@@ -161,7 +161,7 @@ Panel {
     bar: root.bar
     open: root.opened
     focusTarget: keyCatcher
-    contentWidth: panel.fittedContentWidth(Style.space(420))
+    contentWidth: panel.fittedContentWidth(Style.space(380))
     contentHeight: panel.fittedContentHeight(column.implicitHeight)
 
     PanelKeyCatcher {
@@ -173,36 +173,58 @@ Panel {
 
       Column {
         id: column
-        anchors.fill: parent
-        spacing: Style.spacing.sm
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        spacing: Style.space(12)
 
-        Row {
-          width: parent.width
-          height: Math.max(titleText.implicitHeight, refreshButton.implicitHeight)
-          spacing: Style.spacing.rowGap
+        // Header with CPU and RAM data
+        // Item {
+        //   width: parent.width
+        //   implicitHeight: Math.max(heroIcon.implicitHeight, heroLabels.implicitHeight)
 
-          Text {
-            id: titleText
-            width: parent.width - refreshButton.width - Style.spacing.rowGap
-            text: "System"
-            color: root.panelFg
-            font.family: root.panelFont
-            font.pixelSize: Style.font.title
-            font.bold: true
-            anchors.verticalCenter: parent.verticalCenter
-            elide: Text.ElideRight
-          }
+        //   Text {
+        //     id: heroIcon
+        //     text: "󰍛"
+        //     color: root.panelFg
+        //     font.family: root.panelFont
+        //     font.pixelSize: Style.font.display
+        //     anchors.left: parent.left
+        //     anchors.leftMargin: Style.space(10)    //
+        //     anchors.verticalCenter: parent.verticalCenter
+        //   }
 
-          Button {
-            id: refreshButton
-            text: "Refresh"
-            foreground: root.panelFg
-            fontFamily: root.panelFont
-            bordered: true
-            anchors.verticalCenter: parent.verticalCenter
-            onClicked: root.refresh()
-          }
-        }
+        //   Column {
+        //     id: heroLabels
+        //     anchors.left: heroIcon.right
+        //     anchors.leftMargin: Style.space(14)
+        //     anchors.right: parent.right
+        //     anchors.rightMargin: Style.space(10)   //
+        //     anchors.verticalCenter: parent.verticalCenter
+        //     spacing: Style.space(2)
+
+        //     Text {
+        //       width: parent.width
+        //       text: "System"
+        //       color: root.panelFg
+        //       font.family: root.panelFont
+        //       font.pixelSize: Style.font.title
+        //       font.bold: true
+        //       elide: Text.ElideRight
+        //     }
+
+        //     Text {
+        //       width: parent.width
+        //       text: ("CPU " + root.percentText(root.cpuPercent) + " · Memory " + root.percentText(root.memPercent)).toUpperCase()
+        //       color: Qt.darker(root.panelFg, 1.4)
+        //       font.family: root.panelFont
+        //       font.pixelSize: Style.font.caption
+        //       font.bold: true
+        //       font.letterSpacing: 1.2
+        //       elide: Text.ElideRight
+        //     }
+        //   }
+        // }
 
         StatRow {
           width: parent.width
@@ -272,7 +294,7 @@ Panel {
     property string fontFamily: Style.font.family
     property bool showDivider: true
 
-    implicitHeight: Style.space(74)
+    implicitHeight: rowContent.implicitHeight + Style.spacing.rowPaddingX
 
     Rectangle {
       id: divider
@@ -281,21 +303,27 @@ Panel {
       anchors.right: parent.right
       anchors.bottom: parent.bottom
       height: 1
-      color: Qt.rgba(row.foreground.r, row.foreground.g, row.foreground.b, 0.16)
+      color: Qt.rgba(row.foreground.r, row.foreground.g, row.foreground.b, 0.12)
     }
 
-    Row {
+    Item {
+      id: rowContent
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
-      spacing: Style.spacing.md
+      anchors.leftMargin: Style.space(10)
+      anchors.rightMargin: Style.space(10)
+      implicitHeight: Math.max(badge.implicitHeight, labelColumn.implicitHeight, meterColumn.implicitHeight)
 
       Rectangle {
         id: badge
-        width: labelColumn.implicitHeight
-        height: width
+        implicitWidth: labelColumn.implicitHeight
+        implicitHeight: implicitWidth
+        width: implicitWidth
+        height: implicitHeight
         radius: Style.cornerRadius
         color: Qt.rgba(row.accent.r, row.accent.g, row.accent.b, 0.22)
+        anchors.left: parent.left
         anchors.verticalCenter: parent.verticalCenter
 
         Text {
@@ -303,15 +331,18 @@ Panel {
           text: row.badgeText
           color: row.accent
           font.family: row.fontFamily
-          font.pixelSize: Style.font.iconLarge
+          font.pixelSize: Style.font.title
         }
       }
 
       Column {
         id: labelColumn
-        width: parent.width - badge.width - meterColumn.width - Style.spacing.md * 2
+        anchors.left: badge.right
+        anchors.leftMargin: Style.space(10)
+        anchors.right: meterColumn.left
+        anchors.rightMargin: Style.space(10)
         anchors.verticalCenter: parent.verticalCenter
-        spacing: Style.space(4)
+        spacing: Style.space(1)
 
         Text {
           width: parent.width
@@ -328,16 +359,17 @@ Panel {
           text: row.detail
           color: Qt.rgba(row.foreground.r, row.foreground.g, row.foreground.b, 0.62)
           font.family: row.fontFamily
-          font.pixelSize: Style.font.bodySmall
+          font.pixelSize: Style.font.caption
           elide: Text.ElideRight
         }
       }
 
       Column {
         id: meterColumn
-        width: Style.space(96)
+        width: Style.space(78)
+        anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
-        spacing: Style.space(9)
+        spacing: Style.space(6)
 
         Text {
           width: parent.width
