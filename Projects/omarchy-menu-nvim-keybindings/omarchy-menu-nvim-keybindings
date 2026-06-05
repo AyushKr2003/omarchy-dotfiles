@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# omarchy:summary=Display Vim/LazyVim keybindings using an interactive search menu.
+# omarchy:args=[--print|-p] [--mode vim|lazyvim|all] [--json <path>]
+
+set -euo pipefail
+
+print_only=false
+mode="all"
+json_file="$(dirname "$0")/vim_lazyvim_keybinds.json"
+
+while (($#)); do
+  case "$1" in
+    --print|-p)
+      print_only=true
+      ;;
+    --mode)
+      shift
+      mode="$1"
+      ;;
+    --json)
+      shift
+      json_file="$1"
+      ;;
+    vim|lazyvim|all)
+      mode="$1"
+      ;;
+    *.json)
+      json_file="$1"
+      ;;
+  esac
+  shift
+done
+
+if [[ ! -f "$json_file" ]]; then
+  echo "Missing JSON file: $json_file" >&2
+  exit 1
+fi
+
+if ! command -v jq >/dev/null 2>&1; then
+  echo "jq is required" >&2
+  exit 1
+fi
+
+if ! command -v omarchy-menu-select >/dev/null 2>&1; then
+  echo "omarchy-menu-select is required" >&2
+  exit 1
+fi
+
+# Source label shown in menu
+source_label() {
+  case "$1" in
+    vim.rtorr.com)   printf 'VIM' ;;
+    lazyvim.org*)    printf 'LAZYVIM' ;;
+    *)               printf '%s' "$1" ;;
+  esac
+}
+
+output_keybindings() {
+  jq -r --arg mode "$mode" '
+    . as $root |
+    (if $mode == "vim" then $root.vim
+     elif $mode == "lazyvim" then $root.lazyvim
+     else ($root.vim + $root.lazyvim)
+     end)
+    | .[] as $group
+    | $group.section as $section
+    | $group.source as $src
+    | $group.items[]
+    | [ ($src // ""), $section, .keys, (.description // ""), (.mode // "") ]
+    | @tsv
+  ' "$json_file" |
+  awk -F'\t' '
+  function src_label(s) {
+    if (s == "vim.rtorr.com") return "VIM"
+    if (index(s, "lazyvim") > 0) return "LAZYVIM"
+    return s
+  }
+  {
+    src     = $1
+    section = $2
+    keys    = $3
+    desc    = $4
+
+    tag = src_label(src)
+
+    # Display line: key → description only
+    display = sprintf("%-35s  →  %s", keys, desc)
+    print display
+  }'
+}
+
+if [[ "$print_only" == "true" ]]; then
+  output_keybindings
+  exit 0
+fi
+
+monitor_height=$(hyprctl monitors -j 2>/dev/null \
+  | jq -r '.[] | select(.focused == true) | .height' 2>/dev/null || echo "")
+
+if [[ ! "$monitor_height" =~ ^[0-9]+$ ]] || ((monitor_height <= 0)); then
+  monitor_height=900
+fi
+
+menu_height=$((monitor_height * 55 / 100))
+
+# output_keybindings | \
+#   omarchy-menu-select "Keybinds (${mode})" -- \
+#     --width 900 \
+#     --height "$menu_height" \
+#   >/dev/null || true
+output_keybindings | \
+  omarchy-menu-select "Nvim Keybinds..." -- \
+    --width 900 \
+    --height "$menu_height" \
+  >/dev/null || true
