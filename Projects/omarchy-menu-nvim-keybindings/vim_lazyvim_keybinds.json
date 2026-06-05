@@ -1,0 +1,1548 @@
+{
+  "vim": [
+    {
+      "section": "Global",
+      "source": "vim.rtorr.com",
+      "items": [
+        {
+          "keys": ":h[elp] {kw}",
+          "description": "Open help for keyword"
+        },
+        {
+          "keys": ":sav[eas] {file}",
+          "description": "Save file as"
+        },
+        {
+          "keys": ":clo[se]",
+          "description": "Close current pane"
+        },
+        {
+          "keys": ":ter[minal]",
+          "description": "Open a terminal window"
+        },
+        {
+          "keys": "K",
+          "description": "Open man page for word under cursor"
+        }
+      ]
+    },
+    {
+      "section": "Cursor movement",
+      "source": "vim.rtorr.com",
+      "items": [
+        {
+          "keys": "h / j / k / l",
+          "description": "Move cursor left / down / up / right"
+        },
+        {
+          "keys": "gj / gk",
+          "description": "Move cursor down / up (multi-line text)"
+        },
+        {
+          "keys": "H / M / L",
+          "description": "Jump to top / middle / bottom of screen"
+        },
+        {
+          "keys": "w / W",
+          "description": "Forward to start of word / WORD"
+        },
+        {
+          "keys": "e / E",
+          "description": "Forward to end of word / WORD"
+        },
+        {
+          "keys": "b / B",
+          "description": "Backward to start of word / WORD"
+        },
+        {
+          "keys": "ge / gE",
+          "description": "Backward to end of word / WORD"
+        },
+        {
+          "keys": "%",
+          "description": "Jump to matching bracket"
+        },
+        {
+          "keys": "0 / ^",
+          "description": "Start of line / first non-blank char"
+        },
+        {
+          "keys": "$ / g_",
+          "description": "End of line / last non-blank char"
+        },
+        {
+          "keys": "gg / G",
+          "description": "First / last line of document"
+        },
+        {
+          "keys": "{N}gg / {N}G",
+          "description": "Go to line N"
+        },
+        {
+          "keys": "gd / gD",
+          "description": "Go to local / global declaration"
+        },
+        {
+          "keys": "fx / Fx",
+          "description": "Jump to next / prev occurrence of x"
+        },
+        {
+          "keys": "tx / Tx",
+          "description": "Jump before next / after prev x"
+        },
+        {
+          "keys": "; / ,",
+          "description": "Repeat f/t/F/T forward / backward"
+        },
+        {
+          "keys": "} / {",
+          "description": "Jump to next / prev paragraph or block"
+        },
+        {
+          "keys": "zz / zt / zb",
+          "description": "Center / top / bottom cursor on screen"
+        },
+        {
+          "keys": "Ctrl + E / Ctrl + Y",
+          "description": "Scroll screen down / up one line"
+        },
+        {
+          "keys": "Ctrl + D / Ctrl + U",
+          "description": "Scroll down / up half page"
+        },
+        {
+          "keys": "Ctrl + F / Ctrl + B",
+          "description": "Scroll down / up full page"
+        }
+      ]
+    },
+    {
+      "section": "Insert mode",
+      "source": "vim.rtorr.com",
+      "items": [
+        {
+          "keys": "i / I",
+          "description": "Insert before cursor / start of line"
+        },
+        {
+          "keys": "a / A",
+          "description": "Append after cursor / end of line"
+        },
+        {
+          "keys": "o / O",
+          "description": "New line below / above current"
+        },
+        {
+          "keys": "ea",
+          "description": "Append at end of word"
+        },
+        {
+          "keys": "Ctrl + H",
+          "description": "Delete char before cursor"
+        },
+        {
+          "keys": "Ctrl + W",
+          "description": "Delete word before cursor"
+        },
+        {
+          "keys": "Ctrl + T / Ctrl + D",
+          "description": "Indent / de-indent line"
+        },
+        {
+          "keys": "Ctrl + N / Ctrl + P",
+          "description": "Autocomplete next / prev match"
+        },
+        {
+          "keys": "Ctrl + Rx",
+          "description": "Insert contents of register x"
+        },
+        {
+          "keys": "Ctrl + Ox",
+          "description": "Execute one normal-mode command x"
+        },
+        {
+          "keys": "Esc / Ctrl + C",
+          "description": "Exit insert mode"
+        }
+      ]
+    },
+    {
+      "section": "Editing",
+      "source": "vim.rtorr.com",
+      "items": [
+        {
+          "keys": "r / R",
+          "description": "Replace single char / enter replace mode"
+        },
+        {
+          "keys": "J / gJ",
+          "description": "Join line below with / without space"
+        },
+        {
+          "keys": "g~ / gu / gU",
+          "description": "Toggle / lower / uppercase to motion"
+        },
+        {
+          "keys": "cc / C",
+          "description": "Change entire line / to end of line"
+        },
+        {
+          "keys": "ciw / cw",
+          "description": "Change inner word / to end of word"
+        },
+        {
+          "keys": "s / S",
+          "description": "Substitute char / line (then insert)"
+        },
+        {
+          "keys": "xp",
+          "description": "Transpose two characters"
+        },
+        {
+          "keys": "u / U",
+          "description": "Undo / restore last changed line"
+        },
+        {
+          "keys": "Ctrl + R",
+          "description": "Redo"
+        },
+        {
+          "keys": ".",
+          "description": "Repeat last command"
+        }
+      ]
+    },
+    {
+      "section": "Cut & Paste",
+      "source": "vim.rtorr.com",
+      "items": [
+        {
+          "keys": "yy / Y",
+          "description": "Yank (copy) line / to end of line"
+        },
+        {
+          "keys": "yiw / yaw",
+          "description": "Yank inner word / word + surrounding space"
+        },
+        {
+          "keys": "yw",
+          "description": "Yank from cursor to start of next word"
+        },
+        {
+          "keys": "p / P",
+          "description": "Paste after / before cursor"
+        },
+        {
+          "keys": "gp / gP",
+          "description": "Paste after / before, leave cursor after"
+        },
+        {
+          "keys": "dd / D",
+          "description": "Delete (cut) line / to end of line"
+        },
+        {
+          "keys": "diw / daw",
+          "description": "Delete inner word / word + space"
+        },
+        {
+          "keys": "dw",
+          "description": "Delete to start of next word"
+        },
+        {
+          "keys": "x",
+          "description": "Delete character under cursor"
+        },
+        {
+          "keys": ":3,5d",
+          "description": "Delete lines 3 to 5"
+        },
+        {
+          "keys": ":g/{pat}/d",
+          "description": "Delete all lines matching pattern"
+        },
+        {
+          "keys": ":g!/{pat}/d",
+          "description": "Delete all lines NOT matching pattern"
+        }
+      ]
+    },
+    {
+      "section": "Visual mode",
+      "source": "vim.rtorr.com",
+      "items": [
+        {
+          "keys": "v / V",
+          "description": "Start char / linewise visual mode"
+        },
+        {
+          "keys": "Ctrl + V",
+          "description": "Start visual block mode"
+        },
+        {
+          "keys": "o / O",
+          "description": "Move to other end / corner of selection"
+        },
+        {
+          "keys": "aw / ab / aB / at",
+          "description": "Select word / () block / {} block / <> block"
+        },
+        {
+          "keys": "ib / iB / it",
+          "description": "Inner () / {} / <> block"
+        },
+        {
+          "keys": "> / <",
+          "description": "Indent / de-indent selection"
+        },
+        {
+          "keys": "y / d",
+          "description": "Yank / delete selection"
+        },
+        {
+          "keys": "~ / u / U",
+          "description": "Toggle / lower / uppercase selection"
+        },
+        {
+          "keys": "Esc / Ctrl + C",
+          "description": "Exit visual mode"
+        }
+      ]
+    },
+    {
+      "section": "Indent",
+      "source": "vim.rtorr.com",
+      "items": [
+        {
+          "keys": ">> / <<",
+          "description": "Indent / de-indent line"
+        },
+        {
+          "keys": ">% / <%",
+          "description": "Indent / de-indent () or {} block"
+        },
+        {
+          "keys": ">ib / >at",
+          "description": "Indent inner () / <> block"
+        },
+        {
+          "keys": "3==",
+          "description": "Re-indent 3 lines"
+        },
+        {
+          "keys": "=iB / gg=G",
+          "description": "Re-indent {} block / entire buffer"
+        },
+        {
+          "keys": "]p",
+          "description": "Paste and adjust indent"
+        }
+      ]
+    },
+    {
+      "section": "Search & Replace",
+      "source": "vim.rtorr.com",
+      "items": [
+        {
+          "keys": "/{pattern}",
+          "description": "Search forward for pattern"
+        },
+        {
+          "keys": "?{pattern}",
+          "description": "Search backward for pattern"
+        },
+        {
+          "keys": "n / N",
+          "description": "Next / prev search result"
+        },
+        {
+          "keys": ":%s/old/new/g",
+          "description": "Replace all in file"
+        },
+        {
+          "keys": ":%s/old/new/gc",
+          "description": "Replace all in file with confirmation"
+        },
+        {
+          "keys": ":noh",
+          "description": "Clear search highlight"
+        },
+        {
+          "keys": ":vim /pat/ **/*",
+          "description": "Search pattern in multiple files"
+        },
+        {
+          "keys": ":cn / :cp",
+          "description": "Next / prev quickfix match"
+        },
+        {
+          "keys": ":cope / :ccl",
+          "description": "Open / close quickfix window"
+        }
+      ]
+    },
+    {
+      "section": "Registers & Marks",
+      "source": "vim.rtorr.com",
+      "items": [
+        {
+          "keys": ":reg",
+          "description": "Show register contents"
+        },
+        {
+          "keys": "\"xy / \"xp",
+          "description": "Yank into / paste from register x"
+        },
+        {
+          "keys": "\"+y / \"+p",
+          "description": "Yank / paste system clipboard"
+        },
+        {
+          "keys": ":marks",
+          "description": "List all marks"
+        },
+        {
+          "keys": "ma / `a",
+          "description": "Set / jump to mark a"
+        },
+        {
+          "keys": "`0 / `\"",
+          "description": "Jump to last exit pos / last edit pos"
+        },
+        {
+          "keys": "`` / Ctrl + O / Ctrl + I",
+          "description": "Jump back / older / newer in jump list"
+        },
+        {
+          "keys": ":changes / g; / g,",
+          "description": "List changes / older / newer change pos"
+        }
+      ]
+    },
+    {
+      "section": "Macros",
+      "source": "vim.rtorr.com",
+      "items": [
+        {
+          "keys": "qa / q",
+          "description": "Record macro a / stop recording"
+        },
+        {
+          "keys": "@a / @@",
+          "description": "Run macro a / rerun last macro"
+        }
+      ]
+    },
+    {
+      "section": "Tabs",
+      "source": "vim.rtorr.com",
+      "items": [
+        {
+          "keys": ":tabnew {file}",
+          "description": "Open file in new tab"
+        },
+        {
+          "keys": "gt / gT",
+          "description": "Next / prev tab"
+        },
+        {
+          "keys": "{N}gt",
+          "description": "Go to tab N"
+        },
+        {
+          "keys": ":tabm {N}",
+          "description": "Move tab to position N"
+        },
+        {
+          "keys": ":tabc / :tabo",
+          "description": "Close current / all other tabs"
+        },
+        {
+          "keys": ":tabdo {cmd}",
+          "description": "Run command on all tabs"
+        },
+        {
+          "keys": "Ctrl + WT",
+          "description": "Move split into its own tab"
+        }
+      ]
+    },
+    {
+      "section": "Windows & Buffers",
+      "source": "vim.rtorr.com",
+      "items": [
+        {
+          "keys": ":e {file}",
+          "description": "Edit file in new buffer"
+        },
+        {
+          "keys": ":bn / :bp",
+          "description": "Next / prev buffer"
+        },
+        {
+          "keys": ":bd",
+          "description": "Delete buffer (close file)"
+        },
+        {
+          "keys": ":ls / :buffers",
+          "description": "List all open buffers"
+        },
+        {
+          "keys": ":sp {file}",
+          "description": "Open file in horizontal split"
+        },
+        {
+          "keys": ":vs {file}",
+          "description": "Open file in vertical split"
+        },
+        {
+          "keys": "Ctrl + Ws / Ctrl + Wv",
+          "description": "Split window horizontal / vertical"
+        },
+        {
+          "keys": "Ctrl + Ww / Ctrl + Wq",
+          "description": "Switch / quit window"
+        },
+        {
+          "keys": "Ctrl + Wh/j/k/l",
+          "description": "Move cursor to left/down/up/right window"
+        },
+        {
+          "keys": "Ctrl + W=",
+          "description": "Equalize window sizes"
+        },
+        {
+          "keys": "Ctrl + WH/J/K/L",
+          "description": "Move window to far left/bottom/top/right"
+        }
+      ]
+    },
+    {
+      "section": "Folds & Diff",
+      "source": "vim.rtorr.com",
+      "items": [
+        {
+          "keys": "zf / zd / za",
+          "description": "Create / delete / toggle fold"
+        },
+        {
+          "keys": "zo / zc",
+          "description": "Open / close fold"
+        },
+        {
+          "keys": "zr / zm / zi",
+          "description": "Open all / close all / toggle folding"
+        },
+        {
+          "keys": "]c / [c",
+          "description": "Next / prev diff change"
+        },
+        {
+          "keys": "do / dp",
+          "description": "Obtain / put diff from other buffer"
+        },
+        {
+          "keys": ":diffthis / :diffo",
+          "description": "Add to diff / turn off diff mode"
+        }
+      ]
+    },
+    {
+      "section": "Exiting",
+      "source": "vim.rtorr.com",
+      "items": [
+        {
+          "keys": ":w",
+          "description": "Save file"
+        },
+        {
+          "keys": ":wq / :x / ZZ",
+          "description": "Save and quit"
+        },
+        {
+          "keys": ":q",
+          "description": "Quit (fails if unsaved changes)"
+        },
+        {
+          "keys": ":q! / ZQ",
+          "description": "Quit and discard changes"
+        },
+        {
+          "keys": ":wqa",
+          "description": "Save and quit all tabs"
+        },
+        {
+          "keys": ":w !sudo tee %",
+          "description": "Save with sudo"
+        }
+      ]
+    }
+  ],
+  "lazyvim": [
+    {
+      "section": "Leader Key",
+      "source": "lazyvim.org/keymaps",
+      "items": [
+        {
+          "keys": "LEADER",
+          "description": "Leader key  (tap to see which-key menu)",
+          "mode": "n"
+        },
+        {
+          "keys": "Space",
+          "description": "Leader key is mapped to Space",
+          "mode": "n"
+        }
+      ]
+    },
+    {
+      "section": "General",
+      "source": "lazyvim.org/keymaps",
+      "items": [
+        {
+          "keys": "LEADER Space",
+          "description": "Find Files (Root Dir)",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER /",
+          "description": "Grep (Root Dir)",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER :",
+          "description": "Command History",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER fn",
+          "description": "New File",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER l",
+          "description": "Open Lazy plugin manager",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER L",
+          "description": "LazyVim Changelog",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER qq",
+          "description": "Quit All",
+          "mode": "n"
+        },
+        {
+          "keys": "Ctrl + S",
+          "description": "Save File",
+          "mode": "i, x, n, s"
+        },
+        {
+          "keys": "Esc",
+          "description": "Escape and clear search highlight",
+          "mode": "i, n, s"
+        },
+        {
+          "keys": "LEADER ur",
+          "description": "Redraw / Clear hlsearch / Diff Update",
+          "mode": "n"
+        }
+      ]
+    },
+    {
+      "section": "Buffers",
+      "source": "lazyvim.org/keymaps",
+      "items": [
+        {
+          "keys": "Shift + H / Shift + L",
+          "description": "Prev / next buffer",
+          "mode": "n"
+        },
+        {
+          "keys": "[b / ]b",
+          "description": "Prev / next buffer",
+          "mode": "n"
+        },
+        {
+          "keys": "[B / ]B",
+          "description": "Move buffer prev / next",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER bb",
+          "description": "Switch to Other Buffer",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER bd",
+          "description": "Delete Buffer",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER bD",
+          "description": "Delete Buffer and Window",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER bo",
+          "description": "Delete Other Buffers",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER bi",
+          "description": "Delete Invisible Buffers",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER bj",
+          "description": "Pick Buffer",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER bl / LEADER br",
+          "description": "Delete buffers to left / right",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER bp",
+          "description": "Toggle Pin",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER bP",
+          "description": "Delete Non-Pinned Buffers",
+          "mode": "n"
+        }
+      ]
+    },
+    {
+      "section": "Windows",
+      "source": "lazyvim.org/keymaps",
+      "items": [
+        {
+          "keys": "Ctrl + H/J/K/L",
+          "description": "Go to left / lower / upper / right window",
+          "mode": "n"
+        },
+        {
+          "keys": "Ctrl + UP/DOWN",
+          "description": "Increase / decrease window height",
+          "mode": "n"
+        },
+        {
+          "keys": "Ctrl + LEFT/RIGHT",
+          "description": "Decrease / increase window width",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER -",
+          "description": "Split Window Below",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER |",
+          "description": "Split Window Right",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER wd",
+          "description": "Delete Window",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER wm / LEADER uZ",
+          "description": "Toggle Zoom / Maximize window",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER uz",
+          "description": "Toggle Zen Mode",
+          "mode": "n"
+        }
+      ]
+    },
+    {
+      "section": "Tabs",
+      "source": "lazyvim.org/keymaps",
+      "items": [
+        {
+          "keys": "LEADER Tab + Tab",
+          "description": "New Tab",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER Tab + ]",
+          "description": "Next Tab",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER Tab + [",
+          "description": "Previous Tab",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER Tab + f",
+          "description": "First Tab",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER Tab + l",
+          "description": "Last Tab",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER Tab + d",
+          "description": "Close Tab",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER Tab + o",
+          "description": "Close Other Tabs",
+          "mode": "n"
+        }
+      ]
+    },
+    {
+      "section": "Code / LSP",
+      "source": "lazyvim.org/keymaps",
+      "items": [
+        {
+          "keys": "gd",
+          "description": "Go to Definition",
+          "mode": "n"
+        },
+        {
+          "keys": "gr",
+          "description": "References",
+          "mode": "n"
+        },
+        {
+          "keys": "gI",
+          "description": "Go to Implementation",
+          "mode": "n"
+        },
+        {
+          "keys": "gy",
+          "description": "Go to Type Definition",
+          "mode": "n"
+        },
+        {
+          "keys": "gD",
+          "description": "Go to Declaration",
+          "mode": "n"
+        },
+        {
+          "keys": "K",
+          "description": "Hover documentation",
+          "mode": "n"
+        },
+        {
+          "keys": "gK",
+          "description": "Signature Help",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER ca",
+          "description": "Code Action",
+          "mode": "n, x"
+        },
+        {
+          "keys": "LEADER cr",
+          "description": "Rename symbol",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER cR",
+          "description": "Rename File",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER cf",
+          "description": "Format buffer",
+          "mode": "n, x"
+        },
+        {
+          "keys": "LEADER cF",
+          "description": "Format Injected Languages",
+          "mode": "n, x"
+        },
+        {
+          "keys": "LEADER cd",
+          "description": "Line Diagnostics",
+          "mode": "n"
+        },
+        {
+          "keys": "]d / [d",
+          "description": "Next / prev diagnostic",
+          "mode": "n"
+        },
+        {
+          "keys": "]e / [e",
+          "description": "Next / prev error",
+          "mode": "n"
+        },
+        {
+          "keys": "]w / [w",
+          "description": "Next / prev warning",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER cl",
+          "description": "LSP Info",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER cm",
+          "description": "Mason (tool installer)",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER co",
+          "description": "Organize Imports",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER cs",
+          "description": "Symbols / Outline",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER ss / LEADER sS",
+          "description": "LSP Symbols / Workspace Symbols",
+          "mode": "n"
+        }
+      ]
+    },
+    {
+      "section": "Find / Search",
+      "source": "lazyvim.org/keymaps",
+      "items": [
+        {
+          "keys": "LEADER ff",
+          "description": "Find Files (Root Dir)",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER fF",
+          "description": "Find Files (cwd)",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER fg",
+          "description": "Find Files (git-files)",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER fr",
+          "description": "Recent files",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER fR",
+          "description": "Recent files (cwd)",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER fb",
+          "description": "Buffers",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER fc",
+          "description": "Find Config File",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER fp",
+          "description": "Projects",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER sg",
+          "description": "Grep (Root Dir)",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER sG",
+          "description": "Grep (cwd)",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER sw",
+          "description": "Search word / selection",
+          "mode": "n, x"
+        },
+        {
+          "keys": "LEADER sr",
+          "description": "Search and Replace (grug-far)",
+          "mode": "n, x"
+        },
+        {
+          "keys": "LEADER sb",
+          "description": "Search Buffer Lines",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER sh",
+          "description": "Help Pages",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER sk",
+          "description": "Keymaps",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER sm",
+          "description": "Marks",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER sR",
+          "description": "Resume last search",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER sd",
+          "description": "Diagnostics",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER sj",
+          "description": "Jumps",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER su",
+          "description": "Undotree",
+          "mode": "n"
+        }
+      ]
+    },
+    {
+      "section": "Git",
+      "source": "lazyvim.org/keymaps",
+      "items": [
+        {
+          "keys": "LEADER gs",
+          "description": "Git Status",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER gd",
+          "description": "Git Diff (hunks)",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER gD",
+          "description": "Git Diff (vs origin)",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER gb",
+          "description": "Git Blame Line",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER gf",
+          "description": "Current File History",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER gl",
+          "description": "Git Log",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER gL",
+          "description": "Git Log (cwd)",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER gB",
+          "description": "Git Browse (open in browser)",
+          "mode": "n, x"
+        },
+        {
+          "keys": "LEADER gY",
+          "description": "Git Browse (copy URL)",
+          "mode": "n, x"
+        },
+        {
+          "keys": "LEADER go",
+          "description": "Toggle mini.diff overlay",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER gg",
+          "description": "Open GitUI (Root Dir)",
+          "mode": "n"
+        }
+      ]
+    },
+    {
+      "section": "File Explorer",
+      "source": "lazyvim.org/keymaps",
+      "items": [
+        {
+          "keys": "LEADER e",
+          "description": "Explorer (root dir)",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER E",
+          "description": "Explorer (cwd)",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER fm",
+          "description": "Open mini.files (current file dir)",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER fM",
+          "description": "Open mini.files (cwd)",
+          "mode": "n"
+        }
+      ]
+    },
+    {
+      "section": "Terminal",
+      "source": "lazyvim.org/keymaps",
+      "items": [
+        {
+          "keys": "LEADER ft",
+          "description": "Terminal (Root Dir)",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER fT",
+          "description": "Terminal (cwd)",
+          "mode": "n"
+        },
+        {
+          "keys": "Ctrl + /",
+          "description": "Toggle terminal",
+          "mode": "n, t"
+        }
+      ]
+    },
+    {
+      "section": "UI Toggles",
+      "source": "lazyvim.org/keymaps",
+      "items": [
+        {
+          "keys": "LEADER uf",
+          "description": "Toggle Auto Format (Global)",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER uF",
+          "description": "Toggle Auto Format (Buffer)",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER us",
+          "description": "Toggle Spelling",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER uw",
+          "description": "Toggle Word Wrap",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER ul",
+          "description": "Toggle Line Numbers",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER uL",
+          "description": "Toggle Relative Line Numbers",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER ud",
+          "description": "Toggle Diagnostics",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER uc",
+          "description": "Toggle Conceal Level",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER uh",
+          "description": "Toggle Inlay Hints",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER uT",
+          "description": "Toggle Treesitter Highlight",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER ub",
+          "description": "Toggle Dark Background",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER ug",
+          "description": "Toggle Indent Guides",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER uC",
+          "description": "Change Colorscheme",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER un",
+          "description": "Dismiss All Notifications",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER ue",
+          "description": "Toggle Edgy panel",
+          "mode": "n"
+        }
+      ]
+    },
+    {
+      "section": "Sessions",
+      "source": "lazyvim.org/keymaps",
+      "items": [
+        {
+          "keys": "LEADER qs",
+          "description": "Restore Session",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER ql",
+          "description": "Restore Last Session",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER qd",
+          "description": "Don't Save Current Session",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER qS",
+          "description": "Select Session",
+          "mode": "n"
+        }
+      ]
+    },
+    {
+      "section": "Diagnostics / Trouble",
+      "source": "lazyvim.org/keymaps",
+      "items": [
+        {
+          "keys": "LEADER xx",
+          "description": "Diagnostics (Trouble)",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER xX",
+          "description": "Buffer Diagnostics (Trouble)",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER xL",
+          "description": "Location List (Trouble)",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER xQ",
+          "description": "Quickfix List (Trouble)",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER xl / LEADER xq",
+          "description": "Location List / Quickfix List",
+          "mode": "n"
+        },
+        {
+          "keys": "[q / ]q",
+          "description": "Prev / next Quickfix item",
+          "mode": "n"
+        }
+      ]
+    },
+    {
+      "section": "Motion (flash.nvim)",
+      "source": "lazyvim.org/keymaps",
+      "items": [
+        {
+          "keys": "s",
+          "description": "Flash jump forward",
+          "mode": "n, o, x"
+        },
+        {
+          "keys": "S",
+          "description": "Flash Treesitter jump",
+          "mode": "n, o, x"
+        },
+        {
+          "keys": "r",
+          "description": "Remote Flash",
+          "mode": "o"
+        },
+        {
+          "keys": "R",
+          "description": "Treesitter Search",
+          "mode": "o, x"
+        }
+      ]
+    },
+    {
+      "section": "Surrounds (mini.surround)",
+      "source": "lazyvim.org/keymaps",
+      "items": [
+        {
+          "keys": "gsa",
+          "description": "Add surrounding",
+          "mode": "n, x"
+        },
+        {
+          "keys": "gsd",
+          "description": "Delete surrounding",
+          "mode": "n"
+        },
+        {
+          "keys": "gsr",
+          "description": "Replace surrounding",
+          "mode": "n"
+        },
+        {
+          "keys": "gsf / gsF",
+          "description": "Find right / left surrounding",
+          "mode": "n"
+        },
+        {
+          "keys": "gsh",
+          "description": "Highlight surrounding",
+          "mode": "n"
+        }
+      ]
+    },
+    {
+      "section": "Debugger (DAP)",
+      "source": "lazyvim.org/keymaps",
+      "items": [
+        {
+          "keys": "LEADER dc",
+          "description": "Run / Continue",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER db",
+          "description": "Toggle Breakpoint",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER dB",
+          "description": "Breakpoint Condition",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER di",
+          "description": "Step Into",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER do",
+          "description": "Step Out",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER dO",
+          "description": "Step Over",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER dt",
+          "description": "Terminate session",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER du",
+          "description": "Toggle DAP UI",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER de",
+          "description": "Evaluate expression",
+          "mode": "n, x"
+        }
+      ]
+    },
+    {
+      "section": "Testing (Neotest)",
+      "source": "lazyvim.org/keymaps",
+      "items": [
+        {
+          "keys": "LEADER tt",
+          "description": "Run File",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER tT",
+          "description": "Run All Test Files",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER tr",
+          "description": "Run Nearest",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER tl",
+          "description": "Run Last",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER ts",
+          "description": "Toggle Summary",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER to",
+          "description": "Show Output",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER tO",
+          "description": "Toggle Output Panel",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER tw",
+          "description": "Toggle Watch",
+          "mode": "n"
+        }
+      ]
+    },
+    {
+      "section": "Harpoon",
+      "source": "lazyvim.org/keymaps",
+      "items": [
+        {
+          "keys": "LEADER H",
+          "description": "Harpoon: add file",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER h",
+          "description": "Harpoon: quick menu",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER 1…9",
+          "description": "Harpoon: jump to file 1–9",
+          "mode": "n"
+        }
+      ]
+    },
+    {
+      "section": "AI (avante / copilot / claude)",
+      "source": "lazyvim.org/keymaps",
+      "items": [
+        {
+          "keys": "LEADER aa",
+          "description": "Ask / Toggle AI assistant",
+          "mode": "n, x"
+        },
+        {
+          "keys": "LEADER ac",
+          "description": "Chat / Toggle Claude",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER ae",
+          "description": "Edit with AI",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER ar",
+          "description": "Refresh / Resume AI",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER as",
+          "description": "Add file / Send to AI",
+          "mode": "n, v"
+        },
+        {
+          "keys": "LEADER ap",
+          "description": "Prompt Actions",
+          "mode": "n, x"
+        },
+        {
+          "keys": "LEADER aq",
+          "description": "Quick Chat",
+          "mode": "n, x"
+        }
+      ]
+    },
+    {
+      "section": "Refactoring",
+      "source": "lazyvim.org/keymaps",
+      "items": [
+        {
+          "keys": "LEADER rf",
+          "description": "Extract Function",
+          "mode": "n, x"
+        },
+        {
+          "keys": "LEADER rF",
+          "description": "Extract Function To File",
+          "mode": "n, x"
+        },
+        {
+          "keys": "LEADER rx",
+          "description": "Extract Variable",
+          "mode": "n, x"
+        },
+        {
+          "keys": "LEADER ri",
+          "description": "Inline Variable",
+          "mode": "n, x"
+        },
+        {
+          "keys": "LEADER rs",
+          "description": "Select Refactor",
+          "mode": "n, x"
+        },
+        {
+          "keys": "LEADER rp",
+          "description": "Debug Print Variable",
+          "mode": "n, x"
+        }
+      ]
+    },
+    {
+      "section": "Todo Comments",
+      "source": "lazyvim.org/keymaps",
+      "items": [
+        {
+          "keys": "[t / ]t",
+          "description": "Prev / next TODO comment",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER st",
+          "description": "Search TODOs",
+          "mode": "n"
+        },
+        {
+          "keys": "LEADER xt",
+          "description": "TODO list (Trouble)",
+          "mode": "n"
+        }
+      ]
+    }
+  ]
+}
