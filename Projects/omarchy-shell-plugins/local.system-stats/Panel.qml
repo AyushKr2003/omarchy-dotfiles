@@ -33,6 +33,225 @@ Panel {
 
   readonly property int historyLimit: 36
   readonly property int refreshSeconds: Math.max(1, Number(setting("refreshSeconds", 2)) || 2)
+
+  // ── Phrases ──────────────────────────────────────────────────────────────
+  // Rotated in the panel header while it's open. Each group reflects the
+  // dominant system condition so the label always feels contextual.
+  // Style: present-participle verb + noun, playful, ≤ 3 words — same
+  // register as bluetooth/power/tailscale/dropbox panels in omarchy-shell.
+
+  // Shown when everything is calm (cpu < 40, mem < 60, disk < 75)
+  readonly property var idlePhrases: [
+    "Watching electrons",
+    "Counting cycles",
+    "Minding registers",
+    "Tending clocks",
+    "Nursing circuits",
+    "Herding threads",
+    "Babysitting bits",
+    "Sipping watts",
+    "Chilling cores",
+    "Tickling timers",
+    "Humming quietly",
+    "Resting processes",
+    "Lounging threads",
+    "Stretching cycles",
+    "Napping kernels",
+    "Breathing easy",
+    "Spinning peacefully",
+    "Idling gracefully",
+    "Killing time",
+    "Watching clocks"
+  ]
+
+  // Shown when CPU is busy (cpu >= 40 && cpu < 75)
+  readonly property var cpuBusyPhrases: [
+    "Crunching numbers",
+    "Churning cycles",
+    "Burning silicon",
+    "Mashing instructions",
+    "Grinding cores",
+    "Chewing workloads",
+    "Flipping bits",
+    "Racing pipelines",
+    "Juggling threads",
+    "Feeding the cores",
+    "Spinning fast",
+    "Pushing pipelines",
+    "Flexing muscles",
+    "Processing thoughts",
+    "Earning its keep",
+    "Working overtime",
+    "Cooking instructions",
+    "Herding processes",
+    "Scheduling madly",
+    "Dispatching furiously"
+  ]
+
+  // Shown when CPU is pegged (cpu >= 75)
+  readonly property var cpuHotPhrases: [
+    "Melting cores",
+    "Sweating silicon",
+    "Screaming registers",
+    "Frying pipelines",
+    "Roasting threads",
+    "Burning everything",
+    "Maxing out",
+    "Sprinting hard",
+    "Gasping for cycles",
+    "Begging for cores",
+    "Thrashing madly",
+    "Overclocking dignity",
+    "Blowing fans",
+    "Redlining hard",
+    "Cooking alive",
+    "Panic scheduling",
+    "Pegging everything",
+    "Screaming loudly",
+    "Hitting limits",
+    "Crying in silicon"
+  ]
+
+  // Shown when memory is full (mem >= 75)
+  readonly property var memHeavyPhrases: [
+    "Hoarding memory",
+    "Swapping secrets",
+    "Squeezing RAM",
+    "Taxing pages",
+    "Stressing allocators",
+    "Filling buckets",
+    "Juggling pages",
+    "Borrowing headroom",
+    "Paging furiously",
+    "Leaking slowly",
+    "Cramming heaps",
+    "Swapping sweat",
+    "Begging for RAM",
+    "Compressing madly",
+    "Evicting pages",
+    "Hunting free blocks",
+    "Battling fragmentation",
+    "Starving allocations",
+    "Crying for swap",
+    "Counting bytes"
+  ]
+
+  // Shown when disk is filling up (disk >= 75)
+  readonly property var diskFullPhrases: [
+    "Running out",
+    "Hoarding inodes",
+    "Packing storage",
+    "Filling shelves",
+    "Cramming blocks",
+    "Sweeping clusters",
+    "Defragging dignity",
+    "Begging for space",
+    "Hunting orphans",
+    "Evicting files",
+    "Counting sectors",
+    "Busting quotas",
+    "Leaking gigabytes",
+    "Groaning quietly",
+    "Eating storage",
+    "Maxing partitions",
+    "Losing free space",
+    "Filing everything",
+    "Packing tightly",
+    "Drowning in data"
+  ]
+
+  // Shown when GPU is working hard (gpu >= 60)
+  readonly property var gpuBusyPhrases: [
+    "Shading pixels",
+    "Melting textures",
+    "Grinding polygons",
+    "Rasterizing madly",
+    "Blasting shaders",
+    "Cooking vertices",
+    "Tracing rays",
+    "Tensor crunching",
+    "Painting frames",
+    "Drawing everything",
+    "Burning VRAM",
+    "Rendering hard",
+    "Fusing pixels",
+    "Sampling madly",
+    "Uploading madness",
+    "Smashing triangles",
+    "Dispatching kernels",
+    "Torturing CUDA",
+    "Sprinting shaders",
+    "Parallelizing pain"
+  ]
+
+  // Shown when GPU is hot (gpuTemp >= 75)
+  readonly property var gpuHotPhrases: [
+    "Smelting silicon",
+    "Roasting VRAM",
+    "Boiling drivers",
+    "Sweating pixels",
+    "Thermal throttling",
+    "Begging for airflow",
+    "Screaming in CUDA",
+    "Vaporizing frames",
+    "Overheating quietly",
+    "Frying shaders",
+    "Melting quietly",
+    "Blowing the budget",
+    "Throttling gently",
+    "Cooking polygons",
+    "Burning runway",
+    "Toasting die",
+    "Hitting junction",
+    "Asking for cooling",
+    "Radiating heat",
+    "Flirting with limits"
+  ]
+
+  property int phraseIndex: 0
+
+  // Pick the most contextually relevant phrase list based on current stats.
+  // Priority: GPU hot > CPU hot > mem heavy > disk full > GPU busy > CPU busy > idle
+  readonly property var activePhrases: {
+    if (gpuPercent >= 0 && gpuTemp >= 75)    return gpuHotPhrases
+    if (cpuPercent >= 75)                    return cpuHotPhrases
+    if (memPercent >= 75)                    return memHeavyPhrases
+    if (diskPercent >= 75)                   return diskFullPhrases
+    if (gpuPercent >= 60)                    return gpuBusyPhrases
+    if (cpuPercent >= 40)                    return cpuBusyPhrases
+    return idlePhrases
+  }
+
+  readonly property string heroPhrase: activePhrases[phraseIndex % activePhrases.length]
+
+  Timer {
+    id: phraseTimer
+    interval: 2800
+    running: root.opened
+    repeat: true
+    onTriggered: phraseSwap.restart()
+  }
+
+  SequentialAnimation {
+    id: phraseSwap
+    PropertyAnimation {
+      target: heroLabel
+      property: "opacity"
+      to: 0
+      duration: 120
+      easing.type: Easing.InQuad
+    }
+    ScriptAction {
+      script: root.phraseIndex = (root.phraseIndex + 1) % root.activePhrases.length
+    }
+    PropertyAnimation {
+      target: heroLabel
+      property: "opacity"
+      to: 1
+      duration: 160
+      easing.type: Easing.OutQuad
+    }
+  }
   readonly property string diskPath: String(setting("diskPath", "/") || "/")
   readonly property color panelFg: bar ? bar.foreground : Color.foreground
   readonly property string panelFont: bar ? bar.fontFamily : Style.font.family
@@ -169,15 +388,32 @@ Panel {
           width: parent.width
           spacing: Style.spacing.rowGap
 
-          Text {
+          Column {
             width: parent.width - refreshButton.width - Style.spacing.rowGap
-            text: "System"
-            color: root.panelFg
-            font.family: root.panelFont
-            font.pixelSize: Style.font.title
-            font.bold: true
             anchors.verticalCenter: parent.verticalCenter
-            elide: Text.ElideRight
+            spacing: Style.spacing.xs
+
+            Text {
+              width: parent.width
+              text: "System"
+              color: root.panelFg
+              font.family: root.panelFont
+              font.pixelSize: Style.font.title
+              font.bold: true
+              elide: Text.ElideRight
+            }
+
+            Text {
+              id: heroLabel
+              width: parent.width
+              text: root.heroPhrase
+              color: Qt.rgba(root.panelFg.r, root.panelFg.g, root.panelFg.b, 0.5)
+              font.family: root.panelFont
+              font.pixelSize: Style.font.caption
+              font.bold: true
+              font.letterSpacing: 1.1
+              elide: Text.ElideRight
+            }
           }
 
           Button {
