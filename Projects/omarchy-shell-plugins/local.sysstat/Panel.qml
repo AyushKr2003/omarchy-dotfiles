@@ -230,8 +230,8 @@ Panel {
       target: heroSubtitle
       property: "opacity"
       to: 0
-      duration: 120
-      easing.type: Easing.InQuad
+      duration: 180
+      easing.type: Easing.OutQuad
     }
     ScriptAction {
       script: root.phraseIndex = (root.phraseIndex + 1) % root.activePhrases.length
@@ -240,8 +240,8 @@ Panel {
       target: heroSubtitle
       property: "opacity"
       to: 1
-      duration: 160
-      easing.type: Easing.OutQuad
+      duration: 260
+      easing.type: Easing.InQuad
     }
   }
 
@@ -400,7 +400,7 @@ Panel {
             font.family: root.panelFont
             font.pixelSize: Style.font.display
             anchors.left: parent.left
-            anchors.leftMargin: Style.space(10)
+            anchors.leftMargin: Style.space(17)
             anchors.verticalCenter: parent.verticalCenter
           }
 
@@ -427,12 +427,12 @@ Panel {
             Text {
               id: heroSubtitle
               width: parent.width
-              text: root.heroPhrase
-              color: Qt.rgba(root.panelFg.r, root.panelFg.g, root.panelFg.b, 0.5)
+              text: root.heroPhrase.toUpperCase()
+              color: Qt.darker(root.bar.foreground, 1.4)
               font.family: root.panelFont
               font.pixelSize: Style.font.caption
               font.bold: true
-              font.letterSpacing: 1.1
+              font.letterSpacing: 1.2
               elide: Text.ElideRight
             }
           }
