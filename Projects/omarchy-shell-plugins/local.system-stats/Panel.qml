@@ -359,6 +359,9 @@ Panel {
         root.refresh()
         root.toggle()
       }
+      else {
+        root.bar.run("omarchy-launch-or-focus-tui btop")
+      }
     }
   }
 
