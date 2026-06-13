@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# omarchy:summary=Display Qutebrowser keybindings using an interactive search menu.
+# omarchy:args=[--print|-p] [--json <path>]
+
+set -euo pipefail
+
+print_only=false
+json_file="$(dirname "$0")/qutebrowser_keybinds.json"
+
+while (($#)); do
+  case "$1" in
+    --print|-p)
+      print_only=true
+      ;;
+    --json)
+      shift
+      json_file="$1"
+      ;;
+    *.json)
+      json_file="$1"
+      ;;
+  esac
+  shift
+done
+
+if [[ ! -f "$json_file" ]]; then
+  echo "Missing JSON file: $json_file" >&2
+  exit 1
+fi
+
+if ! command -v jq >/dev/null 2>&1; then
+  echo "jq is required" >&2
+  exit 1
+fi
+
+if ! command -v omarchy-menu-select >/dev/null 2>&1; then
+  echo "omarchy-menu-select is required" >&2
+  exit 1
+fi
+
+output_keybindings() {
+  jq -r '
+    .qutebrowser[]
+    | .items[]
+    | [ .keys, (.description // "") ]
+    | @tsv
+  ' "$json_file" |
+  awk -F'\t' '
+  {
+    keys = $1
+    desc = $2
+    printf "%-25s  →  %s\n", keys, desc
+  }'
+}
+
+if [[ "$print_only" == "true" ]]; then
+  output_keybindings
+  exit 0
+fi
+
+monitor_height=$(hyprctl monitors -j 2>/dev/null \
+  | jq -r '.[] | select(.focused == true) | .height' 2>/dev/null || echo "")
+
+if [[ ! "$monitor_height" =~ ^[0-9]+$ ]] || ((monitor_height <= 0)); then
+  monitor_height=900
+fi
+
+menu_height=$((monitor_height * 40 / 100))
+
+output_keybindings | \
+  omarchy-menu-select "Qutebrowser Keybinds" -- \
+    --width 800 \
+    --height "$menu_height" \
+  >/dev/null || true

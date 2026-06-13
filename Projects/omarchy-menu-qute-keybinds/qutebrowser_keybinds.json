@@ -1,0 +1,190 @@
+{
+  "qutebrowser": [
+    {
+      "section": "Leader / Basics",
+      "source": "qutebrowser.org",
+      "items": [
+        { "keys": ":",                "description": "Open command prompt" },
+        { "keys": "Esc",              "description": "Leave current mode / clear input" },
+        { "keys": "Ctrl + [",         "description": "Same as Esc (useful on keyboards without Esc)" },
+        { "keys": "i",                "description": "Enter insert mode (for text fields)" },
+        { "keys": "v",                "description": "Enter caret (visual) mode to select text" },
+        { "keys": "ZZ",               "description": "Save session and quit" },
+        { "keys": ":q / :wq",         "description": "Quit / save and quit" },
+        { "keys": "Alt + F4",         "description": "Quit" }
+      ]
+    },
+    {
+      "section": "Navigation",
+      "source": "qutebrowser.org",
+      "items": [
+        { "keys": "o",                "description": "Open URL (in current tab)" },
+        { "keys": "O",                "description": "Open URL in new tab" },
+        { "keys": "go",               "description": "Open URL based on current URL" },
+        { "keys": "gO",               "description": "Open URL based on current URL in new tab" },
+        { "keys": "H",                "description": "Go back in history" },
+        { "keys": "L",                "description": "Go forward in history" },
+        { "keys": "r",                "description": "Reload page" },
+        { "keys": "R",                "description": "Reload page (force, bypass cache)" },
+        { "keys": "Ctrl + Shift + T", "description": "Reopen last closed tab" },
+        { "keys": "ge",               "description": "Edit current URL" },
+        { "keys": "gE",               "description": "Edit current URL in new tab" }
+      ]
+    },
+    {
+      "section": "Scrolling",
+      "source": "qutebrowser.org",
+      "items": [
+        { "keys": "h / j / k / l",    "description": "Scroll left / down / up / right" },
+        { "keys": "gg",               "description": "Scroll to top of page" },
+        { "keys": "G",                "description": "Scroll to bottom of page" },
+        { "keys": "Ctrl + F",         "description": "Scroll down one page" },
+        { "keys": "Ctrl + B",         "description": "Scroll up one page" },
+        { "keys": "Ctrl + D",         "description": "Scroll down half page" },
+        { "keys": "Ctrl + U",         "description": "Scroll up half page" },
+        { "keys": "$",                "description": "Scroll to right edge of page" },
+        { "keys": "0",                "description": "Scroll to left edge of page" }
+      ]
+    },
+    {
+      "section": "Hints (link/element following)",
+      "source": "qutebrowser.org",
+      "items": [
+        { "keys": "f",                "description": "Show hints for links (open in current tab)" },
+        { "keys": "F",                "description": "Show hints for links (open in new tab)" },
+        { "keys": ";b",               "description": "Hint: open in background tab" },
+        { "keys": ";f",               "description": "Hint: open in foreground tab" },
+        { "keys": ";h",               "description": "Hint: hover over element" },
+        { "keys": ";i",               "description": "Hint: open image" },
+        { "keys": ";I",               "description": "Hint: open image in new tab" },
+        { "keys": ";y",               "description": "Hint: yank (copy) link URL to clipboard" },
+        { "keys": ";Y",               "description": "Hint: yank link URL to primary selection" },
+        { "keys": ";r",               "description": "Hint: right-click element" },
+        { "keys": ";d",               "description": "Hint: download link" },
+        { "keys": ";O",               "description": "Hint: fill cmdline with link (then edit)" },
+        { "keys": "wf",               "description": "Hint: open in new window" }
+      ]
+    },
+    {
+      "section": "Tabs",
+      "source": "qutebrowser.org",
+      "items": [
+        { "keys": "Ctrl + T / ga",    "description": "Open new tab" },
+        { "keys": "d / Ctrl + W",     "description": "Close current tab" },
+        { "keys": "D",                "description": "Close current tab (force)" },
+        { "keys": "co",               "description": "Close all other tabs" },
+        { "keys": "u",                "description": "Reopen last closed tab" },
+        { "keys": "J / gT / Ctrl + PgDown", "description": "Switch to previous tab" },
+        { "keys": "K / gt / Ctrl + PgUp",   "description": "Switch to next tab" },
+        { "keys": "g0 / g^",          "description": "Switch to first tab" },
+        { "keys": "g$",               "description": "Switch to last tab" },
+        { "keys": "1…9 + g`",         "description": "Switch to tab by number (g + number)" },
+        { "keys": "gm",               "description": "Move tab to end" },
+        { "keys": "g- / g+",          "description": "Move tab left / right" },
+        { "keys": "gC",               "description": "Clone (duplicate) current tab" },
+        { "keys": "T",                "description": "Open tab picker (search open tabs)" },
+        { "keys": "Ctrl + Tab",       "description": "Switch to last visited tab" },
+        { "keys": "<",                "description": "Move tab one position left" },
+        { "keys": ">",                "description": "Move tab one position right" },
+        { "keys": "Pp / PP",          "description": "Open URL from clipboard / selection in new tab" }
+      ]
+    },
+    {
+      "section": "Windows",
+      "source": "qutebrowser.org",
+      "items": [
+        { "keys": "Ctrl + N",         "description": "Open new window" },
+        { "keys": "wo",               "description": "Open URL from clipboard in new window" },
+        { "keys": "wp / wP",          "description": "Open URL from clipboard / selection in new window" }
+      ]
+    },
+    {
+      "section": "Zoom & View",
+      "source": "qutebrowser.org",
+      "items": [
+        { "keys": "+ / Ctrl + +",     "description": "Zoom in" },
+        { "keys": "- / Ctrl + -",     "description": "Zoom out" },
+        { "keys": "= / Ctrl + 0",     "description": "Reset zoom to default" },
+        { "keys": "Ctrl + M",         "description": "Mute / unmute current tab" },
+        { "keys": "Ctrl + Shift + M", "description": "Toggle muting all tabs" },
+        { "keys": "F11",              "description": "Toggle fullscreen" },
+        { "keys": "M",                "description": "Toggle bookmark for current page" }
+      ]
+    },
+    {
+      "section": "Search & Find",
+      "source": "qutebrowser.org",
+      "items": [
+        { "keys": "/",                "description": "Search forward in page" },
+        { "keys": "?",                "description": "Search backward in page" },
+        { "keys": "n",                "description": "Find next match" },
+        { "keys": "N",                "description": "Find previous match" },
+        { "keys": "Esc",              "description": "Clear search highlighting" },
+        { "keys": "[[ / ]]",          "description": "Click previous / next link on page" },
+        { "keys": "{{ / }}",          "description": "Click previous / next link in new tab" }
+      ]
+    },
+    {
+      "section": "Yank / Paste / Copy",
+      "source": "qutebrowser.org",
+      "items": [
+        { "keys": "yy",               "description": "Copy current page URL" },
+        { "keys": "yY",               "description": "Copy URL to primary selection" },
+        { "keys": "yt",               "description": "Copy page title" },
+        { "keys": "yT",               "description": "Copy page title to primary selection" },
+        { "keys": "gy",               "description": "Copy pretty (decoded) URL" },
+        { "keys": "pp / pP",          "description": "Open URL from clipboard / selection" },
+        { "keys": "yp / yP",          "description": "Yank URL with -p / -ps flags" }
+      ]
+    },
+    {
+      "section": "Page Manipulation",
+      "source": "qutebrowser.org",
+      "items": [
+        { "keys": "Ctrl + A",         "description": "Increment number in URL" },
+        { "keys": "Ctrl + X",         "description": "Decrement number in URL" },
+        { "keys": "Ctrl + S",         "description": "Save current page" },
+        { "keys": "Ctrl + P",         "description": "Print current page" },
+        { "keys": "Tab key (caret)",  "description": "Toggle selection mode in caret mode" }
+      ]
+    },
+    {
+      "section": "Marks & Jumps",
+      "source": "qutebrowser.org",
+      "items": [
+        { "keys": "ma",               "description": "Set mark a at current scroll position" },
+        { "keys": "`a",               "description": "Jump to mark a" },
+        { "keys": "`0 / `- / `=",     "description": "Jump to tab 10 / 11 / 12 quick marks" },
+        { "keys": "Ctrl + 6 / Ctrl + ^", "description": "Switch to last focused tab" }
+      ]
+    },
+    {
+      "section": "Downloads & History",
+      "source": "qutebrowser.org",
+      "items": [
+        { "keys": ":downloads",       "description": "Open downloads list" },
+        { "keys": ":history",         "description": "Open browsing history" },
+        { "keys": "ad",               "description": "Run :adblock-update" }
+      ]
+    },
+    {
+      "section": "Insert Mode",
+      "source": "qutebrowser.org",
+      "items": [
+        { "keys": "Ctrl + E",         "description": "Open external editor for focused field" },
+        { "keys": "Shift + Insert",   "description": "Paste primary selection at cursor" },
+        { "keys": "Esc",              "description": "Leave insert mode" }
+      ]
+    },
+    {
+      "section": "Help",
+      "source": "qutebrowser.org",
+      "items": [
+        { "keys": ":help",            "description": "Open built-in help / quickstart page" },
+        { "keys": ":help <command>",  "description": "Show help for a specific command" },
+        { "keys": ":bind",            "description": "Show all current keybindings" },
+        { "keys": ":version",         "description": "Show version and config info" }
+      ]
+    }
+  ]
+}

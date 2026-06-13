@@ -101,7 +101,7 @@ if [[ ! "$monitor_height" =~ ^[0-9]+$ ]] || ((monitor_height <= 0)); then
   monitor_height=900
 fi
 
-menu_height=$((monitor_height * 55 / 100))
+menu_height=$((monitor_height * 40 / 100))
 
 # output_keybindings | \
 #   omarchy-menu-select "Keybinds (${mode})" -- \
@@ -110,6 +110,6 @@ menu_height=$((monitor_height * 55 / 100))
 #   >/dev/null || true
 output_keybindings | \
   omarchy-menu-select "Nvim Keybinds..." -- \
-    --width 900 \
+    --width 800 \
     --height "$menu_height" \
   >/dev/null || true

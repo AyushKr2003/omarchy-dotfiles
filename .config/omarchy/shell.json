@@ -15,6 +15,9 @@
         },
         {
           "id": "omarchy.workspaces"
+        },
+        {
+          "id": "omarchy.media"
         }
       ],
       "center": [
@@ -47,7 +50,7 @@
           "id": "omarchy.network"
         },
         {
-          "id": "local.system-stats"
+          "id": "local.sysstat"
         },
         {
           "id": "omarchy.audio"
@@ -57,9 +60,6 @@
         },
         {
           "id": "omarchy.power"
-        },
-        {
-          "id": "local.system-stats"
         }
       ]
     }
@@ -70,6 +70,12 @@
     },
     {
       "id": "local.overview"
+    },
+    {
+      "id": "orbit"
+    },
+    {
+      "id": "local.screenTranslator"
     }
   ]
 }

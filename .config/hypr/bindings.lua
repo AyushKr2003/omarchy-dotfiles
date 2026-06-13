@@ -53,8 +53,8 @@ o.bind("SUPER + B", "Open Chromium", "chromium")
 hl.unbind("SUPER + W")
 o.bind("SUPER + W", "Browser", { omarchy = "browser" })
 
-hl.unbind("SUPER + CTRL + L")
-o.bind("SUPER + CTRL + L", "Toggle workspace layout", "omarchy-hyprland-workspace-layout-toggle")
+hl.unbind("SUPER + ALT + L")
+o.bind("SUPER + ALT + L", "Toggle workspace layout", "omarchy-hyprland-workspace-layout-toggle")
 
 hl.unbind("SUPER + L")
 o.bind("SUPER + L", "Lock system", "omarchy-system-lock")
@@ -106,3 +106,16 @@ end)
 hl.unbind("SUPER + I")
 o.bind("SUPER + I", "Quickshell Settings", "omarchy-shell shell summon local.settings")
 o.window("^(org.quickshell)$", { no_screen_share = true, tag = "+floating-window" })
+
+hl.unbind("SUPER + CTRL + L")
+o.bind(
+	"SUPER + CTRL +L",
+	"Terminal launcher",
+	"xdg-terminal-exec --app-id=org.omarchy.terminal --title=Omarchy -e fish -c 'a -a'"
+)
+
+hl.unbind("SUPER + SHIFT + T")
+o.bind("SUPER + SHIFT + T", "Screen Translator", "omarchy-shell shell summon local.screenTranslator")
+
+o.bind("SUPER + CTRL + K", "Nvim Keybindings", "omarchy-menu-nvim-keybindings")
+o.bind("SUPER + SHIFT + K", "Qute Keybindings", "omarchy-menu-qutebrowser-keybindings")
