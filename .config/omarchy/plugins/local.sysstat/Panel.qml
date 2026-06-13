@@ -6,13 +6,14 @@ import qs.Ui
 
 Panel {
   id: root
-  moduleName: "local.system-stats"
-  ipcTarget: "local.system-stats"
+  moduleName: "local.sysstat"
+  ipcTarget: "local.sysstat"
 
   property real cpuPercent: 0
   property real memPercent: 0
   property real diskPercent: 0
   property real gpuPercent: -1
+  property real loadPercent: 0
   property real memUsedGb: 0
   property real memTotalGb: 0
   property real diskUsedGb: 0
@@ -20,27 +21,26 @@ Panel {
   property real gpuMemUsedMb: 0
   property real gpuMemTotalMb: 0
   property int gpuTemp: 0
+  property int cpuCores: 1
   property string gpuName: "GPU"
   property string diskMount: "/"
   property real load1: 0
   property real load5: 0
   property real load15: 0
-  property var cpuHistory: []
-  property var memHistory: []
-  property var diskHistory: []
-  property var gpuHistory: []
   property var prevCpu: ({ idle: 0, total: 0 })
 
-  readonly property int historyLimit: 36
   readonly property int refreshSeconds: Math.max(1, Number(setting("refreshSeconds", 2)) || 2)
+  readonly property string diskPath: String(setting("diskPath", "/") || "/")
+  readonly property bool showGpu: boolSetting("showGpu", true)
+  readonly property color panelFg: bar ? bar.foreground : Color.foreground
+  readonly property string panelFont: bar ? bar.fontFamily : Style.font.family
+  readonly property url statusScriptUrl: Qt.resolvedUrl("status.sh")
+  readonly property string statusScript: decodeURIComponent(String(statusScriptUrl).replace(/^file:\/\//, ""))
 
   // ── Phrases ──────────────────────────────────────────────────────────────
-  // Rotated in the panel header while it's open. Each group reflects the
-  // dominant system condition so the label always feels contextual.
-  // Style: present-participle verb + noun, playful, ≤ 3 words — same
-  // register as bluetooth/power/tailscale/dropbox panels in omarchy-shell.
+  // Rotated in the hero subtitle while the panel is open.
+  // Priority: GPU hot > CPU hot > mem heavy > disk full > GPU busy > CPU busy > idle
 
-  // Shown when everything is calm (cpu < 40, mem < 60, disk < 75)
   readonly property var idlePhrases: [
     "Watching electrons",
     "Counting cycles",
@@ -64,7 +64,6 @@ Panel {
     "Watching clocks"
   ]
 
-  // Shown when CPU is busy (cpu >= 40 && cpu < 75)
   readonly property var cpuBusyPhrases: [
     "Crunching numbers",
     "Churning cycles",
@@ -88,7 +87,6 @@ Panel {
     "Dispatching furiously"
   ]
 
-  // Shown when CPU is pegged (cpu >= 75)
   readonly property var cpuHotPhrases: [
     "Melting cores",
     "Sweating silicon",
@@ -112,7 +110,6 @@ Panel {
     "Crying in silicon"
   ]
 
-  // Shown when memory is full (mem >= 75)
   readonly property var memHeavyPhrases: [
     "Hoarding memory",
     "Swapping secrets",
@@ -136,7 +133,6 @@ Panel {
     "Counting bytes"
   ]
 
-  // Shown when disk is filling up (disk >= 75)
   readonly property var diskFullPhrases: [
     "Running out",
     "Hoarding inodes",
@@ -160,7 +156,6 @@ Panel {
     "Drowning in data"
   ]
 
-  // Shown when GPU is working hard (gpu >= 60)
   readonly property var gpuBusyPhrases: [
     "Shading pixels",
     "Melting textures",
@@ -184,7 +179,6 @@ Panel {
     "Parallelizing pain"
   ]
 
-  // Shown when GPU is hot (gpuTemp >= 75)
   readonly property var gpuHotPhrases: [
     "Smelting silicon",
     "Roasting VRAM",
@@ -210,15 +204,13 @@ Panel {
 
   property int phraseIndex: 0
 
-  // Pick the most contextually relevant phrase list based on current stats.
-  // Priority: GPU hot > CPU hot > mem heavy > disk full > GPU busy > CPU busy > idle
   readonly property var activePhrases: {
-    if (gpuPercent >= 0 && gpuTemp >= 75)    return gpuHotPhrases
-    if (cpuPercent >= 75)                    return cpuHotPhrases
-    if (memPercent >= 75)                    return memHeavyPhrases
-    if (diskPercent >= 75)                   return diskFullPhrases
-    if (gpuPercent >= 60)                    return gpuBusyPhrases
-    if (cpuPercent >= 40)                    return cpuBusyPhrases
+    if (gpuPercent >= 0 && gpuTemp >= 75) return gpuHotPhrases
+    if (cpuPercent >= 75)                 return cpuHotPhrases
+    if (memPercent >= 75)                 return memHeavyPhrases
+    if (diskPercent >= 75)                return diskFullPhrases
+    if (gpuPercent >= 60)                 return gpuBusyPhrases
+    if (cpuPercent >= 40)                 return cpuBusyPhrases
     return idlePhrases
   }
 
@@ -235,48 +227,45 @@ Panel {
   SequentialAnimation {
     id: phraseSwap
     PropertyAnimation {
-      target: heroLabel
+      target: heroSubtitle
       property: "opacity"
       to: 0
-      duration: 120
-      easing.type: Easing.InQuad
+      duration: 180
+      easing.type: Easing.OutQuad
     }
     ScriptAction {
       script: root.phraseIndex = (root.phraseIndex + 1) % root.activePhrases.length
     }
     PropertyAnimation {
-      target: heroLabel
+      target: heroSubtitle
       property: "opacity"
       to: 1
-      duration: 160
-      easing.type: Easing.OutQuad
+      duration: 260
+      easing.type: Easing.InQuad
     }
   }
-  readonly property string diskPath: String(setting("diskPath", "/") || "/")
-  readonly property color panelFg: bar ? bar.foreground : Color.foreground
-  readonly property string panelFont: bar ? bar.fontFamily : Style.font.family
-  readonly property url statusScriptUrl: Qt.resolvedUrl("status.sh")
-  readonly property string statusScript: decodeURIComponent(String(statusScriptUrl).replace(/^file:\/\//, ""))
+
+  // ── Helpers ──────────────────────────────────────────────────────────────
+
+  function boolSetting(key, fallback) {
+    var value = setting(key, fallback)
+    if (value === true || value === false) return value
+    var text = String(value).toLowerCase()
+    return text === "true" || text === "1" || text === "yes"
+  }
 
   function refresh() {
     if (!statsProc.running) statsProc.running = true
   }
 
-  function pushHistory(arr, value) {
-    var next = arr.slice()
-    next.push(Math.max(0, Math.min(100, Number(value) || 0)))
-    if (next.length > historyLimit) next.shift()
-    return next
+  function clampPercent(value) {
+    if (!isFinite(value)) return 0
+    return Math.max(0, Math.min(100, value))
   }
 
-  function updateCpuTotals(idle, total) {
-    var idleDiff = idle - prevCpu.idle
-    var totalDiff = total - prevCpu.total
-    if (prevCpu.total > 0 && totalDiff > 0) {
-      cpuPercent = Math.max(0, Math.min(100, (1 - idleDiff / totalDiff) * 100))
-      cpuHistory = pushHistory(cpuHistory, cpuPercent)
-    }
-    prevCpu = { idle: idle, total: total }
+  function parseNumber(value, fallback) {
+    var n = parseFloat(String(value || "").trim())
+    return isNaN(n) ? fallback : n
   }
 
   function percentText(value) {
@@ -288,9 +277,28 @@ Panel {
     return value.toFixed(value >= 10 ? 0 : 1) + " GB"
   }
 
-  function parseNumber(value, fallback) {
-    var n = parseFloat(String(value || "").trim())
-    return isNaN(n) ? fallback : n
+  function mbAsGbText(value) {
+    if (!isFinite(value) || value <= 0) return "N/A"
+    var gb = value / 1024
+    return gb.toFixed(gb >= 10 ? 0 : 1) + " GB"
+  }
+
+  function updateCpuTotals(idle, total, cores) {
+    cpuCores = Math.max(1, cores || 1)
+    var idleDiff = idle - prevCpu.idle
+    var totalDiff = total - prevCpu.total
+    if (prevCpu.total > 0 && totalDiff > 0) {
+      cpuPercent = clampPercent((1 - idleDiff / totalDiff) * 100)
+    }
+    prevCpu = { idle: idle, total: total }
+    loadPercent = clampPercent((load1 / cpuCores) * 100)
+  }
+
+  function updateLoad(one, five, fifteen) {
+    load1 = parseNumber(one, 0)
+    load5 = parseNumber(five, 0)
+    load15 = parseNumber(fifteen, 0)
+    loadPercent = clampPercent((load1 / Math.max(1, cpuCores)) * 100)
   }
 
   function updateStats(raw) {
@@ -299,29 +307,24 @@ Panel {
       var parts = lines[i].trim().split("\t")
       if (parts.length < 2) continue
       if (parts[0] === "cpu") {
-        updateCpuTotals(parseInt(parts[1], 10) || 0, parseInt(parts[2], 10) || 0)
+        updateCpuTotals(parseInt(parts[1], 10) || 0, parseInt(parts[2], 10) || 0, parseInt(parts[3], 10) || 1)
       } else if (parts[0] === "memory") {
-        memPercent = Math.max(0, Math.min(100, parseNumber(parts[1], 0)))
+        memPercent = clampPercent(parseNumber(parts[1], 0))
         memUsedGb = parseNumber(parts[2], 0)
         memTotalGb = parseNumber(parts[3], 0)
-        memHistory = pushHistory(memHistory, memPercent)
       } else if (parts[0] === "load") {
-        load1 = parseNumber(parts[1], 0)
-        load5 = parseNumber(parts[2], 0)
-        load15 = parseNumber(parts[3], 0)
+        updateLoad(parts[1], parts[2], parts[3])
       } else if (parts[0] === "disk") {
-        diskPercent = Math.max(0, Math.min(100, parseNumber(parts[1], 0)))
+        diskPercent = clampPercent(parseNumber(parts[1], 0))
         diskUsedGb = parseNumber(parts[2], 0)
         diskTotalGb = parseNumber(parts[3], 0)
         diskMount = parts[4] || diskPath
-        diskHistory = pushHistory(diskHistory, diskPercent)
       } else if (parts[0] === "gpu") {
-        gpuPercent = parts[1] === "" ? -1 : Math.max(0, Math.min(100, parseNumber(parts[1], -1)))
+        gpuPercent = parts[1] === "" ? -1 : clampPercent(parseNumber(parts[1], -1))
         gpuMemUsedMb = parseNumber(parts[2], 0)
         gpuMemTotalMb = parseNumber(parts[3], 0)
         gpuTemp = Math.round(parseNumber(parts[4], 0))
         gpuName = parts[5] || "GPU"
-        if (gpuPercent >= 0) gpuHistory = pushHistory(gpuHistory, gpuPercent)
       }
     }
   }
@@ -353,11 +356,13 @@ Panel {
     bar: root.bar
     text: "󰍛"
     horizontalMargin: 7.5
-    // tooltipText: "System stats"
     onPressed: function(mouseButton) {
       if (mouseButton === Qt.LeftButton) {
         root.refresh()
         root.toggle()
+      }
+      else {
+        root.bar.run("omarchy-launch-or-focus-tui btop")
       }
     }
   }
@@ -369,8 +374,8 @@ Panel {
     bar: root.bar
     open: root.opened
     focusTarget: keyCatcher
-    contentWidth: panel.fittedContentWidth(Style.space(420))
-    contentHeight: panel.fittedContentHeight(column.implicitHeight, Style.space(620))
+    contentWidth: panel.fittedContentWidth(Style.space(380))
+    contentHeight: panel.fittedContentHeight(column.implicitHeight)
 
     PanelKeyCatcher {
       id: keyCatcher
@@ -381,17 +386,35 @@ Panel {
 
       Column {
         id: column
-        anchors.fill: parent
-        spacing: Style.spacing.md
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        spacing: Style.space(12)
 
-        Row {
+        // Header
+        Item {
           width: parent.width
-          spacing: Style.spacing.rowGap
+          implicitHeight: Math.max(heroIcon.implicitHeight, heroLabels.implicitHeight)
+
+          Text {
+            id: heroIcon
+            text: "󰍛"
+            color: root.panelFg
+            font.family: root.panelFont
+            font.pixelSize: Style.font.display
+            anchors.left: parent.left
+            anchors.leftMargin: Style.space(17)
+            anchors.verticalCenter: parent.verticalCenter
+          }
 
           Column {
-            width: parent.width - refreshButton.width - Style.spacing.rowGap
+            id: heroLabels
+            anchors.left: heroIcon.right
+            anchors.leftMargin: Style.space(14)
+            anchors.right: parent.right
+            anchors.rightMargin: Style.space(10)
             anchors.verticalCenter: parent.verticalCenter
-            spacing: Style.spacing.xs
+            spacing: Style.space(2)
 
             Text {
               width: parent.width
@@ -403,175 +426,191 @@ Panel {
               elide: Text.ElideRight
             }
 
+            // Rotating phrase — replaces the static CPU/Memory subtitle
             Text {
-              id: heroLabel
+              id: heroSubtitle
               width: parent.width
-              text: root.heroPhrase
-              color: Qt.rgba(root.panelFg.r, root.panelFg.g, root.panelFg.b, 0.5)
+              text: root.heroPhrase.toUpperCase()
+              color: Qt.darker(root.bar.foreground, 1.4)
               font.family: root.panelFont
               font.pixelSize: Style.font.caption
               font.bold: true
-              font.letterSpacing: 1.1
+              font.letterSpacing: 1.2
               elide: Text.ElideRight
             }
           }
-
-          Button {
-            id: refreshButton
-            text: "Refresh"
-            foreground: root.panelFg
-            fontFamily: root.panelFont
-            bordered: true
-            onClicked: root.refresh()
-          }
         }
 
-        StatCard {
+        StatRow {
           width: parent.width
-          title: "CPU"
+          label: "CPU"
+          detail: "Load " + root.load1.toFixed(2) + " · " + root.load5.toFixed(2) + " · " + root.load15.toFixed(2)
           value: root.percentText(root.cpuPercent)
-          detail: "Load " + root.load1.toFixed(2) + " / " + root.load5.toFixed(2) + " / " + root.load15.toFixed(2)
           percent: root.cpuPercent
-          history: root.cpuHistory
+          badgeText: "󰍛"
+          accent: "#7aa2ff"
           foreground: root.panelFg
           fontFamily: root.panelFont
         }
 
-        StatCard {
+        StatRow {
           width: parent.width
-          title: "GPU"
+          visible: root.showGpu
+          label: "GPU"
+          detail: root.gpuName === "Unavailable"
+            ? "Unavailable"
+            : root.gpuName + (root.gpuMemTotalMb > 0 ? " · VRAM " + root.mbAsGbText(root.gpuMemUsedMb) + " / " + root.mbAsGbText(root.gpuMemTotalMb) : "") + (root.gpuTemp > 0 ? " · " + root.gpuTemp + " C" : "")
           value: root.percentText(root.gpuPercent)
-          detail: root.gpuName + (root.gpuMemTotalMb > 0 ? " · VRAM " + Math.round(root.gpuMemUsedMb) + " / " + Math.round(root.gpuMemTotalMb) + " MB" : "") + (root.gpuTemp > 0 ? " · " + root.gpuTemp + " C" : "")
           percent: root.gpuPercent
-          history: root.gpuHistory
+          badgeText: "󰢮"
+          accent: "#9bd66f"
           foreground: root.panelFg
           fontFamily: root.panelFont
         }
 
-        StatCard {
+        StatRow {
           width: parent.width
-          title: "Memory"
-          value: root.percentText(root.memPercent)
+          label: "Memory"
           detail: root.gbText(root.memUsedGb) + " / " + root.gbText(root.memTotalGb)
+          value: root.percentText(root.memPercent)
           percent: root.memPercent
-          history: root.memHistory
+          badgeText: "󰘚"
+          accent: "#e7b65f"
           foreground: root.panelFg
           fontFamily: root.panelFont
         }
 
-        StatCard {
+        StatRow {
           width: parent.width
-          title: "Disk"
+          label: "Disk " + root.diskMount
+          detail: root.gbText(root.diskUsedGb) + " / " + root.gbText(root.diskTotalGb)
           value: root.percentText(root.diskPercent)
-          detail: root.diskMount + " · " + root.gbText(root.diskUsedGb) + " / " + root.gbText(root.diskTotalGb)
           percent: root.diskPercent
-          history: root.diskHistory
+          badgeText: "󰋊"
+          accent: "#c69cff"
           foreground: root.panelFg
           fontFamily: root.panelFont
+          showDivider: false
         }
       }
     }
   }
 
-  component StatCard: Rectangle {
-    id: card
+  component StatRow: Item {
+    id: row
 
-    property string title: ""
-    property string value: ""
+    property string label: ""
     property string detail: ""
+    property string value: ""
+    property string badgeText: ""
     property real percent: 0
-    property var history: []
+    property color accent: Color.accent
     property color foreground: Color.foreground
     property string fontFamily: Style.font.family
+    property bool showDivider: true
 
-    implicitHeight: content.implicitHeight + Style.spacing.rowPaddingX * 2
-    radius: Style.cornerRadius
-    color: Style.normalFillFor(foreground, Color.accent)
-    border.color: Style.normalBorderFor(foreground, Color.accent)
-    border.width: Style.normalBorderWidth
+    implicitHeight: rowContent.implicitHeight + Style.spacing.rowPaddingX
 
-    Column {
-      id: content
+    Rectangle {
+      id: divider
+      visible: row.showDivider
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
+      height: 1
+      color: Qt.rgba(row.foreground.r, row.foreground.g, row.foreground.b, 0.12)
+    }
+
+    Item {
+      id: rowContent
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
-      anchors.leftMargin: Style.spacing.rowPaddingX
-      anchors.rightMargin: Style.spacing.rowPaddingX
-      spacing: Style.spacing.sm
+      anchors.leftMargin: Style.space(10)
+      anchors.rightMargin: Style.space(10)
+      implicitHeight: Math.max(badge.implicitHeight, labelColumn.implicitHeight, meterColumn.implicitHeight)
 
-      Row {
-        width: parent.width
+      Rectangle {
+        id: badge
+        implicitWidth: labelColumn.implicitHeight
+        implicitHeight: implicitWidth
+        width: implicitWidth
+        height: implicitHeight
+        radius: Style.cornerRadius
+        color: Qt.rgba(row.accent.r, row.accent.g, row.accent.b, 0.22)
+        anchors.left: parent.left
+        anchors.verticalCenter: parent.verticalCenter
 
         Text {
-          text: card.title
-          width: parent.width - valueText.width
-          color: card.foreground
-          font.family: card.fontFamily
+          anchors.centerIn: parent
+          text: row.badgeText
+          color: row.accent
+          font.family: row.fontFamily
+          font.pixelSize: Style.font.title
+        }
+      }
+
+      Column {
+        id: labelColumn
+        anchors.left: badge.right
+        anchors.leftMargin: Style.space(10)
+        anchors.right: meterColumn.left
+        anchors.rightMargin: Style.space(10)
+        anchors.verticalCenter: parent.verticalCenter
+        spacing: Style.space(1)
+
+        Text {
+          width: parent.width
+          text: row.label
+          color: row.foreground
+          font.family: row.fontFamily
           font.pixelSize: Style.font.body
           font.bold: true
           elide: Text.ElideRight
         }
 
         Text {
-          id: valueText
-          text: card.value
-          color: card.foreground
-          font.family: card.fontFamily
+          width: parent.width
+          text: row.detail
+          color: Qt.rgba(row.foreground.r, row.foreground.g, row.foreground.b, 0.62)
+          font.family: row.fontFamily
+          font.pixelSize: Style.font.caption
+          elide: Text.ElideRight
+        }
+      }
+
+      Column {
+        id: meterColumn
+        width: Style.space(78)
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        spacing: Style.space(6)
+
+        Text {
+          width: parent.width
+          text: row.value
+          color: row.accent
+          font.family: row.fontFamily
           font.pixelSize: Style.font.body
           font.bold: true
+          horizontalAlignment: Text.AlignRight
+          elide: Text.ElideRight
         }
-      }
-
-      Rectangle {
-        width: parent.width
-        height: Style.space(8)
-        radius: height / 2
-        color: Qt.rgba(card.foreground.r, card.foreground.g, card.foreground.b, 0.14)
 
         Rectangle {
-          width: parent.width * Math.max(0, Math.min(100, card.percent)) / 100
-          height: parent.height
-          radius: parent.radius
-          color: Color.accent
-          visible: card.percent >= 0
-        }
-      }
+          width: parent.width
+          height: Style.space(5)
+          radius: height / 2
+          color: Qt.rgba(row.foreground.r, row.foreground.g, row.foreground.b, 0.18)
 
-      Canvas {
-        width: parent.width
-        height: Style.space(34)
-        property var points: card.history
-        onPointsChanged: requestPaint()
-        onPaint: {
-          var ctx = getContext("2d")
-          ctx.clearRect(0, 0, width, height)
-          if (!points || points.length === 0) return
-          ctx.strokeStyle = card.foreground
-          ctx.fillStyle = Qt.rgba(card.foreground.r, card.foreground.g, card.foreground.b, 0.18)
-          ctx.lineWidth = 1.4
-          ctx.beginPath()
-          var step = width / Math.max(1, points.length - 1)
-          for (var i = 0; i < points.length; i++) {
-            var x = i * step
-            var y = height - (points[i] / 100) * (height - 2) - 1
-            if (i === 0) ctx.moveTo(x, y)
-            else ctx.lineTo(x, y)
+          Rectangle {
+            width: parent.width * Math.max(0, Math.min(100, row.percent)) / 100
+            height: parent.height
+            radius: parent.radius
+            color: row.accent
+            visible: row.percent >= 0
           }
-          ctx.stroke()
-          ctx.lineTo(width, height)
-          ctx.lineTo(0, height)
-          ctx.closePath()
-          ctx.fill()
         }
-      }
-
-      Text {
-        text: card.detail
-        width: parent.width
-        color: Qt.darker(card.foreground, 1.45)
-        font.family: card.fontFamily
-        font.pixelSize: Style.font.caption
-        elide: Text.ElideRight
       }
     }
   }

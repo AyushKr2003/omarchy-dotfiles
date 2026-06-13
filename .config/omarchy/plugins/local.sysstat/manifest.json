@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "id": "local.system-stats",
-  "name": "Local System Stats",
+  "id": "local.sysstat",
+  "name": "Local Sysstat",
   "version": "1.0.0",
   "author": "AyushKr2003",
-  "description": "System stats bar widget with a detailed hardware panel.",
+  "description": "Compact system stats bar widget with a detailed click panel.",
   "kinds": [
     "bar-widget"
   ],
@@ -12,13 +12,14 @@
     "barWidget": "Panel.qml"
   },
   "barWidget": {
-    "displayName": "Local System Stats",
-    "description": "CPU, GPU, memory, disk, and load details in a themed panel.",
+    "displayName": "Local Sysstat",
+    "description": "CPU, GPU, memory, and disk details in compact horizontal rows.",
     "category": "System",
     "allowMultiple": false,
     "defaults": {
       "refreshSeconds": 2,
-      "diskPath": "/"
+      "diskPath": "/",
+      "showGpu": true
     },
     "schema": [
       {
@@ -35,6 +36,12 @@
         "type": "string",
         "label": "Disk path",
         "defaultValue": "/"
+      },
+      {
+        "key": "showGpu",
+        "type": "boolean",
+        "label": "Show GPU row",
+        "defaultValue": true
       }
     ]
   }
