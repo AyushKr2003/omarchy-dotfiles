@@ -44,58 +44,57 @@ o.bind("SUPER + SHIFT + ALT + X", "X Post", { webapp = "https://x.com/compose/po
 -- o.bind("SUPER + H", nil, "voxtype record toggle")
 -- o.bind("SUPER + PERIOD", nil, { omarchy = "walker -m symbols" })
 
-hl.unbind("SUPER + Q")
-o.bind("SUPER + Q", "Close window", hl.dsp.window.close())
+-- ╭─────────────────────────────────────────────────────────────────────────╮
+-- │  Custom bindings — loaded after omarchy defaults.                       │
+-- │  Uses helpers from default/hypr/helpers.lua:                            │
+-- │    o.bind(keys, description, dispatcher, opts?)                         │
+-- │    o.launch(cmd)                  → "uwsm-app -- cmd"                   │
+-- │    o.launch_sole(match, cmd)      → focus if open, else launch          │
+-- │    o.launch_webapp(url)           → omarchy-launch-webapp               │
+-- │    o.launch_webapp_sole(n,url)    → focus webapp if open                │
+-- │    o.bind_toggle(keys,desc,t)     → omarchy-toggle-<t>                  │
+-- │    { omarchy = "x" }              → omarchy-launch-x (handles uwsm-app) │
+-- │    { launch = "x" }               → uwsm-app -- x                       │
+-- │    { tui = "x" }                  → omarchy-launch-tui 'x'              │
+-- │    { webapp = "url" }             → omarchy-launch-webapp               │
+-- │    { webapp = "url", focus=true } → focus or launch                     │
+-- ╰─────────────────────────────────────────────────────────────────────────╯
 
-hl.unbind("SUPER + B")
-o.bind("SUPER + B", "Open Chromium", "chromium")
+-- ── Terminals & editors ───────────────────────────────────────────────────
 
-hl.unbind("SUPER + W")
-o.bind("SUPER + W", "Browser", { omarchy = "browser" })
-
-hl.unbind("SUPER + ALT + L")
-o.bind("SUPER + ALT + L", "Toggle workspace layout", "omarchy-hyprland-workspace-layout-toggle")
-
-hl.unbind("SUPER + L")
-o.bind("SUPER + L", "Lock system", "omarchy-system-lock")
-
-hl.unbind("SUPER + Z")
-o.bind("SUPER + Z", "Resize", hl.dsp.window.resize(), { mouse = true })
-
-hl.unbind("SUPER + SHIFT + N")
-o.bind("SUPER + SHIFT + N", "Editor", "code")
-
+-- Floating terminal — xdg-terminal-exec is a GUI app, needs uwsm-app
 hl.unbind("SUPER + SHIFT + RETURN")
 o.bind(
 	"SUPER + SHIFT + RETURN",
 	"Floating Terminal",
-	"xdg-terminal-exec --app-id=org.omarchy.terminal --title=Omarchy -e fish"
+	o.launch("xdg-terminal-exec --app-id=org.omarchy.terminal --title=Omarchy -e fish")
 )
 
+-- Editor → VS Code
+hl.unbind("SUPER + SHIFT + N")
+o.bind("SUPER + SHIFT + N", "Editor", o.launch("code"))
+
+-- ── Window management overrides ───────────────────────────────────────────
+
+-- Close window
+hl.unbind("SUPER + Q")
+o.bind("SUPER + Q", "Close window", hl.dsp.window.close())
+
+-- Forcefully kill focused window
+o.bind("SUPER + SHIFT + Q", "Forcefully kill window", hl.dsp.exec_cmd("hyprctl kill"))
+
+-- Resize with mouse
+hl.unbind("SUPER + Z")
+o.bind("SUPER + Z", "Resize window", hl.dsp.window.resize(), { mouse = true })
+
+-- Toggle float/tile
 hl.unbind("SUPER + SHIFT + O")
 o.bind("SUPER + SHIFT + O", "Toggle window floating/tiling", hl.dsp.window.float({ action = "toggle" }))
 
-hl.unbind("SUPER + SHIFT + B")
-o.bind("SUPER + SHIFT + B", "Browser (private)", "chromium --incognito")
-
-hl.unbind("SUPER + SHIFT + E")
-o.bind("SUPER + SHIFT + E", "Yazi", " xdg-terminal-exec --app-id=org.omarchy.terminal --title=Omarchy -e fish -c yazi")
-
-o.bind("SUPER + CTRL + RIGHT", "Next workspace", hl.dsp.focus({ workspace = "e+1" }))
-o.bind("SUPER + CTRL + LEFT", "Next workspace", hl.dsp.focus({ workspace = "e-1" }))
-
-o.bind("SUPER + E", "File manager", { omarchy = "nautilus" })
-
-hl.unbind("SUPER + SHIFT + W")
-o.bind("SUPER + SHIFT + W", "WhatsApp", { webapp = "https://web.whatsapp.com/", focus = true })
-
-hl.unbind("SUPER + TAB")
-o.bind("SUPER + TAB", "Overview", "omarchy-shell shell toggle local.overview")
-
+-- Toggle focus between tiled and floating
 hl.unbind("SUPER + T")
 o.bind("SUPER + T", "Toggle focus floating/tiling", function()
 	local active = hl.get_active_window()
-
 	if active and active.floating then
 		hl.dispatch(hl.dsp.focus({ window = "tiled" }))
 	else
@@ -103,19 +102,97 @@ o.bind("SUPER + T", "Toggle focus floating/tiling", function()
 	end
 end)
 
+-- ── Lock & workspace ─────────────────────────────────────────────────────
+
+hl.unbind("SUPER + L")
+o.bind("SUPER + L", "Lock system", "omarchy-system-lock")
+
+hl.unbind("SUPER + ALT + L")
+o.bind("SUPER + ALT + L", "Toggle workspace layout", "omarchy-hyprland-workspace-layout-toggle")
+
+o.bind("SUPER + CTRL + RIGHT", "Next workspace", hl.dsp.focus({ workspace = "e+1" }))
+o.bind("SUPER + CTRL + LEFT", "Previous workspace", hl.dsp.focus({ workspace = "e-1" }))
+
+-- ── Applications ─────────────────────────────────────────────────────────
+
+-- QuteBrowser — GUI app, needs uwsm-app
+hl.unbind("SUPER + B")
+o.bind("SUPER + B", "QuteBrowser", o.launch("qutebrowser"))
+
+-- Private QuteBrowser — qutebrowser is a GUI app, needs uwsm-app
+hl.unbind("SUPER + SHIFT + B")
+o.bind(
+	"SUPER + SHIFT + B",
+	"QuteBrowser (private)",
+	o.launch(
+		"bash -c 'qutebrowser --basedir /tmp/qb-private-$(date +%s) "
+			.. "--config $HOME/.config/qutebrowser/private.py --target window'"
+	)
+)
+
+-- File manager shorthand
+o.bind("SUPER + E", "File manager", { omarchy = "nautilus" })
+
+-- Yazi — xdg-terminal-exec is a GUI app, needs uwsm-app
+hl.unbind("SUPER + SHIFT + E")
+o.bind(
+	"SUPER + SHIFT + E",
+	"Yazi",
+	o.launch("xdg-terminal-exec --app-id=org.omarchy.terminal --title=Omarchy -e fish -c yazi")
+)
+
+-- WhatsApp
+hl.unbind("SUPER + SHIFT + W")
+o.bind("SUPER + SHIFT + W", "WhatsApp", { webapp = "https://web.whatsapp.com/", focus = true })
+
+-- Signal — omarchy-launch-signal handles uwsm-app internally
+hl.unbind("SUPER + SHIFT + G")
+o.bind("SUPER + SHIFT + G", "Signal", { omarchy = "signal" })
+
+-- ── Shell plugins & menus ─────────────────────────────────────────────────
+
+hl.unbind("SUPER + TAB")
+o.bind("SUPER + TAB", "Overview", "omarchy-shell shell toggle local.overview")
+
 hl.unbind("SUPER + I")
 o.bind("SUPER + I", "Quickshell Settings", "omarchy-shell shell summon local.settings")
-o.window("^(org.quickshell)$", { no_screen_share = true, tag = "+floating-window" })
-
-hl.unbind("SUPER + CTRL + L")
-o.bind(
-	"SUPER + CTRL +L",
-	"Terminal launcher",
-	"xdg-terminal-exec --app-id=org.omarchy.terminal --title=Omarchy -e fish -c 'a -a'"
-)
 
 hl.unbind("SUPER + SHIFT + T")
 o.bind("SUPER + SHIFT + T", "Screen Translator", "omarchy-shell shell summon local.screenTranslator")
 
-o.bind("SUPER + CTRL + K", "Nvim Keybindings", "omarchy-menu-nvim-keybindings")
-o.bind("SUPER + SHIFT + K", "Qute Keybindings", "omarchy-menu-qutebrowser-keybindings")
+-- Terminal app launcher — xdg-terminal-exec is a GUI app, needs uwsm-app
+hl.unbind("SUPER + CTRL + L")
+o.bind(
+	"SUPER + CTRL + L",
+	"Terminal launcher",
+	o.launch("xdg-terminal-exec --app-id=org.omarchy.terminal --title=Omarchy -e fish -c 'a -a'")
+)
+
+-- ── Keybinding menus ──────────────────────────────────────────────────────
+
+o.bind("SUPER + CTRL + K", "Nvim keybindings", "omarchy-menu-nvim-keybindings")
+o.bind("SUPER + SHIFT + K", "Qute keybindings", "omarchy-menu-qutebrowser-keybindings")
+
+-- ── Brightness ────────────────────────────────────────────────────────────
+
+o.bind("SUPER + Prior", "Brightness up", "omarchy-brightness-display +5%", { locked = true, repeating = true })
+o.bind("SUPER + Next", "Brightness down", "omarchy-brightness-display 5%-", { locked = true, repeating = true })
+
+-- ── Orbit mouse button ────────────────────────────────────────────────────
+
+o.bind(
+	"mouse:276",
+	"Orbit press",
+	"~/.config/omarchy/plugins/orbit/scripts/orbit-press.sh --button 276",
+	{ locked = true }
+)
+o.bind(
+	"mouse:276",
+	"Orbit release fallback",
+	"~/.config/omarchy/plugins/orbit/scripts/orbit-release.sh",
+	{ locked = true, release = true }
+)
+
+-- ── Window rules ─────────────────────────────────────────────────────────
+
+o.window("^(org.quickshell)$", { no_screen_share = true, tag = "+floating-window" })

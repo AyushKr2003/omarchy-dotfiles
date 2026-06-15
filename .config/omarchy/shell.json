@@ -72,10 +72,10 @@
       "id": "local.overview"
     },
     {
-      "id": "orbit"
+      "id": "local.screenTranslator"
     },
     {
-      "id": "local.screenTranslator"
+      "id": "orbit"
     }
   ]
 }

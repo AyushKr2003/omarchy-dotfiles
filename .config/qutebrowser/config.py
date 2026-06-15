@@ -133,7 +133,7 @@ c.session.lazy_restore = True
 # Use the omarchy default font (Inter / system-ui fallback)
 _FONT_FAMILY = 'Inter, "Noto Sans", system-ui, sans-serif'
 _FONT_MONO   = '"JetBrainsMono Nerd Font", "JetBrains Mono", monospace'
-_FONT_SIZE   = '10pt'
+_FONT_SIZE   = '11pt'
 
 c.fonts.default_family = _FONT_FAMILY
 c.fonts.default_size   = _FONT_SIZE
@@ -148,27 +148,33 @@ c.scrolling.smooth = True
 c.scrolling.bar    = 'overlay'
 
 # Tabs
+# ── Tabs — match tmux window-status style ─────────────────────────────────────
+# tmux: window-status-format         = " #I:#W "  (dim)
+# tmux: window-status-current-format = " #I:#W "  (accent, bold)
 c.tabs.show            = 'multiple'
 c.tabs.last_close      = 'close'
 c.tabs.tabs_are_windows = False
 c.tabs.mousewheel_switching = False
-c.tabs.padding = {'top': 6, 'bottom': 6, 'left': 8, 'right': 8}
-c.tabs.indicator.width = 2
-c.tabs.indicator.padding = {'top': 2, 'bottom': 2, 'left': 0, 'right': 4}
-c.tabs.favicons.scale = 1.0
-c.tabs.title.format = '{audio}{index}: {current_title}'
-c.tabs.title.format_pinned = '{audio}{index}'
+c.tabs.padding = {'top': 5, 'bottom': 5, 'left': 8, 'right': 8}
+c.tabs.indicator.width = 0            # no side indicator — tmux has none
+c.tabs.favicons.scale = 0.8
+# Mirror tmux: " #I:#W " — index:title, no favicon clutter
+c.tabs.title.format        = ' {index}:{current_title} '
+c.tabs.title.format_pinned = ' {index}:{current_title} '
 
-# Status bar
+# Status bar — mirrors tmux status bar layout:
+#   LEFT:  [ mode pill ]   like tmux's "#[fg=black,bg=blue,bold] #S "
+#   MID:   url             like the window list area
+#   RIGHT: scroll | mode indicators | host   like tmux right
 c.statusbar.show    = 'always'
-c.statusbar.padding = {'top': 4, 'bottom': 4, 'left': 8, 'right': 8}
-c.statusbar.widgets = ['keypress', 'url', 'scroll', 'history', 'tabs', 'progress']
+c.statusbar.padding = {'top': 4, 'bottom': 4, 'left': 6, 'right': 6}
+c.statusbar.widgets = ['keypress', 'url', 'scroll', 'history', 'progress']
 
 # URL bar
 c.url.default_page    = 'https://duckduckgo.com'
 c.url.start_pages     = ['https://duckduckgo.com']
 c.url.searchengines   = {
-    'DEFAULT': 'https://search.brave.com/search?q={}',
+    'DEFAULT': 'https://duckduckgo.com/search?q={}',
     'g':  'https://google.com/search?q={}',
     'gh': 'https://github.com/search?q={}',
     'yt': 'https://youtube.com/results?search_query={}',
@@ -185,9 +191,43 @@ c.hints.padding     = {'top': 2, 'bottom': 2, 'left': 4, 'right': 4}
 c.hints.border      = f'1px solid {ACCENT}'
 c.hints.radius      = 4
 
+# Custom hint selector groups
+# Per the Reddit thread (r/qutebrowser/comments/ajczeh):
+#   - 'f' already shows hints on iframes natively — the hint appears in the
+#     top-left corner of each frame. Follow it to focus that frame.
+#   - For arbitrary scrollable divs (not iframes), use the 'scrollable' group
+#     below, which works in tandem with the qb-scrollable.js Greasemonkey
+#     script that marks scrollable elements with .__qb_scrollable__ at runtime.
+c.hints.selectors = {
+    # Default groups (keep these so built-in bindings still work)
+    'all': [
+        'a', 'area', 'textarea', 'select',
+        'input:not([type="hidden"])', 'button',
+        'frame', 'iframe', 'img', 'link', 'summary',
+        '[contenteditable]:not([contenteditable="false"])',
+        '[onclick]', '[onmousedown]',
+        '[role="link"]', '[role="option"]', '[role="button"]',
+        '[role="tab"]', '[role="checkbox"]', '[role="switch"]',
+        '[role="menuitem"]', '[aria-haspopup]',
+        '[tabindex]:not([tabindex="-1"])',
+    ],
+    'links':  ['a[href]', 'area[href]', 'link[href]', '[role="link"][href]'],
+    'images': ['img'],
+    'media':  ['audio', 'img', 'video'],
+    'url':    ['[src]', '[href]'],
+    'inputs': [
+        'input[type="text"]', 'input[type="email"]', 'input[type="url"]',
+        'input[type="tel"]', 'input[type="number"]', 'input[type="password"]',
+        'input[type="search"]', 'input:not([type])', 'textarea',
+    ],
+    # 'scrollable' group intentionally removed — the qb-scrollable.js script
+    # that powers it walks the full DOM with getComputedStyle() on every node,
+    # causing pages to hang and RAM to spike. Use ;f / f for iframes instead.
+}
+
 # Downloads
 c.downloads.location.directory  = '~/Downloads'
-c.downloads.location.prompt     = False
+c.downloads.location.prompt     = True
 c.downloads.open_dispatcher     = 'xdg-open'
 c.downloads.position            = 'bottom'
 c.downloads.remove_finished     = 5000
@@ -301,95 +341,114 @@ c.colors.prompts.border       = f'1px solid {_mix(BG, ACCENT, 0.5)}'
 c.colors.prompts.selected.bg  = SEL_BG
 c.colors.prompts.selected.fg  = BRIGHT_FG
 
-# ── 3h. Status bar — every mode ──────────────────────────────────────────────
+# ── 3h. Status bar — tmux-mirrored per-mode styling ─────────────────────────
+#
+# tmux pattern  (from omarchy config/tmux/tmux.conf):
+#   status-style              bg=default, fg=default
+#   status-left               #[fg=black,bg=blue,bold] #S    → accent pill
+#   status-right              #[fg=blue] COPY/PREFIX/ZOOM  #[fg=brightblack] host
+#   window-status-format      #[fg=brightblack] #I:#W        → dim inactive
+#   window-status-current     #[fg=blue,bold]   #I:#W        → accent active
+#   message-style             bg=default, fg=blue
+#   mode-style                bg=blue, fg=black
+#   pane-active-border-style  fg=blue
+#
+# We map these 1:1:
+#   tmux "blue"        → ACCENT   (theme accent key)
+#   tmux "black"       → BG       (terminal background)
+#   tmux "brightblack" → MUTED    (dim fg / color8)
+#   tmux "default"     → BG / FG  (terminal bg/fg)
 
-# Normal mode
-c.colors.statusbar.normal.bg = BG
+# ── Normal mode — "default" bg like tmux status-style ────────────────────────
+c.colors.statusbar.normal.bg = DARK_BG
 c.colors.statusbar.normal.fg = FG
 
-# Insert mode  → green tint (mirrors omarchy active-state green)
-c.colors.statusbar.insert.bg = _mix(BG, GREEN, 0.18)
-c.colors.statusbar.insert.fg = GREEN
+# ── Insert mode — GREEN pill (maps to a safe/active state, not in tmux) ──────
+# We use a solid accent-colored left segment approach: bg=green fg=BG
+# so it reads as a filled pill exactly like tmux's " #S " segment.
+c.colors.statusbar.insert.bg = GREEN
+c.colors.statusbar.insert.fg = BG
 
-# Command mode → accent blue
-c.colors.statusbar.command.bg = DARK_BG
-c.colors.statusbar.command.fg = FG
-c.colors.statusbar.command.private.bg = _mix(DARK_BG, MAGENTA, 0.15)
+# ── Command mode — accent fg on dark bg, like tmux message-style fg=blue ─────
+c.colors.statusbar.command.bg         = DARK_BG
+c.colors.statusbar.command.fg         = ACCENT
+c.colors.statusbar.command.private.bg = DARK_BG
 c.colors.statusbar.command.private.fg = MAGENTA
 
-# Caret mode  → cyan
-c.colors.statusbar.caret.bg              = _mix(BG, CYAN,  0.18)
-c.colors.statusbar.caret.fg              = CYAN
-c.colors.statusbar.caret.selection.bg    = _mix(BG, CYAN,  0.30)
-c.colors.statusbar.caret.selection.fg    = BRIGHT_FG
+# ── Caret mode — CYAN pill (visual selection indicator) ──────────────────────
+c.colors.statusbar.caret.bg           = CYAN
+c.colors.statusbar.caret.fg           = BG
+c.colors.statusbar.caret.selection.bg = CYAN
+c.colors.statusbar.caret.selection.fg = BG
 
-# Passthrough mode → muted
-c.colors.statusbar.passthrough.bg = _mix(BG, MUTED, 0.35)
-c.colors.statusbar.passthrough.fg = FG
+# ── Passthrough — YELLOW pill (maps to tmux ZOOM indicator color) ─────────────
+c.colors.statusbar.passthrough.bg = YELLOW
+c.colors.statusbar.passthrough.fg = BG
 
-# Private browsing → magenta
-c.colors.statusbar.private.bg = _mix(BG, MAGENTA, 0.18)
-c.colors.statusbar.private.fg = MAGENTA
+# ── Private — MAGENTA pill ────────────────────────────────────────────────────
+c.colors.statusbar.private.bg = MAGENTA
+c.colors.statusbar.private.fg = BG
 
-# Progress bar (loading indicator) — accent color
+# ── Progress bar — accent, like tmux pane-active-border fg=blue ───────────────
 c.colors.statusbar.progress.bg = ACCENT
 
-# URL display states
-c.colors.statusbar.url.fg             = FG
-c.colors.statusbar.url.error.fg       = RED
-c.colors.statusbar.url.hover.fg       = ACCENT
-c.colors.statusbar.url.success.http.fg  = YELLOW   # plain http → warn yellow
-c.colors.statusbar.url.success.https.fg = GREEN    # https → reassuring green
-c.colors.statusbar.url.warn.fg          = ORANGE
+# ── URL states — mirrors tmux right-status color logic ───────────────────────
+c.colors.statusbar.url.fg              = MUTED       # idle, like brightblack host
+c.colors.statusbar.url.hover.fg        = ACCENT      # accent on hover
+c.colors.statusbar.url.error.fg        = RED
+c.colors.statusbar.url.success.http.fg = YELLOW      # warn: plain http
+c.colors.statusbar.url.success.https.fg = GREEN      # safe: https
+c.colors.statusbar.url.warn.fg         = ORANGE
 
-# ── 3i. Tabs ─────────────────────────────────────────────────────────────────
+# ── 3i. Tabs — tmux window-status exact mapping ──────────────────────────────
+#
+# tmux: window-status-format         "#[fg=brightblack] #I:#W "  → MUTED, dim
+# tmux: window-status-current-format "#[fg=blue,bold]   #I:#W "  → ACCENT, bold
+# tmux: status-style bg=default                                   → DARK_BG
+# tmux: window-status-separator ""                                → no gap
 
-# Bar background (behind all tabs)
+# Bar background — "bg=default" in tmux = terminal background = DARK_BG
 c.colors.tabs.bar.bg = DARK_BG
 
-# Inactive tabs
+# Inactive tabs → tmux brightblack (MUTED) fg, default bg
 c.colors.tabs.odd.bg  = DARK_BG
-c.colors.tabs.odd.fg  = DARK_FG
+c.colors.tabs.odd.fg  = MUTED
 c.colors.tabs.even.bg = DARK_BG
-c.colors.tabs.even.fg = DARK_FG
+c.colors.tabs.even.fg = MUTED
 
-# Selected tab
-c.colors.tabs.selected.odd.bg  = BG
-c.colors.tabs.selected.odd.fg  = BRIGHT_FG
-c.colors.tabs.selected.even.bg = BG
-c.colors.tabs.selected.even.fg = BRIGHT_FG
+# Active/selected tab → tmux blue (ACCENT) fg, bold, same bg
+# We give it a very subtle bg lift so there's a visual anchor without a border
+c.colors.tabs.selected.odd.bg  = _mix(DARK_BG, ACCENT, 0.08)
+c.colors.tabs.selected.odd.fg  = ACCENT
+c.colors.tabs.selected.even.bg = _mix(DARK_BG, ACCENT, 0.08)
+c.colors.tabs.selected.even.fg = ACCENT
 
-# Pinned tabs — slightly accented
-c.colors.tabs.pinned.odd.bg           = _mix(DARK_BG, ACCENT, 0.10)
-c.colors.tabs.pinned.odd.fg           = ACCENT
-c.colors.tabs.pinned.even.bg          = _mix(DARK_BG, ACCENT, 0.10)
-c.colors.tabs.pinned.even.fg          = ACCENT
-c.colors.tabs.pinned.selected.odd.bg  = _mix(BG, ACCENT, 0.15)
+# Pinned tabs — same as active but always accent-tinted
+c.colors.tabs.pinned.odd.bg           = _mix(DARK_BG, ACCENT, 0.06)
+c.colors.tabs.pinned.odd.fg           = _mix(MUTED, ACCENT, 0.5)
+c.colors.tabs.pinned.even.bg          = _mix(DARK_BG, ACCENT, 0.06)
+c.colors.tabs.pinned.even.fg          = _mix(MUTED, ACCENT, 0.5)
+c.colors.tabs.pinned.selected.odd.bg  = _mix(DARK_BG, ACCENT, 0.08)
 c.colors.tabs.pinned.selected.odd.fg  = ACCENT
-c.colors.tabs.pinned.selected.even.bg = _mix(BG, ACCENT, 0.15)
+c.colors.tabs.pinned.selected.even.bg = _mix(DARK_BG, ACCENT, 0.08)
 c.colors.tabs.pinned.selected.even.fg = ACCENT
 
-# Tab indicator (loading / audio / muted)
+# Tab loading indicator — tmux uses cyan→blue for session switches
+# start=CYAN (loading), stop=ACCENT (done), error=RED
 c.colors.tabs.indicator.start  = CYAN
 c.colors.tabs.indicator.stop   = ACCENT
 c.colors.tabs.indicator.error  = RED
 c.colors.tabs.indicator.system = 'none'
 
-# ── 3j. Web page colours (dark mode injection) ────────────────────────────────
-# Ask QtWebEngine to auto-darken pages if the omarchy theme is dark.
-if not IS_LIGHT:
-    c.colors.webpage.darkmode.enabled         = True
-    c.colors.webpage.darkmode.algorithm       = 'lightness-cielab'
-    c.colors.webpage.darkmode.contrast        = 0.0
-    c.colors.webpage.darkmode.policy.page     = 'smart'
-    c.colors.webpage.darkmode.policy.images   = 'smart'
-    c.colors.webpage.darkmode.threshold.foreground  = 150
-    c.colors.webpage.darkmode.threshold.background  = 205
-else:
-    c.colors.webpage.darkmode.enabled = False
-
+# ── 3j. Web page colours ─────────────────────────────────────────────────────
+# NOTE: darkmode.enabled is intentionally OFF.
+# QtWebEngine's dark mode re-renders every page through a colour inversion
+# algorithm which is very RAM and CPU intensive, causes pages to get stuck
+# in a loading state, and breaks many sites. Use a dark-mode browser
+# extension or site-level dark themes instead.
+c.colors.webpage.darkmode.enabled       = False
 c.colors.webpage.preferred_color_scheme = 'dark' if not IS_LIGHT else 'light'
-c.colors.webpage.bg = BG
+c.colors.webpage.bg                     = BG
 
 
 # =============================================================================
@@ -399,16 +458,17 @@ c.colors.webpage.bg = BG
 c.fonts.completion.entry    = f'{_FONT_SIZE} {_FONT_FAMILY}'
 c.fonts.completion.category = f'bold {_FONT_SIZE} {_FONT_FAMILY}'
 c.fonts.contextmenu         = f'{_FONT_SIZE} {_FONT_FAMILY}'
-c.fonts.downloads           = f'{_FONT_SIZE} {_FONT_FAMILY}'
+c.fonts.downloads           = f'{_FONT_SIZE} {_FONT_MONO}'
 c.fonts.hints               = f'bold {_FONT_SIZE} {_FONT_MONO}'
 c.fonts.keyhint             = f'{_FONT_SIZE} {_FONT_MONO}'
-c.fonts.messages.error      = f'{_FONT_SIZE} {_FONT_FAMILY}'
-c.fonts.messages.info       = f'{_FONT_SIZE} {_FONT_FAMILY}'
-c.fonts.messages.warning    = f'{_FONT_SIZE} {_FONT_FAMILY}'
+c.fonts.messages.error      = f'{_FONT_SIZE} {_FONT_MONO}'
+c.fonts.messages.info       = f'{_FONT_SIZE} {_FONT_MONO}'
+c.fonts.messages.warning    = f'{_FONT_SIZE} {_FONT_MONO}'
 c.fonts.prompts             = f'{_FONT_SIZE} {_FONT_FAMILY}'
-c.fonts.statusbar           = f'{_FONT_SIZE} {_FONT_FAMILY}'
-c.fonts.tabs.selected       = f'{_FONT_SIZE} {_FONT_FAMILY}'
-c.fonts.tabs.unselected     = f'{_FONT_SIZE} {_FONT_FAMILY}'
+# Statusbar and tabs use the mono font — mirrors tmux's terminal font rendering
+c.fonts.statusbar           = f'{_FONT_SIZE} {_FONT_MONO}'
+c.fonts.tabs.selected       = f'bold {_FONT_SIZE} {_FONT_MONO}'
+c.fonts.tabs.unselected     = f'{_FONT_SIZE} {_FONT_MONO}'
 c.fonts.tooltip             = f'{_FONT_SIZE} {_FONT_FAMILY}'
 
 
@@ -417,6 +477,18 @@ c.fonts.tooltip             = f'{_FONT_SIZE} {_FONT_FAMILY}'
 # =============================================================================
 
 # ── Normal mode ───────────────────────────────────────────────────────────────
+
+# Hints — restore defaults explicitly so they are never shadowed
+config.bind('f',  'hint links')
+config.bind('F',  'hint links tab')
+config.bind(';b', 'hint all tab-bg')
+config.bind(';i', 'hint images')
+config.bind(';I', 'hint images tab')
+config.bind(';r', 'hint --rapid links tab-bg')
+# Frame focus:
+#   f   → natively shows hints on links AND iframes (top-left of each iframe)
+#   gF  → return focus to the main page
+config.bind('gF', 'focus-main-frame')
 
 # Navigation
 config.bind('H',  'back')
@@ -482,42 +554,107 @@ config.bind('<Escape>', 'mode-leave',      mode='hint')
 
 
 # =============================================================================
-#  6. User stylesheet — injects omarchy CSS variables into every page
-#     so pages that respect prefers-color-scheme get the right palette.
+#  6. User stylesheet — DISABLED
+#     Injecting a stylesheet into every page adds per-page overhead and can
+#     interfere with site rendering. The scrollbar + selection styles below
+#     are kept as a comment so you can opt in per-site if needed.
+#     To re-enable: uncomment the block and run :config-source
 # =============================================================================
 
-_CSS = f"""
-:root {{
-    --omarchy-bg:       {BG};
-    --omarchy-fg:       {FG};
-    --omarchy-accent:   {ACCENT};
-    --omarchy-red:      {RED};
-    --omarchy-green:    {GREEN};
-    --omarchy-yellow:   {YELLOW};
-    --omarchy-cyan:     {CYAN};
-    --omarchy-magenta:  {MAGENTA};
-    --omarchy-muted:    {MUTED};
-    --omarchy-sel:      {SEL_BG};
-}}
-/* Scrollbar styling to match omarchy */
-::-webkit-scrollbar {{ width: 6px; height: 6px; }}
-::-webkit-scrollbar-track {{ background: {BG}; }}
-::-webkit-scrollbar-thumb {{ background: {MUTED}; border-radius: 3px; }}
-::-webkit-scrollbar-thumb:hover {{ background: {DARK_FG}; }}
-/* Selection highlight */
-::selection {{ background: {SEL_BG}; color: {BRIGHT_FG}; }}
-"""
-
-_css_path = os.path.expanduser('~/.config/qutebrowser/omarchy-user.css')
-os.makedirs(os.path.dirname(_css_path), exist_ok=True)
-with open(_css_path, 'w') as _f:
-    _f.write(_CSS)
-
-c.content.user_stylesheets = [_css_path]
+# _CSS = f"""
+# ::-webkit-scrollbar {{ width: 6px; height: 6px; }}
+# ::-webkit-scrollbar-track {{ background: {BG}; }}
+# ::-webkit-scrollbar-thumb {{ background: {MUTED}; border-radius: 3px; }}
+# ::-webkit-scrollbar-thumb:hover {{ background: {DARK_FG}; }}
+# ::selection {{ background: {SEL_BG}; color: {BRIGHT_FG}; }}
+# """
+# _css_path = os.path.expanduser('~/.config/qutebrowser/omarchy-user.css')
+# os.makedirs(os.path.dirname(_css_path), exist_ok=True)
+# with open(_css_path, 'w') as _f:
+#     _f.write(_CSS)
+# c.content.user_stylesheets = [_css_path]
 
 
 # =============================================================================
-#  7. omarchy-theme-watch: auto-reload when theme changes
+#  7. Ad blocking
+#
+#  REQUIRES: pip install adblock   (or: pacman -S python-adblock)
+#  After first install or any list change, run:  :adblock-update
+#
+#  Method 'both' = Brave's Rust ABP engine (network blocking) + hosts file
+#  blocker working in tandem for maximum coverage.
+# =============================================================================
+
+c.content.blocking.enabled = True
+c.content.blocking.method  = 'both'          # ABP engine + hosts, combined
+c.content.blocking.hosts.block_subdomains = True   # block *.ads.example.com too
+
+# ── ABP / uBlock-style filter lists (network request blocking) ────────────────
+# These are evaluated by the Brave adblock engine built into qutebrowser.
+# Run :adblock-update after changing this list.
+c.content.blocking.adblock.lists = [
+
+    # ── Core — EasyList + EasyPrivacy (industry standard, always alive) ───────
+    'https://easylist.to/easylist/easylist.txt',
+    'https://easylist.to/easylist/easyprivacy.txt',
+
+    # ── uBlock Origin filters (verified paths from uBlockOrigin/uAssets) ──────
+    # Main filter — catches what EasyList misses, includes YouTube ad rules
+    'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt',
+    # Current-year supplement (uBO splits filters by year since 2020)
+    'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters-2025.txt',
+    'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters-2026.txt',
+    # Privacy — telemetry, fingerprinting, tracking params, CDN trackers
+    'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/privacy.txt',
+    # Privacy removeparam — strips tracking query parameters from URLs
+    'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/privacy-removeparam.txt',
+    # Unbreak — re-allows things broken by other filters
+    'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/unbreak.txt',
+    # Resource abuse — cryptomining, pop-unders, tab-unders
+    'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/resource-abuse.txt',
+    # Badware — known malicious domains and scripts
+    'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/badware.txt',
+    # Quick fixes — emergency patches pushed between major releases
+    'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/quick-fixes.txt',
+    # General filters (cross-platform, non-cosmetic rules)
+    'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters-general.txt',
+
+    # ── uBO Annoyances (social.txt was removed; replaced by these) ────────────
+    # Cookie consent banners — auto-dismisses GDPR overlays
+    'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/annoyances-cookies.txt',
+    # Everything else: newsletter popups, push prompts, survey walls, social widgets
+    'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/annoyances-others.txt',
+
+    # ── Fanboy annoyances (separate from uBO, good supplemental coverage) ─────
+    'https://secure.fanboy.co.nz/fanboy-cookiemonster.txt',
+    'https://secure.fanboy.co.nz/fanboy-annoyance.txt',
+
+    # ── Malware / phishing — URLhaus live blocklist ───────────────────────────
+    'https://malware-filter.gitlab.io/malware-filter/urlhaus-filter-online.txt',
+
+    # ── AdGuard base + tracking + annoyances (via AdGuard CDN) ───────────────
+    'https://filters.adtidy.org/extension/ublock/filters/2.txt',   # AdGuard Base
+    'https://filters.adtidy.org/extension/ublock/filters/3.txt',   # AdGuard Tracking
+    'https://filters.adtidy.org/extension/ublock/filters/14.txt',  # AdGuard Annoyances
+    'https://filters.adtidy.org/extension/ublock/filters/4.txt',   # AdGuard Social Media
+]
+
+# ── Hosts-file blocklists (domain-level, no python-adblock needed) ────────────
+# These work even without the python-adblock package installed.
+# StevenBlack's unified hosts file = base + malware + fakenews
+c.content.blocking.hosts.lists = [
+    'https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts',
+]
+
+# ── Whitelist — sites that should never be blocked ───────────────────────────
+# Add domains here that get accidentally broken by the lists above.
+c.content.blocking.whitelist = [
+    # 'example.com',
+]
+
+
+# =============================================================================
+#  8. omarchy-theme-watch: auto-reload when theme changes
 #     A systemd path unit or inotifywait daemon can touch a trigger file;
 #     qutebrowser picks it up on next config-source call.
 #     For manual reload use <Ctrl-Shift-r> bound above.
