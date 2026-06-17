@@ -15,6 +15,7 @@ Screen {{
     background: {DBG};
     border-bottom: tall {LBG};
     padding: 0 3;
+    padding-top: 1;
     layout: horizontal;
     align: left middle;
 }}
@@ -39,8 +40,8 @@ Screen {{
     background: {LBG};
     color: {BFG};
     text-style: bold;
-    padding: 0 2;
-    height: 2;
+    padding: 1 2;
+    height: 3;
     content-align: left middle;
 }}
 #pkg-search {{
@@ -64,10 +65,11 @@ Screen {{
 
 /* ── Add package bar ─────────────────────────────────────────── */
 #add-pkg-bar {{
-    height: 3;
+    height: 5;
     background: {DBG};
     border-top: tall {LBG};
     padding: 0 1;
+    margin-bottom: 1;
     layout: horizontal;
     align: left middle;
 }}
