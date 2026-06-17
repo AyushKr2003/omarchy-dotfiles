@@ -95,7 +95,7 @@ class AurGuardApp(App):
                 yield ScrollableContainer(id="pkg-list")
                 with Horizontal(id="add-pkg-bar"):
                     yield Input(
-                        placeholder="add package",
+                        placeholder="Pkg Name",
                         id="add-pkg-input",
                     )
                     yield Button("Add", id="btn-add")

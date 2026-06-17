@@ -234,8 +234,6 @@ Tab.-active {{
     color: {BFG};
     background: {BG};
     text-style: bold;
-    border-top: wide {ACC};
-    border-bottom: tall {BG};
 }}
 TabPane {{
     padding: 0;
