@@ -88,14 +88,14 @@ class AurGuardApp(App):
             with Vertical(id="sidebar"):
                 yield Static("  Packages",           id="sidebar-title")
                 yield Input(
-                    placeholder=f" Search AUR…",
+                    placeholder="Search AUR…",
                     id="pkg-search",
                     select_on_focus=False,
                 )
                 yield ScrollableContainer(id="pkg-list")
                 with Horizontal(id="add-pkg-bar"):
                     yield Input(
-                        placeholder=" Package name…",
+                        placeholder="add package",
                         id="add-pkg-input",
                     )
                     yield Button("Add", id="btn-add")
@@ -239,7 +239,12 @@ class AurGuardApp(App):
     def _select(self, idx: int) -> None:
         if not self._packages:
             return
-        self._sel = max(0, min(idx, len(self._packages) - 1))
+        clamped = max(0, min(idx, len(self._packages) - 1))
+        # At a boundary and direction would go past it — do nothing.
+        # Prevents re-syncing/re-scanning on every repeated j/k press.
+        if clamped == self._sel and idx != clamped:
+            return
+        self._sel = clamped
         self._sync_list()
         pkg = self._packages[self._sel]
         if pkg in self._results:
