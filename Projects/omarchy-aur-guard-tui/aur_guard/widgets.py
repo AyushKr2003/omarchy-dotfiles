@@ -1,11 +1,19 @@
+"""widgets.py — PkgItem sidebar widget. No DOM id= to avoid DuplicateIds."""
 from __future__ import annotations
 from textual.message import Message
 from textual.widget import Widget
 from rich.text import Text
 from .theme import FG, BFG, SEL, LBG, RED, ORG, YEL, GRN, MUT
+from .icons import CRITICAL, HIGH, MEDIUM, LOW, CLEAN, UNKNOWN
+
 
 class PkgItem(Widget):
-    """Sidebar row. No DOM id -- avoids DuplicateIds on rebuild."""
+    """
+    One row in the sidebar package list.
+
+    CRITICAL FIX: No id= parameter — avoids DuplicateIds crash when
+    _sync_list grows the pool. Identified by position in _list_items.
+    """
 
     DEFAULT_CSS = f"""
     PkgItem {{
@@ -16,42 +24,32 @@ class PkgItem(Widget):
     }}
     PkgItem:hover  {{ background: {SEL}; }}
     PkgItem.active {{ background: {LBG}; color: {BFG}; text-style: bold; }}
-    PkgItem.active.verdict-clear {{ border: none; }}
-    PkgItem.verdict-critical {{ color: {RED}; }}
-    PkgItem.verdict-high {{ color: {ORG}; }}
-    PkgItem.verdict-medium {{ color: {YEL}; }}
-    PkgItem.verdict-clean {{ color: {GRN}; }}
     """
 
-    _VERDICT_CLASSES = {
-        "CRITICAL":"verdict-critical",
-        "HIGH":"verdict-high",
-        "MEDIUM":"verdict-medium",
-        "CLEAN":"verdict-clean",
-        "UNKNOWN":"",
+    _VERDICT_ICONS: dict[str, tuple[str, str]] = {
+        "CRITICAL": (CRITICAL, RED),
+        "HIGH":     (HIGH,     ORG),
+        "MEDIUM":   (MEDIUM,   YEL),
+        "CLEAN":    (CLEAN,    GRN),
+        "UNKNOWN":  (UNKNOWN,  MUT),
     }
 
     class Selected(Message):
+        """Posted when this item is clicked."""
         def __init__(self, index: int) -> None:
             super().__init__()
             self.index = index
 
-    def __init__(self, index:int, pkgname:str, verdict_:str="UNKNOWN", active:bool=False):
-        super().__init__()
+    def __init__(self, index: int, pkgname: str, verdict_: str = "UNKNOWN"):
+        super().__init__()          # ← NO id= kwarg — this is the key fix
         self.pkg_index = index
         self.pkgname   = pkgname
         self.verdict_  = verdict_
-        if active:
-            self.add_class("active")
 
-    def update_state(self, verdict_:str, active:bool) -> None:
-        changed = self.verdict_ != verdict_
-        if changed and self.verdict_:
-            old = self._VERDICT_CLASSES.get(self.verdict_,"")
-            if old: self.remove_class(old)
+    def update_state(self, verdict_: str, active: bool) -> None:
+        """Update verdict and active state in-place without remounting."""
+        changed       = self.verdict_ != verdict_
         self.verdict_ = verdict_
-        new = self._VERDICT_CLASSES.get(verdict_,"")
-        if new: self.add_class(new)
         if active:
             self.add_class("active")
         else:
@@ -60,18 +58,13 @@ class PkgItem(Widget):
             self.refresh()
 
     def render(self) -> Text:
-        icons = {
-            "CRITICAL": ("\U000f068c", RED), "HIGH": ("\uf071", ORG),
-            "MEDIUM":   ("\uf071", YEL),    "CLEAN": ("\U000f0e1e", GRN),
-            "UNKNOWN":  ("\uf110", MUT),
-        }
-        icon, color = icons.get(self.verdict_, ("\uf110", MUT))
+        icon, color = self._VERDICT_ICONS.get(self.verdict_, (UNKNOWN, MUT))
         t = Text()
         t.append(f" {icon}  ", style=color)
-        if self.verdict_ == "UNKNOWN":
-            t.append(self.pkgname, style=FG)
-        else:
-            t.append(self.pkgname, style=BFG)
+        t.append(
+            self.pkgname,
+            style=BFG if self.verdict_ != "UNKNOWN" else FG,
+        )
         return t
 
     def on_click(self) -> None:
