@@ -7,17 +7,22 @@ Scans AUR packages for malicious patterns, suspicious code, and reputation risks
 ## Quick Start
 
 ```bash
-# From project root
-python run.py                    # Launch empty
-python run.py firefox            # Pre-load specific package
-python run.py -i                 # Scan all installed AUR packages
-python run.py firefox vim -i     # Pre-load + all installed
+# Install once from the project root
+pip install .
+
+# Use as a standalone command
+aur-guard                    # Launch empty
+aur-guard firefox            # Pre-load specific package
+aur-guard -i                 # Scan all installed AUR packages
+aur-guard firefox vim -i     # Pre-load + all installed
 ```
+
+For development, `python run.py ...` still calls the same entry point.
 
 ## Requirements
 
-- Python 3.14+
-- Textual 8.x (`pip install textual`)
+- Python 3.10+
+- Textual 0.50+ installed automatically by `pip install .`
 - JetBrainsMono Nerd Font (for icons)
 - Omarchy theme integration (reads `~/.local/state/omarchy/current/theme/`)
 

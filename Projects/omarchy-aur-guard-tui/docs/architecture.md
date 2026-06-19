@@ -4,7 +4,8 @@
 
 ```
 omarchy-aur-guard-tui/
-├── run.py                  # Entry point (thin wrapper)
+├── pyproject.toml          # Package metadata + aur-guard console script
+├── run.py                  # Development entry point (thin wrapper)
 ├── aur_guard/              # Main package
 │   ├── __init__.py         # Package docstring
 │   ├── __main__.py         # CLI argument parsing + main()
@@ -22,8 +23,11 @@ omarchy-aur-guard-tui/
 
 ## Module Responsibilities
 
+### `pyproject.toml`
+Defines the standalone package, runtime dependencies, and `aur-guard` console script.
+
 ### `run.py`
-Thin entry point. Imports and calls `main()` from `__main__.py`.
+Development entry point. Imports and calls `main()` from `__main__.py`.
 
 ### `__main__.py`
 CLI argument parsing with `argparse`:
@@ -36,7 +40,7 @@ Calls `AurGuardApp(preload=...).run()`.
 The core Textual App class `AurGuardApp`. Handles:
 - **Compose**: Builds the full UI layout (header, sidebar, content area, overlays)
 - **State**: Tracks packages, scan results, selection, active scans
-- **Bindings**: All keyboard shortcuts (j/k, /, a, r, S, d, e, ?, q)
+- **Bindings**: All keyboard shortcuts (Tab, j/k, h/l, /, a, r, S, d, e, ?, q)
 - **Actions**: Methods triggered by keybindings
 - **Scanning**: Threaded scan launchers (`_launch_scan`, `_batch_scan`)
 - **Views**: Switches content between Welcome, Loading, ScanResult

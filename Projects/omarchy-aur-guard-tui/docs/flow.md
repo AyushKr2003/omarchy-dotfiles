@@ -3,8 +3,8 @@
 ## Startup
 
 ```
-run.py
-  └─► __main__.py:main()
+aur-guard console script / run.py
+  └─► aur_guard.__main__:main()
         ├─► Parse CLI args (packages, --installed)
         ├─► If --installed: get_installed_aur() → pacman -Qm
         └─► AurGuardApp(preload=...).run()

@@ -65,23 +65,24 @@ If the terminal is smaller, an overlay is shown asking to resize.
 ## CLI Options
 
 ```
-usage: run.py [-h] [packages ...] [-i]
+usage: aur-guard [-h] [--version] [--installed] [packages ...]
 
-aur-guard -- Omarchy AUR security scanner TUI
+aur-guard -- AUR security scanner TUI
 
 positional arguments:
-  packages    Packages to pre-load
+  packages      Packages to pre-load
 
 options:
-  -h, --help  show this help message and exit
+  -h, --help    show this help message and exit
+  --version     show program version and exit
   -i, --installed
-              Load all installed AUR packages
+                Load all installed AUR packages
 ```
 
 ## Dependencies
 
 ```
-textual>=8.0
+textual>=0.50.0
 rich>=13.0
 ```
 

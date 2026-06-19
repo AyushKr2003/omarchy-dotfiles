@@ -3,3 +3,7 @@ __pycache__
 .venv
 ii
 aur-malware-check
+# Python packaging artifacts
+build/
+dist/
+*.egg-info/

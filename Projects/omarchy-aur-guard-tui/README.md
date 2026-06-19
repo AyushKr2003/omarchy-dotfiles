@@ -36,9 +36,9 @@
 - **Compromise Checks**: Detects already-installed risk-listed AUR packages, pacman log hits,
   suspicious systemd persistence, eBPF traces, `/etc/ld.so.preload`, hidden processes,
   and malicious npm/bun cache residue
-- **Threat Lists**: Loads local copies of `aur-malware-check/package_list.txt` and
-  `malicious_npm_packages.txt` when this dotfiles workspace is present, with
-  `AUR_GUARD_PACKAGE_LIST` / `AUR_GUARD_MALICIOUS_NPM_LIST` overrides
+- **Threat Lists**: Loads built-in fallbacks plus optional local files from
+  `~/.config/aur-guard/`, environment overrides, or a nearby `aur-malware-check/`
+  checkout via `AUR_GUARD_PACKAGE_LIST` / `AUR_GUARD_MALICIOUS_NPM_LIST`
 - **Infected Package Flagging**: Any package added, scanned, or batch-scanned
   from the TUI is marked CRITICAL when its exact name appears in the infected
   package list, even if AUR metadata is unavailable
@@ -63,21 +63,23 @@
 ## Quick Start
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+# Install as a standalone command from this project directory
+pip install .
 
 # Launch TUI
-python run.py
+aur-guard
 
 # Scan specific packages
-python run.py firefox-nightly visual-studio-code-bin
+aur-guard firefox-nightly visual-studio-code-bin
 
 # Scan all installed AUR packages
-python run.py -i
+aur-guard -i
 
 # Preload packages + scan installed
-python run.py firefox-nightly -i
+aur-guard firefox-nightly -i
 ```
+
+For local development without installing, `python run.py ...` remains available.
 
 ### Keyboard Shortcuts
 
@@ -144,7 +146,8 @@ aur_guard/
   css.py           # Textual CSS styles
   theme.py         # Omarchy theme loader
   icons.py         # Nerd Font icon constants
-run.py             # Simple launcher script
+pyproject.toml     # Standalone package metadata and aur-guard console command
+run.py             # Development launcher script
 ```
 
 ---

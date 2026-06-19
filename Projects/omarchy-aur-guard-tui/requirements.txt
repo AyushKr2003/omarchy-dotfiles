@@ -1,13 +1,5 @@
 # aur-guard -- AUR Security Scanner TUI
-# Install with: pip install -r requirements.txt
+# Runtime dependencies. For standalone installation, prefer: pip install .
 
 textual>=0.50.0
-
-# Optional: for async HTTP (future enhancement)
-# httpx>=0.25.0
-
-# Development dependencies (optional)
-# pytest>=7.0
-# pytest-asyncio>=0.21
-# ruff>=0.1.0
-# mypy>=1.0
+rich>=13.0
