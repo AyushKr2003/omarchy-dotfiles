@@ -30,10 +30,12 @@ from textual import events, work
 from .theme import T, DBG, ACC, DFG, MUT, RED, ORG, YEL, GRN, CYN, FG, BFG
 from .css import CSS
 from .scanner import (
-    CACHE_DIR, CONFIG_DIR,
+    CACHE_DIR,
     get_installed_aur, full_scan, is_valid_pkg_name,
-    load_session, save_session, IocChecker,
+    load_session, save_session,
 )
+from .ioc import IocChecker
+from .threats import refresh_threat_list
 from .widgets import PkgItem
 from .views import WelcomeView, LoadingView, ScanView
 from .icons import APP, HELP, WARN, OK, FAIL, INFO
@@ -61,8 +63,11 @@ class AurGuardApp(App):
         Binding("d",        "remove_pkg",     "d remove",  show=False),
         # Scan actions
         Binding("r",        "rescan",         "r rescan",  show=True),
+        Binding("ctrl+r",   "refresh_threats","refresh",   show=False),
         Binding("S",        "scan_installed", "S scan ∀",  show=True),
-        Binding("C",        "check_ioc",      "C IoC",     show=True),    # [SEC-3]
+        Binding("c",        "check_ioc_quick","c check",   show=True),
+        Binding("C",        "check_ioc_full", "C full",    show=True),    # [SEC-3]
+        Binding("A",        "toggle_all_time","A all-time",show=False),
         Binding("e",        "export",         "e export",  show=True),
         # UI
         Binding("question_mark", "toggle_help", "? help",  show=True),
@@ -86,6 +91,7 @@ class AurGuardApp(App):
         self._scanning:   set[str]        = set()
         self._too_small:  bool            = False
         self._list_items: list[PkgItem]   = []
+        self._ioc_all_time: bool          = False
 
     # ── Compose ───────────────────────────────────────────────────────────────
     def compose(self) -> ComposeResult:
@@ -133,7 +139,7 @@ class AurGuardApp(App):
         # IoC check overlay  [SEC-3]
         with Container(id="ioc-overlay"):
             with Container(id="ioc-box"):
-                yield Static(f"{WARN}  Compromise Check",       classes="ioc-title")
+                yield Static(f"{WARN}  Compromise Check",       id="ioc-title", classes="ioc-title")
                 yield Static("Scanning system for IoCs…",       id="ioc-status")
                 yield RichLog(highlight=False, markup=True,     id="ioc-log",
                               auto_scroll=False)
@@ -160,8 +166,10 @@ class AurGuardApp(App):
             ("/",             "Focus search bar"),
             ("a",             "Add package by name"),
             ("r",             "Rescan selected package"),
+            ("Ctrl+R",         "Refresh infected package list"),
             ("S",             "Scan all installed AUR packages"),
-            ("C",             "Run IoC compromise check"),
+            ("c / C",          "Quick / full compromise check"),
+            ("A",              "Toggle IoC all-time date mode"),
             ("d",             "Remove package from list"),
             ("e",             "Export JSON report"),
             ("?",             "Toggle this help"),
@@ -216,9 +224,10 @@ class AurGuardApp(App):
 
     def _update_header_counts(self) -> None:
         done = sum(1 for p in self._packages if self._results.get(p, {}).get("info"))
+        mode = "all-time" if self._ioc_all_time else "window"
         try:
             self.query_one("#header-counts", Static).update(
-                f"│  {len(self._packages)} packages  ·  {done} scanned"
+                f"│  {len(self._packages)} packages  ·  {done} scanned  ·  IoC {mode}"
             )
         except NoMatches:
             pass
@@ -338,14 +347,16 @@ class AurGuardApp(App):
         self.call_from_thread(done)
 
     @work(thread=True)
-    def _run_ioc_check(self) -> None:
+    def _run_ioc_check(self, full: bool = False) -> None:
         """[SEC-3] Run IoC compromise detection in background."""
-        checker = IocChecker()
+        checker = IocChecker(all_time=self._ioc_all_time)
+        mode_name = "Full" if full else "Quick"
 
         def show_overlay() -> None:
             try:
                 self.query_one("#ioc-overlay").display = True
-                self.query_one("#ioc-status", Static).update("Scanning system for IoCs…")
+                self.query_one("#ioc-title", Static).update(f"{WARN}  {mode_name} Compromise Check")
+                self.query_one("#ioc-status", Static).update("Scanning system for IoCs...")
                 log = self.query_one("#ioc-log", RichLog)
                 log.clear()
             except NoMatches:
@@ -359,8 +370,14 @@ class AurGuardApp(App):
             except NoMatches:
                 pass
 
-        self.call_from_thread(update_status, "Checking eBPF artifacts…")
-        results = checker.check_all()
+        self.call_from_thread(update_status, "Checking installed packages and pacman logs...")
+        results = checker.check_all(
+            systemd=full,
+            ebpf=full,
+            npm_cache=full,
+            bun_cache=full,
+            process_hiding=full,
+        )
         severity = checker.severity(results)
 
         def show_results() -> None:
@@ -376,26 +393,60 @@ class AurGuardApp(App):
                     log.write(f"[bold {sev_color}]{WARN}  IoC findings — {severity}[/]")
                     log.write("")
 
+                log.write(
+                    f"[{MUT}]  Threat packages: {results.get('threat_packages_loaded', 0)}"
+                    f"  ·  npm/bun names: {results.get('malicious_npm_loaded', 0)}"
+                    f"  ·  Window: {results.get('date_window', 'unknown')}"
+                    f"  ·  Exit: {results.get('exit_code', 0)}[/]"
+                )
+                enabled = results.get("enabled_checks", {})
+                log.write(
+                    f"[{MUT}]  Optional checks: "
+                    f"systemd={enabled.get('systemd')}  "
+                    f"eBPF={enabled.get('ebpf')}  "
+                    f"npm={enabled.get('npm_cache')}  "
+                    f"bun={enabled.get('bun_cache')}[/]"
+                )
+                log.write("")
+
                 checks = [
-                    ("ebpf_artifacts",    "eBPF rootkit artifacts",   RED),
-                    ("ld_preload",        "/etc/ld.so.preload injection", RED),
-                    ("process_hiding",    "Hidden processes",          RED),
-                    ("installed_infected","Infected packages installed", ORG),
-                    ("suspicious_systemd","Suspicious systemd services", ORG),
-                    ("npm_cache",         "Malicious npm/bun cache",   YEL),
+                    ("ebpf_artifacts",     "eBPF rootkit artifacts", RED),
+                    ("ld_preload",         "/etc/ld.so.preload injection", RED),
+                    ("process_hiding",     "Hidden processes", RED),
+                    ("installed_infected", "Risk-listed packages currently installed", ORG),
+                    ("pacman_log_hits",    "Risk-listed packages in pacman logs", ORG),
+                    ("suspicious_systemd", "Suspicious systemd services", ORG),
+                    ("npm_cache",          "Malicious npm cache/global modules", YEL),
+                    ("bun_cache",          "Malicious bun cache entries", YEL),
                 ]
                 for key, label, color in checks:
                     items = results.get(key, [])
                     if items:
                         log.write(f"[bold {color}]{WARN}  {label}:[/]")
                         for item in items[:5]:
-                            log.write(f"[{color}]     → {str(item)[:90]}[/]")
+                            if isinstance(item, dict):
+                                if key == "installed_infected":
+                                    detail = f"{item.get('name')} installed={item.get('install_date') or 'unknown'}"
+                                elif key == "pacman_log_hits":
+                                    detail = f"{item.get('package')} {item.get('action')} on {item.get('date')}"
+                                elif key in ("npm_cache", "bun_cache", "suspicious_systemd"):
+                                    detail = (
+                                        f"{item.get('package')} in {item.get('location')}: "
+                                        f"{item.get('path')}"
+                                    )
+                                else:
+                                    detail = str(item)
+                            else:
+                                detail = str(item)
+                            log.write(f"[{color}]     → {detail[:100]}[/]")
+                        if len(items) > 5:
+                            log.write(f"[{MUT}]       … {len(items) - 5} more[/]")
                     else:
                         log.write(f"[{GRN}]{OK}  {label}: clean[/]")
 
                 if checker.has_iocs(results):
                     log.write("")
-                    log.write(f"[bold {RED}]⚠  If atomic-lockfile was installed, treat system as COMPROMISED.[/]")
+                    log.write(f"[bold {RED}]!  If an infected package was installed, treat system as COMPROMISED.[/]")
                     log.write(f"[{YEL}]   Rotate: SSH keys, GitHub tokens, browser sessions, Slack, Discord.[/]")
                     log.write(f"[{YEL}]   Consider: full reinstall from clean media.[/]")
 
@@ -407,6 +458,22 @@ class AurGuardApp(App):
                 pass
 
         self.call_from_thread(show_results)
+
+    @work(thread=True)
+    def _refresh_threat_lists(self) -> None:
+        def started() -> None:
+            self.notify("Refreshing infected package list...", severity="information", timeout=3)
+
+        self.call_from_thread(started)
+        ok, message, count = refresh_threat_list()
+
+        def done() -> None:
+            if ok:
+                self.notify(f"Threat list refreshed: {count} packages -> {message}", severity="information", timeout=6)
+            else:
+                self.notify(f"Threat list refresh failed: {message}", severity="error", timeout=7)
+
+        self.call_from_thread(done)
 
     # ── Actions ───────────────────────────────────────────────────────────────
     def action_cursor_down(self) -> None:
@@ -454,7 +521,7 @@ class AurGuardApp(App):
         except NoMatches:
             pass
 
-    def action_check_ioc(self) -> None:                       # [SEC-3]
+    def _toggle_ioc_overlay_or_run(self, full: bool) -> None:
         try:
             overlay = self.query_one("#ioc-overlay")
             if overlay.display:
@@ -462,7 +529,22 @@ class AurGuardApp(App):
                 return
         except NoMatches:
             pass
-        self._run_ioc_check()
+        self._run_ioc_check(full)
+
+    def action_check_ioc_quick(self) -> None:
+        self._toggle_ioc_overlay_or_run(False)
+
+    def action_check_ioc_full(self) -> None:                  # [SEC-3]
+        self._toggle_ioc_overlay_or_run(True)
+
+    def action_toggle_all_time(self) -> None:
+        self._ioc_all_time = not self._ioc_all_time
+        self._update_header_counts()
+        mode = "all-time" if self._ioc_all_time else "June 9-12 campaign window"
+        self.notify(f"IoC date mode: {mode}", severity="information", timeout=4)
+
+    def action_refresh_threats(self) -> None:
+        self._refresh_threat_lists()
 
     def action_escape_all(self) -> None:
         for overlay_id in ("#help-overlay", "#ioc-overlay"):

@@ -29,6 +29,7 @@ from typing import Callable
 from urllib import request as _urllib_req
 
 from .icons import OK, FAIL, WARN, INFO
+from .threats import threat_list_sources_for
 
 # ─────────────────────────────────────────────────────────────────────────────
 # DETECTION RULES  (pattern, severity, AG-ID, description)
@@ -423,179 +424,6 @@ def get_installed_aur() -> list[str]:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# IoC COMPROMISE CHECKER  [SEC-3]
-# Checks if the system is already compromised by known AUR malware.
-# ─────────────────────────────────────────────────────────────────────────────
-class IocChecker:
-    """
-    Post-install IoC detection. Checks for signs of existing compromise
-    from the Atomic Arch 2026 campaign and similar AUR attacks.
-    """
-
-    KNOWN_INFECTED_PKGS: frozenset[str] = frozenset([
-        # Core Atomic Arch 2026 packages — confirmed compromised
-        "alvr", "alvr-git", "premake-git", "guiscrcpy", "netmon-git",
-        "inadyn-mt", "nodejs-elm", "keepassx2", "compiz-git",
-        "libquvi-scripts-deps", "netmon-git", "premake-git",
-    ])
-
-    BAD_NPM_PKGS: frozenset[str] = frozenset(BAD_DEPS.keys())
-
-    SUSPICIOUS_BPF_NAMES: frozenset[str] = frozenset([
-        "hidden_pids", "hidden_names", "hidden_inodes",
-    ])
-
-    def check_all(self) -> dict:
-        """Run all IoC checks. Returns dict of findings."""
-        return {
-            "ebpf_artifacts":    self._check_ebpf(),
-            "ld_preload":        self._check_ld_preload(),
-            "npm_cache":         self._check_npm_bun_cache(),
-            "process_hiding":    self._check_process_hiding(),
-            "suspicious_systemd": self._check_systemd(),
-            "installed_infected": self._check_installed_packages(),
-        }
-
-    def _check_ebpf(self) -> list[str]:
-        """Check /sys/fs/bpf for rootkit artifacts."""
-        found = []
-        bpf = Path("/sys/fs/bpf")
-        if not bpf.is_dir():
-            return found
-        for name in self.SUSPICIOUS_BPF_NAMES:
-            if (bpf / name).exists():
-                found.append(f"/sys/fs/bpf/{name}")
-        # Also check via bpftool if available
-        try:
-            r = subprocess.run(
-                ["bpftool", "prog", "list"],
-                capture_output=True, text=True, timeout=10,
-            )
-            for line in r.stdout.splitlines():
-                if re.search(r"atomic|hide|hook|scales", line, re.IGNORECASE):
-                    found.append(f"bpftool:{line.strip()[:80]}")
-        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-            pass
-        return found
-
-    def _check_ld_preload(self) -> list[str]:
-        """Check for LD_PRELOAD injection."""
-        found = []
-        p = Path("/etc/ld.so.preload")
-        if p.exists() and p.stat().st_size > 0:
-            try:
-                found.append(p.read_text().strip()[:120])
-            except Exception:
-                found.append(str(p))
-        return found
-
-    def _check_npm_bun_cache(self) -> list[str]:
-        """Check npm/bun cache for malicious package residue."""
-        found = []
-        for pkg in self.BAD_NPM_PKGS:
-            # npm global list
-            try:
-                r = subprocess.run(
-                    ["npm", "list", "-g", pkg],
-                    capture_output=True, text=True, timeout=15,
-                )
-                if pkg in r.stdout:
-                    found.append(f"npm:{pkg}")
-            except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-                pass
-            # npm cache dir
-            try:
-                r = subprocess.run(
-                    ["npm", "config", "get", "cache"],
-                    capture_output=True, text=True, timeout=10,
-                )
-                cache = Path(r.stdout.strip())
-                if cache.is_dir():
-                    for d in list(cache.rglob(f"*{pkg}*"))[:3]:
-                        if d.is_dir():
-                            found.append(f"npm-cache:{d}")
-            except (FileNotFoundError, subprocess.TimeoutExpired, OSError, PermissionError):
-                pass
-            # bun cache
-            bun_cache = Path.home() / ".bun" / "install" / "cache"
-            if bun_cache.is_dir():
-                try:
-                    for d in list(bun_cache.rglob(f"*{pkg}*"))[:3]:
-                        if d.is_dir():
-                            found.append(f"bun-cache:{d}")
-                except PermissionError:
-                    pass
-        return found
-
-    def _check_process_hiding(self) -> list[str]:
-        """Check for processes in /proc not visible in ps (rootkit indicator)."""
-        found = []
-        proc = Path("/proc")
-        if not proc.is_dir():
-            return found
-        try:
-            ps_r = subprocess.run(["ps", "-e", "-o", "pid="], capture_output=True, text=True, timeout=10)
-            ps_pids = set(ps_r.stdout.split())
-            for pid_dir in proc.iterdir():
-                if not pid_dir.name.isdigit():
-                    continue
-                if not (pid_dir / "status").exists():
-                    continue
-                if pid_dir.name not in ps_pids:
-                    try:
-                        comm = (pid_dir / "comm").read_text().strip()
-                        found.append(f"PID {pid_dir.name} ({comm}) hidden from ps")
-                    except Exception:
-                        found.append(f"PID {pid_dir.name} hidden from ps")
-        except (subprocess.TimeoutExpired, PermissionError, OSError):
-            pass
-        return found[:5]  # cap at 5 to avoid noise
-
-    def _check_systemd(self) -> list[str]:
-        """Check for rootkit-style systemd persistence (Restart=always + RestartSec=30)."""
-        found = []
-        dirs = [
-            Path("/etc/systemd/system"),
-            Path.home() / ".config" / "systemd" / "user",
-        ]
-        for d in dirs:
-            if not d.is_dir():
-                continue
-            try:
-                for svc in d.rglob("*.service"):
-                    if not svc.is_file():
-                        continue
-                    try:
-                        content = svc.read_text(encoding="utf-8", errors="replace")
-                    except OSError:
-                        continue
-                    if "Restart=always" in content and "RestartSec=30" in content:
-                        found.append(str(svc))
-            except PermissionError:
-                continue
-        return found
-
-    def _check_installed_packages(self) -> list[str]:
-        """Check if any known-compromised packages are currently installed."""
-        found = []
-        installed = set(get_installed_aur())
-        for pkg in self.KNOWN_INFECTED_PKGS:
-            if pkg in installed:
-                found.append(pkg)
-        return found
-
-    def has_iocs(self, results: dict) -> bool:
-        return any(bool(v) for v in results.values())
-
-    def severity(self, results: dict) -> str:
-        if results.get("ebpf_artifacts") or results.get("ld_preload") or results.get("process_hiding"):
-            return "CRITICAL"
-        if results.get("installed_infected") or results.get("npm_cache") or results.get("suspicious_systemd"):
-            return "HIGH"
-        return "CLEAN"
-
-
-# ─────────────────────────────────────────────────────────────────────────────
 # INPUT VALIDATION  [DEV-3]
 # ─────────────────────────────────────────────────────────────────────────────
 _PKG_NAME_RE = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9@._+\-]*$')
@@ -627,22 +455,48 @@ def full_scan(pkgname: str, prog: Callable[[str], None] | None = None) -> dict:
         "diff_changed":     0,
         "pkgbuild_changed": False,
         "first_seen":       False,
+        "threat_list_match": False,
+        "threat_list_sources": [],
         "verdict":          "UNKNOWN",
         "scanned_at":       datetime.now().isoformat(timespec="seconds"),
         "error":            None,
     }
 
+    p("Checking local threat lists…")
+    threat_sources = threat_list_sources_for(pkgname)
+    if threat_sources:
+        result["threat_list_match"] = True
+        result["threat_list_sources"] = threat_sources
+        result["score"] = 100
+        result["score_reasons"].append(
+            "Package appears in the local aur-malware-check infected package list"
+        )
+        result["findings"].append({
+            "severity":    "CRITICAL",
+            "ag_id":       "AG-600",
+            "description": "Package is listed as infected/compromised in the local AUR malware threat list",
+            "file":        "aur-malware-check/package_list.txt",
+            "line":        None,
+            "content":     "; ".join(threat_sources)[:120],
+        })
+
     p("Fetching AUR metadata…")
     info = aur_info(pkgname)
     if not info:
         result["error"] = f"'{pkgname}' not found in AUR"
+        result["findings"].sort(key=lambda f: SEV_ORD.get(f["severity"], 9))
+        result["verdict"] = verdict(result["score"], result["findings"])
         return result
     result["info"] = info
 
     p("Scoring reputation…")
     score, reasons = score_pkg(info)
-    result["score"]         = score
-    result["score_reasons"] = reasons
+    if result["threat_list_match"]:
+        result["score"] = max(result["score"], score)
+        result["score_reasons"].extend(reasons)
+    else:
+        result["score"] = score
+        result["score_reasons"] = reasons
 
     # [SEC-7] Flag at-risk accounts in score_reasons
     mnt = (info.get("Maintainer") or "").lower()

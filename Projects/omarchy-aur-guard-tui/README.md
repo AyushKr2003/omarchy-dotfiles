@@ -33,6 +33,15 @@
 - **Dependency Analysis**: Identifies AUR vs official repository dependencies
 - **Maintainer Reputation**: Scans known malicious accounts, orphan detection, account age analysis
 - **Change Detection**: Caches PKGBUILD hashes and warns when packages change between scans
+- **Compromise Checks**: Detects already-installed risk-listed AUR packages, pacman log hits,
+  suspicious systemd persistence, eBPF traces, `/etc/ld.so.preload`, hidden processes,
+  and malicious npm/bun cache residue
+- **Threat Lists**: Loads local copies of `aur-malware-check/package_list.txt` and
+  `malicious_npm_packages.txt` when this dotfiles workspace is present, with
+  `AUR_GUARD_PACKAGE_LIST` / `AUR_GUARD_MALICIOUS_NPM_LIST` overrides
+- **Infected Package Flagging**: Any package added, scanned, or batch-scanned
+  from the TUI is marked CRITICAL when its exact name appears in the infected
+  package list, even if AUR metadata is unavailable
 
 ### Report Generation
 - **JSON**: Machine-readable full data export
@@ -80,6 +89,7 @@ python run.py firefox-nightly -i
 | `a` | Add package (focuses input) |
 | `r` | Rescan current package |
 | `S` | Scan all installed AUR packages |
+| `C` | Run local compromise / IoC check |
 | `d` | Remove package from list |
 | `e` | Export JSON report |
 | `E` | Export HTML report |
