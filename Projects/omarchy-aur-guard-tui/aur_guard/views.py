@@ -31,7 +31,7 @@ from .icons import (
 )
 
 V_COLOR: dict[str, str] = {
-    "CRITICAL": RED, "HIGH": ORG, "MEDIUM": YEL, "CLEAN": GRN, "UNKNOWN": MUT,
+    "CRITICAL": RED, "HIGH": ORG, "MEDIUM": YEL, "CLEAN": GRN, "UNKNOWN": MUT, "ERROR": RED,
 }
 S_COLOR: dict[str, str] = {
     "CRITICAL": RED, "HIGH": ORG, "MEDIUM": YEL, "LOW": CYN,
@@ -60,7 +60,8 @@ class WelcomeView(Widget):
                     classes="wl-body",
                 )
                 yield Static(
-                    f" [bold {ACC}]j / k[/]   navigate        [bold {ACC}]/[/]  search AUR\n"
+                    f" [bold {ACC}]Tab[/]     sidebar/main   [bold {ACC}]j / k[/]  packages\n"
+                    f" [bold {ACC}]h / l[/]   result tabs    [bold {ACC}]Ctrl+J/K[/]  scroll\n"
                     f" [bold {ACC}]a[/]       add package     [bold {ACC}]S[/]  scan installed\n"
                     f" [bold {ACC}]r[/]       rescan          [bold {ACC}]d[/]  remove\n"
                     f" [bold {ACC}]e[/]       export JSON     [bold {ACC}]?[/]  help",
@@ -114,24 +115,34 @@ class ScanView(Widget):
         accent_cls = {
             "CRITICAL": "v-acc-critical", "HIGH": "v-acc-high",
             "MEDIUM":   "v-acc-medium",   "CLEAN": "v-acc-clean",
+            "ERROR":    "v-acc-error",
         }.get(v, "v-acc-unknown")
 
         # Verdict symbol — ASCII safe, always renders
         v_sym = {
             "CRITICAL": "⛔", "HIGH": "⚠ ", "MEDIUM": "◆ ",
-            "CLEAN":    "✓ ", "UNKNOWN": "? ",
+            "CLEAN":    "✓ ", "UNKNOWN": "? ", "ERROR": "! ",
         }.get(v, "? ")
 
         name  = info.get("Name",        r["name"])
         ver   = info.get("Version",     "")
-        mnt   = info.get("Maintainer")  or "ORPHANED"
-        mnt_color = RED if not info.get("Maintainer") else DFG
+        if v == "ERROR":
+            meta_label = "Status"
+            meta_value = r.get("error") or "Scan could not be completed"
+            meta_color = RED
+        else:
+            meta_label = "Maintainer"
+            meta_value = info.get("Maintainer") or "ORPHANED"
+            meta_color = RED if not info.get("Maintainer") else DFG
 
         # [U2] Score bar rendered as a single markup string with number inline
         score = r["score"]
         fill  = max(1, int(score / 5)) if score > 0 else 0
         empty = 20 - fill
         bar_str = f"[{vc}]{'█' * fill}[/][{MUT}]{'░' * empty}[/]  [{BFG}]{score}/100[/]"
+        score_label = "Scan Status" if v == "ERROR" else "Risk Score"
+        if v == "ERROR":
+            bar_str = f"[bold {RED}]Scan failed[/]"
 
         with Container(id="scan-wrap"):
             with Horizontal(id="verdict-banner"):
@@ -148,14 +159,14 @@ class ScanView(Widget):
                             id="v-name-line", markup=True,
                         )
                         yield Static(
-                            f"[{DFG}]Maintainer:[/]  [{mnt_color}]{escape(mnt)}[/]",
+                            f"[{DFG}]{meta_label}:[/]  [{meta_color}]{escape(str(meta_value))}[/]",
                             id="v-maint-line", markup=True,
                         )
                     # Right column: score bar + score label
                     with Vertical(id="v-right"):
                         yield Static(bar_str, id="v-score-line", markup=True)
                         yield Static(
-                            f"[{DFG}]Risk Score[/]",
+                            f"[{DFG}]{score_label}[/]",
                             id="v-score-label", markup=True,
                         )
 
@@ -201,6 +212,16 @@ class ScanView(Widget):
 
         def row(key: str, val: str, color: str = FG) -> None:
             log.write(Text(f"  {key:<20} {val}", style=color))
+
+        if r.get("error"):
+            sec("Scan Error")
+            log.write(Text(f"  {FAIL}  {r['error']}", style=f"bold {RED}"))
+            if not info:
+                log.write(Text("  Check the package name and try again.", style=DFG))
+            else:
+                log.write(Text("  AUR metadata was found, but source retrieval failed.", style=DFG))
+            log.scroll_home(animate=False)
+            return log
 
         # Package metadata
         sec("Package")
@@ -292,6 +313,12 @@ class ScanView(Widget):
     # ── Findings tab ──────────────────────────────────────────────────────────
     def _findings(self) -> Widget:
         findings = self.result["findings"]
+        if self.result.get("error") and not findings:
+            return Static(
+                f"[bold {RED}]{FAIL}  Scan could not be completed.[/]\n\n"
+                f"[{MUT}]{escape(str(self.result.get('error')))}[/]",
+                classes="fi-empty", markup=True,
+            )
         if not findings:
             return Static(
                 f"[bold {GRN}]{CLEAN}  No suspicious patterns found.[/]\n\n"

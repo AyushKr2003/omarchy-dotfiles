@@ -32,6 +32,7 @@ class PkgItem(Widget):
         "MEDIUM":   (MEDIUM,   YEL),
         "CLEAN":    (CLEAN,    GRN),
         "UNKNOWN":  (UNKNOWN,  MUT),
+        "ERROR":    ("!",      RED),
     }
 
     class Selected(Message):

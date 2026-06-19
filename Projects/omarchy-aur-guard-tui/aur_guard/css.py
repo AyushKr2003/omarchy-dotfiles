@@ -14,27 +14,35 @@ Screen {{
     height: 3;
     background: {DBG};
     border-bottom: tall {LBG};
-    padding: 0 3;
+    padding: 0 2;
     padding-top: 1;
     layout: horizontal;
     align: left middle;
 }}
 #app-title      {{ color: {ACC}; text-style: bold; width: auto; margin-right: 2; }}
-#header-divider {{ color: {DFG}; width: auto; margin-right: 2; }}
+#header-divider {{ color: {MUT}; width: auto; margin-right: 2; }}
 #theme-badge    {{ color: {FG};  width: auto; margin-right: 2; }}
-#header-counts  {{ color: {FG};  width: auto; margin-right: 2; }}
-#header-status  {{ color: {DFG}; width: 1fr; text-align: right; padding-right: 2; }}
+#header-counts  {{ color: {DFG}; width: auto; margin-right: 2; }}
+#header-status  {{ color: {MUT}; width: 1fr; text-align: right; padding-right: 1; }}
 
 /* ── Main layout ─────────────────────────────────────────────── */
-#main-layout {{ layout: horizontal; height: 1fr; layer: base; }}
+#main-layout {{
+    layout: horizontal;
+    height: 1fr;
+    layer: base;
+    background: {BG};
+}}
 
 /* ── Sidebar ─────────────────────────────────────────────────── */
 #sidebar {{
-    width: 30;
-    min-width: 24;
+    width: 32;
+    min-width: 28;
     background: {DBG};
     border-right: tall {LBG};
     layout: vertical;
+}}
+#sidebar.nav-focused {{
+    border-right: tall {ACC};
 }}
 #sidebar-title {{
     background: {LBG};
@@ -42,10 +50,15 @@ Screen {{
     text-style: bold;
     padding: 1 2;
     height: 3;
+    border-bottom: tall {LBG};
     content-align: left middle;
 }}
+#sidebar.nav-focused #sidebar-title {{
+    color: {BFG};
+    background: {SEL};
+}}
 #pkg-search {{
-    margin: 1 1 1 1;
+    margin: 1 1 0 1;
     border: tall {SEL};
     background: {BG};
     color: {FG};
@@ -59,17 +72,16 @@ Screen {{
     scrollbar-color: {MUT};
     scrollbar-background: {DBG};
     scrollbar-size-vertical: 1;
-    margin: 0;
+    margin: 1 0 0 0;
     padding: 0;
 }}
 
 /* ── Add package bar ─────────────────────────────────────────── */
 #add-pkg-bar {{
-    height: 5;
+    height: 7;
     background: {DBG};
     border-top: tall {LBG};
     padding: 0 1;
-    margin-bottom: 1;
     layout: horizontal;
     align: left middle;
 }}
@@ -96,21 +108,28 @@ Screen {{
 #btn-add:focus {{ background: {BFG}; border: none; }}
 
 /* ── Content area ────────────────────────────────────────────── */
-#content-area {{ width: 1fr; background: {BG}; height: 1fr; }}
+#content-area {{
+    width: 1fr;
+    height: 1fr;
+    background: {BG};
+}}
+#content-area.nav-focused {{
+    background: {BG};
+}}
 
 /* ── Welcome ─────────────────────────────────────────────────── */
 #welcome-wrap {{
     align: center middle;
     height: 1fr;
     background: {BG};
-    padding: 4;
+    padding: 3 4;
 }}
 #welcome-box {{
-    width: 64;
+    width: 66;
     height: auto;
     background: {DBG};
-    border: round {LBG};
-    padding: 3 5;
+    border-left: tall {ACC};
+    padding: 2 5;
     align: center middle;
 }}
 .wl-icon  {{ color: {ACC};  text-align: center; text-style: bold; margin-bottom: 1; }}
@@ -121,10 +140,10 @@ Screen {{
 /* ── Loading ─────────────────────────────────────────────────── */
 #loading-wrap {{ align: center middle; height: 1fr; background: {BG}; }}
 .loading-box {{
-    width: 50;
-    height: 9;
+    width: 52;
+    height: 8;
     background: {DBG};
-    border: round {ACC};
+    border-left: tall {ACC};
     padding: 2 4;
     align: center middle;
 }}
@@ -136,32 +155,30 @@ LoadingIndicator {{ color: {ACC}; width: 100%; height: 1; }}
 #scan-wrap {{
     height: 1fr;
     layout: vertical;
-    padding: 1 2;
+    padding: 1 2 0 2;
     background: {BG};
 }}
 
 /* ── Verdict banner ──────────────────────────────────────────── */
-/*  Fixed height: 5 (was 7 — too much dead space)                */
 #verdict-banner {{
     height: 5;
     background: {DBG};
-    border: round {LBG};
+    border-bottom: tall {LBG};
     layout: horizontal;
     margin-bottom: 1;
     padding: 0;
 }}
-/* Left accent stripe — colour set by verdict class */
 #v-accent {{
-    width: 4;
+    width: 2;
     height: 100%;
 }}
 #v-accent.v-acc-critical {{ background: {RED}; }}
+#v-accent.v-acc-error    {{ background: {RED}; }}
 #v-accent.v-acc-high     {{ background: {ORG}; }}
 #v-accent.v-acc-medium   {{ background: {YEL}; }}
 #v-accent.v-acc-clean    {{ background: {GRN}; }}
 #v-accent.v-acc-unknown  {{ background: {MUT}; }}
 
-/* Body next to accent stripe */
 #v-body {{
     width: 1fr;
     height: 100%;
@@ -169,7 +186,6 @@ LoadingIndicator {{ color: {ACC}; width: 100%; height: 1; }}
     layout: horizontal;
     align: left middle;
 }}
-/* Left: verdict label + name/version/maintainer stacked */
 #v-left {{
     width: 1fr;
     height: 100%;
@@ -192,7 +208,6 @@ LoadingIndicator {{ color: {ACC}; width: 100%; height: 1; }}
     color: {DFG};
     content-align: left middle;
 }}
-/* Right: score bar + label stacked */
 #v-right {{
     width: 28;
     height: 100%;
@@ -214,16 +229,19 @@ LoadingIndicator {{ color: {ACC}; width: 100%; height: 1; }}
 /* ── Tabs ────────────────────────────────────────────────────── */
 #scan-tabs {{ height: 1fr; }}
 TabbedContent > Tabs {{
-    background: {DBG};
+    background: {BG};
     border-bottom: tall {LBG};
-    padding: 0 1;
+    padding: 0;
     height: 3;
+}}
+#content-area.nav-focused TabbedContent > Tabs {{
+    border-bottom: tall {ACC};
 }}
 Tab {{
     color: {DFG};
-    background: {DBG};
+    background: {BG};
     padding: 0 3;
-    min-width: 16;
+    min-width: 14;
     content-align: center middle;
 }}
 Tab:hover {{
@@ -232,8 +250,11 @@ Tab:hover {{
 }}
 Tab.-active {{
     color: {BFG};
-    background: {BG};
+    background: {SEL};
     text-style: bold;
+}}
+#content-area.nav-focused Tab.-active {{
+    color: {ACC};
 }}
 TabPane {{
     padding: 0;
@@ -244,23 +265,30 @@ TabPane {{
 /* ── Log / viewer panes ──────────────────────────────────────── */
 .ov-log, .fi-log, .pb-log, .df-log {{
     height: 1fr;
-    background: {DKR};
-    border: round {LBG};
+    background: {BG};
+    border-left: tall {LBG};
     padding: 0 1;
     scrollbar-color: {MUT};
     scrollbar-background: {DBG};
     scrollbar-size-vertical: 1;
 }}
-.ov-log {{ background: {BG}; }}
-.fi-log {{ background: {BG}; }}
+#content-area.nav-focused .ov-log,
+#content-area.nav-focused .fi-log,
+#content-area.nav-focused .pb-log,
+#content-area.nav-focused .df-log {{
+    border-left: tall {ACC};
+}}
 
 .fi-empty {{
     align: center middle;
     height: 1fr;
     background: {BG};
-    border: round {LBG};
+    border-left: tall {LBG};
     padding: 3;
     content-align: center middle;
+}}
+#content-area.nav-focused .fi-empty {{
+    border-left: tall {ACC};
 }}
 
 /* ── Footer ──────────────────────────────────────────────────── */
@@ -306,7 +334,7 @@ Footer > .footer--description {{ color: {DFG}; }}
 }}
 #batch-box {{
     width: 56;
-    height: 13;
+    height: 12;
     background: {DBG};
     border: round {ACC};
     padding: 2 4;
@@ -339,7 +367,6 @@ ProgressBar Bar {{ color: {ACC}; background: {LBG}; }}
 .help-row   {{ color: {FG};  text-align: left; height: 1; }}
 .help-hint  {{ color: {MUT}; text-align: center; margin-top: 1; }}
 
-
 /* ── IoC Compromise Check overlay ───────────────────────────── */
 #ioc-overlay {{
     layer: overlay;
@@ -361,8 +388,8 @@ ProgressBar Bar {{ color: {ACC}; background: {LBG}; }}
 #ioc-status {{ color: {YEL};  text-align: center; margin-bottom: 1; height: 1; }}
 #ioc-log    {{
     height: 1fr;
-    background: {DKR};
-    border: round {LBG};
+    background: {BG};
+    border-left: tall {LBG};
     padding: 0 1;
     scrollbar-color: {MUT};
     scrollbar-background: {DBG};

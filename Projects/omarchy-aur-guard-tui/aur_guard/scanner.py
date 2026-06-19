@@ -483,9 +483,9 @@ def full_scan(pkgname: str, prog: Callable[[str], None] | None = None) -> dict:
     p("Fetching AUR metadata…")
     info = aur_info(pkgname)
     if not info:
-        result["error"] = f"'{pkgname}' not found in AUR"
+        result["error"] = f"'{pkgname}' was not found in the AUR"
         result["findings"].sort(key=lambda f: SEV_ORD.get(f["severity"], 9))
-        result["verdict"] = verdict(result["score"], result["findings"])
+        result["verdict"] = "ERROR"
         return result
     result["info"] = info
 
@@ -513,6 +513,12 @@ def full_scan(pkgname: str, prog: Callable[[str], None] | None = None) -> dict:
     p("Fetching PKGBUILD…")
     pb = fetch_pkgbuild(pkgname)
     result["pkgbuild"] = pb
+
+    if not pb:
+        result["error"] = "PKGBUILD could not be fetched for this package"
+        result["findings"].sort(key=lambda f: SEV_ORD.get(f["severity"], 9))
+        result["verdict"] = "ERROR"
+        return result
 
     if pb:
         p("Analyzing PKGBUILD…")

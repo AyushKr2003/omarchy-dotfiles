@@ -83,8 +83,11 @@ python run.py firefox-nightly -i
 
 | Key | Action |
 |-----|--------|
-| `j` / `k` | Navigate package list |
-| `g` / `G` | Jump to top / bottom |
+| `Tab` | Toggle focus between sidebar and main screen |
+| `j` / `k` | Navigate package list when sidebar is focused |
+| `g` / `G` | Jump to top / bottom when sidebar is focused |
+| `h` / `l` | Navigate result tabs when main screen is focused |
+| `Ctrl+J` / `Ctrl+K` | Scroll active result tab content when main screen is focused |
 | `/` | Filter/search packages |
 | `a` | Add package (focuses input) |
 | `r` | Rescan current package |
@@ -93,7 +96,7 @@ python run.py firefox-nightly -i
 | `d` | Remove package from list |
 | `e` | Export JSON report |
 | `E` | Export HTML report |
-| `Ctrl+H` | Toggle help overlay |
+| `?` | Toggle help overlay |
 | `Esc` | Dismiss overlays / unfocus |
 | `q` / `Ctrl+C` | Quit |
 

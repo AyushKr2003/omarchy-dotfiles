@@ -24,7 +24,7 @@ from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical, ScrollableContainer
 from textual.css.query import NoMatches
 from textual.widget import Widget
-from textual.widgets import Button, Footer, Input, ProgressBar, RichLog, Static
+from textual.widgets import Button, Footer, Input, ProgressBar, RichLog, Static, TabbedContent, TabPane
 from textual import events, work
 
 from .theme import T, DBG, ACC, DFG, MUT, RED, ORG, YEL, GRN, CYN, FG, BFG
@@ -54,6 +54,9 @@ class AurGuardApp(App):
         Binding("k",        "cursor_up",      "↑ up",      show=True),
         Binding("g",        "cursor_top",     "g top",     show=False),
         Binding("G",        "cursor_bottom",  "G bottom",  show=False),   # [DEV-1]
+        Binding("tab",      "toggle_focus_region", "Tab pane", show=True, priority=True),
+        Binding("h",        "previous_tab",    "h prev",    show=True),
+        Binding("l",        "next_tab",        "l next",    show=True),
         # Tab content scroll
         Binding("ctrl+j",   "scroll_down",    "",          show=False),   # [DEV-6]
         Binding("ctrl+k",   "scroll_up",      "",          show=False),   # [DEV-6]
@@ -92,6 +95,7 @@ class AurGuardApp(App):
         self._too_small:  bool            = False
         self._list_items: list[PkgItem]   = []
         self._ioc_all_time: bool          = False
+        self._focus_region: str           = "sidebar"
 
     # ── Compose ───────────────────────────────────────────────────────────────
     def compose(self) -> ComposeResult:
@@ -155,6 +159,7 @@ class AurGuardApp(App):
         if self._packages:
             self._sync_list()
             self._select(0)
+        self._set_focus_region("sidebar")
         self.set_timer(0.1, lambda: self.screen.set_focus(None))
 
     # ── Help ──────────────────────────────────────────────────────────────────
@@ -162,6 +167,8 @@ class AurGuardApp(App):
         pairs = [
             ("j / k",         "Navigate package list"),
             ("g / G",         "Jump to top / bottom"),
+            ("Tab",           "Toggle sidebar / content focus"),
+            ("h / l",         "Previous / next result tab"),
             ("Ctrl+J / Ctrl+K", "Scroll content up/down"),
             ("/",             "Focus search bar"),
             ("a",             "Add package by name"),
@@ -266,6 +273,56 @@ class AurGuardApp(App):
         lv = LoadingView(pkgname=pkg)
         self._set_content(lv)
         return lv
+
+    # ── Focus regions ────────────────────────────────────────────────────────
+    def _set_focus_region(self, region: str) -> None:
+        self._focus_region = region
+        for selector, active in (
+            ("#sidebar", region == "sidebar"),
+            ("#content-area", region == "content"),
+        ):
+            try:
+                widget = self.query_one(selector)
+                widget.set_class(active, "nav-focused")
+            except NoMatches:
+                pass
+        try:
+            label = "Sidebar" if region == "sidebar" else "Main"
+            self.query_one("#header-status", Static).update(f"Focus: {label}")
+        except NoMatches:
+            pass
+
+    def _active_tabbed_content(self) -> TabbedContent | None:
+        try:
+            return self.query_one("#scan-tabs", TabbedContent)
+        except NoMatches:
+            return None
+
+    def _active_tab_log(self) -> RichLog | None:
+        tabbed = self._active_tabbed_content()
+        if tabbed is None or not tabbed.active:
+            return None
+        try:
+            pane = self.query_one(f"#{tabbed.active}", TabPane)
+        except NoMatches:
+            return None
+        for log in pane.query(RichLog):
+            if log.display:
+                return log
+        return None
+
+    def _move_result_tab(self, delta: int) -> None:
+        if self._focus_region != "content":
+            return
+        tabbed = self._active_tabbed_content()
+        if tabbed is None:
+            return
+        panes = [pane for pane in tabbed.query(TabPane) if pane.id]
+        if not panes:
+            return
+        active = tabbed.active
+        current = next((i for i, pane in enumerate(panes) if pane.id == active), 0)
+        tabbed.active = panes[(current + delta) % len(panes)].id
 
     # ── Workers ───────────────────────────────────────────────────────────────
     @work(thread=True)
@@ -477,41 +534,58 @@ class AurGuardApp(App):
 
     # ── Actions ───────────────────────────────────────────────────────────────
     def action_cursor_down(self) -> None:
+        if self._focus_region != "sidebar":
+            return
         self._select(self._sel + 1)
 
     def action_cursor_up(self) -> None:
+        if self._focus_region != "sidebar":
+            return
         self._select(self._sel - 1)
 
     def action_cursor_top(self) -> None:                      # [DEV-1]
+        if self._focus_region != "sidebar":
+            return
         self._select(0)
 
     def action_cursor_bottom(self) -> None:                   # [DEV-1]
+        if self._focus_region != "sidebar":
+            return
         self._select(len(self._packages) - 1)
+
+    def action_toggle_focus_region(self) -> None:
+        if self.screen.focused is not None:
+            self.screen.set_focus(None)
+        self._set_focus_region("content" if self._focus_region == "sidebar" else "sidebar")
+
+    def action_previous_tab(self) -> None:
+        self._move_result_tab(-1)
+
+    def action_next_tab(self) -> None:
+        self._move_result_tab(1)
 
     def action_scroll_down(self) -> None:                     # [DEV-6]
         """Scroll active RichLog content down."""
-        try:
-            for log in self.query("RichLog"):
-                if log.display:
-                    log.scroll_down(animate=False)
-                    break
-        except Exception:
-            pass
+        if self._focus_region != "content":
+            return
+        log = self._active_tab_log()
+        if log is not None:
+            log.scroll_down(animate=False)
 
     def action_scroll_up(self) -> None:                       # [DEV-6]
         """Scroll active RichLog content up."""
-        try:
-            for log in self.query("RichLog"):
-                if log.display:
-                    log.scroll_up(animate=False)
-                    break
-        except Exception:
-            pass
+        if self._focus_region != "content":
+            return
+        log = self._active_tab_log()
+        if log is not None:
+            log.scroll_up(animate=False)
 
     def action_focus_search(self) -> None:
+        self._set_focus_region("sidebar")
         self.query_one("#pkg-search", Input).focus()
 
     def action_focus_add(self) -> None:
+        self._set_focus_region("sidebar")
         self.query_one("#add-pkg-input", Input).focus()
 
     def action_toggle_help(self) -> None:
