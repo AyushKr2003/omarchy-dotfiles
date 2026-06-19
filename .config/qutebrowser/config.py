@@ -478,6 +478,9 @@ c.fonts.tooltip             = f'{_FONT_SIZE} {_FONT_FAMILY}'
 
 # ── Normal mode ───────────────────────────────────────────────────────────────
 
+# Drops focus from the video player and returns it to the page
+config.bind('<Ctrl-e>', 'jseval -q document.activeElement.blur()')
+
 # Hints — restore defaults explicitly so they are never shadowed
 config.bind('f',  'hint links')
 config.bind('F',  'hint links tab')
