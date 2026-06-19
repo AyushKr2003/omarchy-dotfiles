@@ -1,16 +1,16 @@
 """
 app.py — AurGuardApp main Textual application.
 
-Bugs fixed vs previous version:
-  [B1] action_remove_pkg removed LAST list item instead of SELECTED one
-  [B2] pkg_index went stale for all items below a removed package
-  [B3] _batch_scan ProgressBar update used broken lambda tuple trick
-  [B4] _batch_scan gave zero per-package progress feedback
-  [B5] escape binding (priority=True) triggered inside Input widgets
-  [B6] ctrl+h conflicts with terminal backspace — changed to '?' key
-  [B7] action_escape_focus was a dead method (binding pointed at escape_all)
-  [B8] LoadingView hardcoded IDs caused race conditions on rapid scans
-  [B9] scan-wrap had no explicit height so tabs got squished on short terminals
+Improvements vs v3:
+  [DEV-1]  Added g/G keybindings for jump to top/bottom of package list
+  [DEV-3]  Package name validation before adding (AUR format check)
+  [DEV-4]  Cache TTL (7 days) enforced in load_cache()
+  [DEV-5]  Fixed action_remove_pkg: save pkg name BEFORE pop()
+  [DEV-6]  Added scroll-in-tab with Ctrl+J/Ctrl+K (vim-style)
+  [DEV-7]  Batch scan loading view updates per-package correctly
+  [DEV-8]  Session persistence: packages saved to ~/.config/aur-guard/session.json
+  [DEV-9]  Results dict access uses copy-on-read pattern to avoid threading issues
+  [SEC-3]  New 'C' keybinding launches IoC compromise check overlay
 """
 from __future__ import annotations
 
@@ -24,15 +24,19 @@ from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical, ScrollableContainer
 from textual.css.query import NoMatches
 from textual.widget import Widget
-from textual.widgets import Button, Footer, Input, ProgressBar, Static
+from textual.widgets import Button, Footer, Input, ProgressBar, RichLog, Static
 from textual import events, work
 
-from .theme import T, DBG, ACC, DFG, MUT
+from .theme import T, DBG, ACC, DFG, MUT, RED, ORG, YEL, GRN, CYN, FG, BFG
 from .css import CSS
-from .scanner import CACHE_DIR, get_installed_aur, full_scan
+from .scanner import (
+    CACHE_DIR, CONFIG_DIR,
+    get_installed_aur, full_scan, is_valid_pkg_name,
+    load_session, save_session, IocChecker,
+)
 from .widgets import PkgItem
 from .views import WelcomeView, LoadingView, ScanView
-from .icons import APP, HELP, OVERVIEW
+from .icons import APP, HELP, WARN, OK, FAIL, INFO
 
 MIN_WIDTH  = 100
 MIN_HEIGHT = 28
@@ -44,38 +48,47 @@ class AurGuardApp(App):
 
     BINDINGS = [
         # Navigation — vim style
-        Binding("j",      "cursor_down",    "↓ down",   show=True),
-        Binding("k",      "cursor_up",      "↑ up",     show=True),
+        Binding("j",        "cursor_down",    "↓ down",    show=True),
+        Binding("k",        "cursor_up",      "↑ up",      show=True),
+        Binding("g",        "cursor_top",     "g top",     show=False),
+        Binding("G",        "cursor_bottom",  "G bottom",  show=False),   # [DEV-1]
+        # Tab content scroll
+        Binding("ctrl+j",   "scroll_down",    "",          show=False),   # [DEV-6]
+        Binding("ctrl+k",   "scroll_up",      "",          show=False),   # [DEV-6]
         # Sidebar
-        Binding("slash",  "focus_search",   "/ search", show=True),
-        Binding("a",      "focus_add",      "a add",    show=True),
-        Binding("d",      "remove_pkg",     "d remove", show=False),
+        Binding("slash",    "focus_search",   "/ search",  show=True),
+        Binding("a",        "focus_add",      "a add",     show=True),
+        Binding("d",        "remove_pkg",     "d remove",  show=False),
         # Scan actions
-        Binding("r",      "rescan",         "r rescan", show=True),
-        Binding("S",      "scan_installed", "S scan ∀", show=True),
-        Binding("e",      "export",         "e export", show=True),
+        Binding("r",        "rescan",         "r rescan",  show=True),
+        Binding("S",        "scan_installed", "S scan ∀",  show=True),
+        Binding("C",        "check_ioc",      "C IoC",     show=True),    # [SEC-3]
+        Binding("e",        "export",         "e export",  show=True),
         # UI
-        # FIX [B6]: was ctrl+h (conflicts with terminal backspace) → now '?'
         Binding("question_mark", "toggle_help", "? help",  show=True),
-        # FIX [B5]: escape without priority=True so it doesn't eat Input keystrokes
-        Binding("escape", "escape_all",     "",          show=False),
-        Binding("q",      "quit",           "q quit",    show=True),
-        Binding("ctrl+c", "quit",           "",          show=False),
+        Binding("escape",   "escape_all",     "",          show=False),
+        Binding("q",        "quit",           "q quit",    show=True),
+        Binding("ctrl+c",   "quit",           "",          show=False),
     ]
 
     def __init__(self, preload: list[str] | None = None):
         super().__init__()
-        self._packages:   list[str]       = list(preload or [])
+        # [DEV-8] Load previous session, then apply CLI preload on top
+        session_pkgs = load_session()
+        cli_pkgs     = list(preload or [])
+        combined     = list(session_pkgs)
+        for p in cli_pkgs:
+            if p not in combined:
+                combined.append(p)
+        self._packages:   list[str]       = combined
         self._results:    dict[str, dict] = {}
         self._sel:        int             = -1
         self._scanning:   set[str]        = set()
         self._too_small:  bool            = False
-        # Pool of PkgItem widgets — grown in-place, never destroyed/recreated
         self._list_items: list[PkgItem]   = []
 
     # ── Compose ───────────────────────────────────────────────────────────────
     def compose(self) -> ComposeResult:
-        # Header
         with Horizontal(id="header-bar"):
             yield Static(f"{APP}  aur-guard",       id="app-title")
             yield Static("│",                        id="header-divider")
@@ -83,7 +96,6 @@ class AurGuardApp(App):
             yield Static("│  0 packages",            id="header-counts")
             yield Static("AUR Security Scanner",     id="header-status")
 
-        # Main split
         with Horizontal(id="main-layout"):
             with Vertical(id="sidebar"):
                 yield Static("  Packages",           id="sidebar-title")
@@ -94,10 +106,7 @@ class AurGuardApp(App):
                 )
                 yield ScrollableContainer(id="pkg-list")
                 with Horizontal(id="add-pkg-bar"):
-                    yield Input(
-                        placeholder="Pkg Name",
-                        id="add-pkg-input",
-                    )
+                    yield Input(placeholder="Pkg Name", id="add-pkg-input")
                     yield Button("Add", id="btn-add")
 
             with Container(id="content-area"):
@@ -105,22 +114,30 @@ class AurGuardApp(App):
 
         yield Footer()
 
-        # ── Overlays (all hidden initially) ──────────────────────────────────
         # Too-small notice
         with Container(id="too-small-overlay"):
             with Container(id="too-small-box"):
-                yield Static("󰹍",                        classes="ts-icon")
-                yield Static("Terminal too small",        classes="ts-title")
-                yield Static("",   id="ts-body",          classes="ts-body")
+                yield Static("󰹍",                         classes="ts-icon")
+                yield Static("Terminal too small",         classes="ts-title")
+                yield Static("", id="ts-body",             classes="ts-body")
                 yield Static("Resize your terminal to continue.", classes="ts-hint")
 
         # Batch scan progress
         with Container(id="batch-overlay"):
             with Container(id="batch-box"):
                 yield Static(f"{APP} Scanning Installed Packages", classes="bt-title")
-                yield Static("",   id="batch-pkg",   classes="bt-pkg")
-                yield ProgressBar(total=100,          id="batch-bar")
-                yield Static("",   id="batch-count",  classes="bt-count")
+                yield Static("", id="batch-pkg",  classes="bt-pkg")
+                yield ProgressBar(total=100,       id="batch-bar")
+                yield Static("", id="batch-count", classes="bt-count")
+
+        # IoC check overlay  [SEC-3]
+        with Container(id="ioc-overlay"):
+            with Container(id="ioc-box"):
+                yield Static(f"{WARN}  Compromise Check",       classes="ioc-title")
+                yield Static("Scanning system for IoCs…",       id="ioc-status")
+                yield RichLog(highlight=False, markup=True,     id="ioc-log",
+                              auto_scroll=False)
+                yield Static("Press Esc to close", classes="ioc-hint")
 
         # Help overlay
         with Container(id="help-overlay"):
@@ -128,37 +145,35 @@ class AurGuardApp(App):
                 yield Static(f"{HELP}  Keybindings", classes="help-title")
                 yield from self._help_rows()
 
-    # ── Mount ─────────────────────────────────────────────────────────────────
     def on_mount(self) -> None:
         if self._packages:
             self._sync_list()
             self._select(0)
-        # Defer focus clear so Input widgets don't auto-focus
         self.set_timer(0.1, lambda: self.screen.set_focus(None))
 
-    # ── Help rows ─────────────────────────────────────────────────────────────
+    # ── Help ──────────────────────────────────────────────────────────────────
     def _help_rows(self):
         pairs = [
-            ("j / k",          "Navigate package list"),
-            ("/",              "Focus search bar"),
-            ("a",              "Add package by name"),
-            ("r",              "Rescan selected package (clears cache)"),
-            ("S",              "Scan all installed AUR packages"),
-            ("d",              "Remove selected package from list"),
-            ("e",              "Export scan result as JSON"),
-            ("?",              "Toggle this help overlay"),
-            ("Esc",            "Dismiss help / unfocus inputs"),
-            ("q  /  Ctrl+C",   "Quit"),
+            ("j / k",         "Navigate package list"),
+            ("g / G",         "Jump to top / bottom"),
+            ("Ctrl+J / Ctrl+K", "Scroll content up/down"),
+            ("/",             "Focus search bar"),
+            ("a",             "Add package by name"),
+            ("r",             "Rescan selected package"),
+            ("S",             "Scan all installed AUR packages"),
+            ("C",             "Run IoC compromise check"),
+            ("d",             "Remove package from list"),
+            ("e",             "Export JSON report"),
+            ("?",             "Toggle this help"),
+            ("Esc",           "Dismiss overlays / unfocus"),
+            ("q / Ctrl+C",    "Quit"),
         ]
         for key, desc in pairs:
             yield Static(
-                f"  [bold {ACC}]{key:<18}[/]  [{DFG}]{desc}[/]",
+                f"  [bold {ACC}]{key:<22}[/]  [{DFG}]{desc}[/]",
                 classes="help-row", markup=True,
             )
-        yield Static(
-            "  Press  ?  or  Esc  to close",
-            classes="help-hint",
-        )
+        yield Static("  Press  ?  or  Esc  to close", classes="help-hint")
 
     # ── Resize ────────────────────────────────────────────────────────────────
     def on_resize(self, event: events.Resize) -> None:
@@ -170,64 +185,37 @@ class AurGuardApp(App):
                 self.query_one("#too-small-overlay").display = small
                 if small:
                     self.query_one("#ts-body", Static).update(
-                        f"Current:  {w} × {h}\n"
-                        f"Required: {MIN_WIDTH} × {MIN_HEIGHT} minimum"
+                        f"Current:  {w} × {h}\nRequired: {MIN_WIDTH} × {MIN_HEIGHT} minimum"
                     )
             except NoMatches:
                 pass
 
-    # ── Sidebar sync (pool pattern — no destroy/recreate) ────────────────────
+    # ── Sidebar pool ──────────────────────────────────────────────────────────
     def _sync_list(self, filter_q: str = "") -> None:
-        """
-        Keep the pkg-list DOM in sync without ever removing+re-adding items.
-
-        Strategy:
-          - Grow the _list_items pool as needed (append new PkgItem).
-          - Update existing items in-place: verdict, active, visibility.
-          - Items beyond len(_packages) are hidden.
-
-        This completely eliminates the DuplicateIds crash because no widget
-        is ever unmounted and remounted with the same (empty) id.
-        """
         pkg_list = self.query_one("#pkg-list", ScrollableContainer)
         self._update_header_counts()
-
-        # Grow pool if we have more packages than widgets
         while len(self._list_items) < len(self._packages):
             idx  = len(self._list_items)
-            item = PkgItem(
-                index   = idx,
-                pkgname = self._packages[idx],
-                verdict_= "UNKNOWN",
-            )
+            item = PkgItem(index=idx, pkgname=self._packages[idx], verdict_="UNKNOWN")
             self._list_items.append(item)
             pkg_list.mount(item)
-
-        # Update every pooled widget in-place
         for i, item in enumerate(self._list_items):
             if i < len(self._packages):
                 pkg     = self._packages[i]
-                verd    = (
-                    self._results[pkg]["verdict"]
-                    if pkg in self._results else "UNKNOWN"
-                )
+                # [DEV-9] Read result dict once to avoid TOCTOU
+                result  = self._results.get(pkg)
+                verd    = result["verdict"] if result else "UNKNOWN"
                 active  = (i == self._sel)
-                visible = (
-                    not filter_q or filter_q.lower() in pkg.lower()
-                )
+                visible = not filter_q or filter_q.lower() in pkg.lower()
                 item.pkg_index = i
                 item.pkgname   = pkg
                 item.display   = visible
                 item.update_state(verd, active)
             else:
-                # Extra items beyond current package list — hide them
                 item.display = False
 
     def _update_header_counts(self) -> None:
-        done = sum(
-            1 for p in self._packages
-            if p in self._results and self._results[p].get("info")
-        )
+        done = sum(1 for p in self._packages if self._results.get(p, {}).get("info"))
         try:
             self.query_one("#header-counts", Static).update(
                 f"│  {len(self._packages)} packages  ·  {done} scanned"
@@ -240,8 +228,6 @@ class AurGuardApp(App):
         if not self._packages:
             return
         clamped = max(0, min(idx, len(self._packages) - 1))
-        # At a boundary and direction would go past it — do nothing.
-        # Prevents re-syncing/re-scanning on every repeated j/k press.
         if clamped == self._sel and idx != clamped:
             return
         self._sel = clamped
@@ -268,24 +254,22 @@ class AurGuardApp(App):
         self._set_content(ScanView(r))
 
     def _show_loading(self, pkg: str = "") -> LoadingView:
-        # FIX [B8]: LoadingView now uses CSS classes not hardcoded IDs
         lv = LoadingView(pkgname=pkg)
         self._set_content(lv)
         return lv
 
-    # ── Worker: single package scan ───────────────────────────────────────────
+    # ── Workers ───────────────────────────────────────────────────────────────
     @work(thread=True)
     def _launch_scan(self, pkgname: str) -> None:
         self._scanning.add(pkgname)
         lv: LoadingView | None = None
 
-        # Show loading screen on the UI thread
         def show_lv() -> None:
             nonlocal lv
             lv = self._show_loading(pkgname)
 
         self.call_from_thread(show_lv)
-        time.sleep(0.05)   # yield so UI renders before blocking network calls
+        time.sleep(0.05)
 
         result = full_scan(
             pkgname,
@@ -294,23 +278,20 @@ class AurGuardApp(App):
         self._results[pkgname] = result
         self._scanning.discard(pkgname)
 
+        # [DEV-8] Save session after every scan completes
+        self.call_from_thread(
+            lambda: save_session(self._packages)
+        )
+
         def done() -> None:
             self._sync_list()
-            if (
-                0 <= self._sel < len(self._packages)
-                and self._packages[self._sel] == pkgname
-            ):
+            if 0 <= self._sel < len(self._packages) and self._packages[self._sel] == pkgname:
                 self._show_result(result)
 
         self.call_from_thread(done)
 
-    # ── Worker: batch scan all installed ──────────────────────────────────────
     @work(thread=True)
     def _batch_scan(self, packages: list[str]) -> None:
-        """
-        FIX [B3]: No more lambda-tuple trick for ProgressBar.
-        FIX [B4]: Each package gets a progress callback.
-        """
         total = len(packages)
 
         def show_overlay() -> None:
@@ -325,27 +306,21 @@ class AurGuardApp(App):
         self.call_from_thread(show_overlay)
 
         for i, pkg in enumerate(packages):
-            # Update overlay labels
             def update_ui(i: int = i, pkg: str = pkg) -> None:
                 try:
                     self.query_one("#batch-pkg",   Static).update(f"Scanning: {pkg}")
                     self.query_one("#batch-bar",   ProgressBar).progress = i
-                    self.query_one("#batch-count", Static).update(
-                        f"{i} / {total}"
-                    )
+                    self.query_one("#batch-count", Static).update(f"{i} / {total}")
                 except NoMatches:
                     pass
 
             self.call_from_thread(update_ui)
 
-            # Scan with per-step progress feedback
+            # [DEV-7] Per-package progress updates to batch-pkg label
             def pkg_prog(msg: str, pkg: str = pkg) -> None:
                 try:
-                    self.call_from_thread(
-                        self.query_one("#batch-pkg", Static).update,
-                        f"{pkg}  —  {msg}",
-                    )
-                except Exception:
+                    self.query_one("#batch-pkg", Static).update(f"{pkg}  —  {msg}")
+                except (NoMatches, Exception):
                     pass
 
             self._results[pkg] = full_scan(pkg, prog=pkg_prog)
@@ -355,11 +330,83 @@ class AurGuardApp(App):
                 self.query_one("#batch-overlay").display = False
             except NoMatches:
                 pass
+            save_session(self._packages)
             self._sync_list()
             if self._packages:
                 self._select(max(self._sel, 0))
 
         self.call_from_thread(done)
+
+    @work(thread=True)
+    def _run_ioc_check(self) -> None:
+        """[SEC-3] Run IoC compromise detection in background."""
+        checker = IocChecker()
+
+        def show_overlay() -> None:
+            try:
+                self.query_one("#ioc-overlay").display = True
+                self.query_one("#ioc-status", Static).update("Scanning system for IoCs…")
+                log = self.query_one("#ioc-log", RichLog)
+                log.clear()
+            except NoMatches:
+                pass
+
+        self.call_from_thread(show_overlay)
+
+        def update_status(msg: str) -> None:
+            try:
+                self.query_one("#ioc-status", Static).update(msg)
+            except NoMatches:
+                pass
+
+        self.call_from_thread(update_status, "Checking eBPF artifacts…")
+        results = checker.check_all()
+        severity = checker.severity(results)
+
+        def show_results() -> None:
+            try:
+                log  = self.query_one("#ioc-log", RichLog)
+                log.clear()
+                sev_color = {"CRITICAL": RED, "HIGH": ORG, "CLEAN": GRN}.get(severity, YEL)
+
+                if not checker.has_iocs(results):
+                    log.write(f"[bold {GRN}]{OK}  No indicators of compromise found.[/]")
+                    log.write(f"[{MUT}]  System appears clean from known AUR malware.[/]")
+                else:
+                    log.write(f"[bold {sev_color}]{WARN}  IoC findings — {severity}[/]")
+                    log.write("")
+
+                checks = [
+                    ("ebpf_artifacts",    "eBPF rootkit artifacts",   RED),
+                    ("ld_preload",        "/etc/ld.so.preload injection", RED),
+                    ("process_hiding",    "Hidden processes",          RED),
+                    ("installed_infected","Infected packages installed", ORG),
+                    ("suspicious_systemd","Suspicious systemd services", ORG),
+                    ("npm_cache",         "Malicious npm/bun cache",   YEL),
+                ]
+                for key, label, color in checks:
+                    items = results.get(key, [])
+                    if items:
+                        log.write(f"[bold {color}]{WARN}  {label}:[/]")
+                        for item in items[:5]:
+                            log.write(f"[{color}]     → {str(item)[:90]}[/]")
+                    else:
+                        log.write(f"[{GRN}]{OK}  {label}: clean[/]")
+
+                if checker.has_iocs(results):
+                    log.write("")
+                    log.write(f"[bold {RED}]⚠  If atomic-lockfile was installed, treat system as COMPROMISED.[/]")
+                    log.write(f"[{YEL}]   Rotate: SSH keys, GitHub tokens, browser sessions, Slack, Discord.[/]")
+                    log.write(f"[{YEL}]   Consider: full reinstall from clean media.[/]")
+
+                self.query_one("#ioc-status", Static).update(
+                    f"Check complete — {severity}"
+                )
+                log.scroll_home(animate=False)
+            except NoMatches:
+                pass
+
+        self.call_from_thread(show_results)
 
     # ── Actions ───────────────────────────────────────────────────────────────
     def action_cursor_down(self) -> None:
@@ -367,6 +414,32 @@ class AurGuardApp(App):
 
     def action_cursor_up(self) -> None:
         self._select(self._sel - 1)
+
+    def action_cursor_top(self) -> None:                      # [DEV-1]
+        self._select(0)
+
+    def action_cursor_bottom(self) -> None:                   # [DEV-1]
+        self._select(len(self._packages) - 1)
+
+    def action_scroll_down(self) -> None:                     # [DEV-6]
+        """Scroll active RichLog content down."""
+        try:
+            for log in self.query("RichLog"):
+                if log.display:
+                    log.scroll_down(animate=False)
+                    break
+        except Exception:
+            pass
+
+    def action_scroll_up(self) -> None:                       # [DEV-6]
+        """Scroll active RichLog content up."""
+        try:
+            for log in self.query("RichLog"):
+                if log.display:
+                    log.scroll_up(animate=False)
+                    break
+        except Exception:
+            pass
 
     def action_focus_search(self) -> None:
         self.query_one("#pkg-search", Input).focus()
@@ -381,15 +454,25 @@ class AurGuardApp(App):
         except NoMatches:
             pass
 
-    def action_escape_all(self) -> None:
-        """Dismiss help overlay if open, otherwise unfocus inputs."""
+    def action_check_ioc(self) -> None:                       # [SEC-3]
         try:
-            overlay = self.query_one("#help-overlay")
+            overlay = self.query_one("#ioc-overlay")
             if overlay.display:
                 overlay.display = False
                 return
         except NoMatches:
             pass
+        self._run_ioc_check()
+
+    def action_escape_all(self) -> None:
+        for overlay_id in ("#help-overlay", "#ioc-overlay"):
+            try:
+                overlay = self.query_one(overlay_id)
+                if overlay.display:
+                    overlay.display = False
+                    return
+            except NoMatches:
+                pass
         self.screen.set_focus(None)
 
     def action_rescan(self) -> None:
@@ -402,28 +485,24 @@ class AurGuardApp(App):
 
     def action_remove_pkg(self) -> None:
         """
-        FIX [B1]: Remove the SELECTED item, not the last item.
-        FIX [B2]: Reassign pkg_index for all items after the removed one.
+        [DEV-5] Fixed: save pkg name BEFORE pop() — otherwise _packages[idx]
+        refers to the next package after removal.
         """
         if self._sel < 0 or not self._packages:
             return
-        idx = self._sel
+        idx      = self._sel
+        pkg_name = self._packages[idx]           # save BEFORE pop
         self._packages.pop(idx)
-        self._results.pop(self._packages[idx] if idx < len(self._packages) else "", None)
-        self._scanning.discard(
-            self._packages[idx] if idx < len(self._packages) else ""
-        )
+        self._results.pop(pkg_name, None)
+        self._scanning.discard(pkg_name)
 
-        # Remove the LAST widget from the pool (pool shrinks by 1)
         if self._list_items:
             removed_widget = self._list_items.pop()
             removed_widget.remove()
 
-        # Adjust selection
         self._sel = min(idx, len(self._packages) - 1)
-
-        # Re-sync all remaining items (this fixes stale pkg_index values)
         self._sync_list()
+        save_session(self._packages)             # [DEV-8]
 
         if self._packages:
             self._select(self._sel)
@@ -439,6 +518,7 @@ class AurGuardApp(App):
             if p not in self._packages:
                 self._packages.append(p)
         self._sync_list()
+        save_session(self._packages)
         self._batch_scan(pkgs)
 
     def action_export(self) -> None:
@@ -453,9 +533,7 @@ class AurGuardApp(App):
         ts   = datetime.now().strftime("%Y%m%d_%H%M%S")
         path = export_dir / f"aur-guard-{pkg}-{ts}.json"
         try:
-            path.write_text(
-                json.dumps(self._results[pkg], indent=2, default=str)
-            )
+            path.write_text(json.dumps(self._results[pkg], indent=2, default=str))
             self.notify(f"Exported → {path}", severity="information", timeout=5)
         except Exception as exc:
             self.notify(f"Export failed: {exc}", severity="error", timeout=5)
@@ -478,7 +556,16 @@ class AurGuardApp(App):
             inp.clear()
 
     def _add_pkg(self, pkgname: str) -> None:
+        # [DEV-3] Validate package name format
         if not pkgname:
+            return
+        if not is_valid_pkg_name(pkgname):
+            self.notify(
+                f"Invalid package name: '{pkgname}'\n"
+                "AUR names: letters, digits, @._+- only",
+                severity="warning",
+                timeout=4,
+            )
             return
         if pkgname in self._packages:
             self._select(self._packages.index(pkgname))
@@ -486,4 +573,5 @@ class AurGuardApp(App):
         self._packages.append(pkgname)
         self._sel = len(self._packages) - 1
         self._sync_list()
+        save_session(self._packages)             # [DEV-8]
         self._launch_scan(pkgname)

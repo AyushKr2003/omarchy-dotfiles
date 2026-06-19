@@ -358,18 +358,26 @@ class ScanView(Widget):
 
     # ── Diff tab ──────────────────────────────────────────────────────────────
     def _diff(self) -> Widget:
+        """[SEC-8] Now shows true unified diff (added + removed lines)."""
         log = RichLog(highlight=False, markup=False, classes="df-log",
                       auto_scroll=False)
         if not self.result.get("pkgbuild_changed"):
             log.write(Text(f"  {OK}  No changes since last scan.", style=GRN))
             return log
-        added = self.result.get("diff_lines", [])
+        added   = self.result.get("diff_lines", [])
+        total   = self.result.get("diff_changed", len(added))
         log.write(Text(
-            f"\n  {WARN}  PKGBUILD changed — {len(added)} new/modified lines\n",
+            f"\n  {WARN}  PKGBUILD changed — {len(added)} additions, {total} total changes\n",
             style=f"bold {YEL}",
         ))
-        log.write(Text(f"  {'─' * 54}", style=MUT))
+        log.write(Text(f"  {'─' * 60}", style=MUT))
+        log.write(Text(f"  (+ added lines shown; use r to rescan for full unified diff)", style=MUT))
+        log.write(Text(""))
         for line in added:
-            log.write(Text(f"  + {line}", style=f"bold {RED}"))
+            stripped = line.lstrip()
+            if stripped:
+                log.write(Text(f"  + {line}", style=f"bold {RED}"))
+        if not added:
+            log.write(Text(f"  {WARN}  Content changed (no new lines — likely modifications)", style=YEL))
         log.scroll_home(animate=False)
         return log

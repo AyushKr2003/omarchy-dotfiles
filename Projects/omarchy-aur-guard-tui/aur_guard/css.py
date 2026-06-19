@@ -339,6 +339,38 @@ ProgressBar Bar {{ color: {ACC}; background: {LBG}; }}
 .help-row   {{ color: {FG};  text-align: left; height: 1; }}
 .help-hint  {{ color: {MUT}; text-align: center; margin-top: 1; }}
 
+
+/* ── IoC Compromise Check overlay ───────────────────────────── */
+#ioc-overlay {{
+    layer: overlay;
+    align: center middle;
+    background: {DKR}cc;
+    width: 100%;
+    height: 100%;
+    display: none;
+}}
+#ioc-box {{
+    width: 72;
+    height: 26;
+    background: {DBG};
+    border: round {RED};
+    padding: 1 3;
+    layout: vertical;
+}}
+.ioc-title  {{ color: {RED};  text-style: bold; text-align: center; margin-bottom: 1; height: 1; }}
+#ioc-status {{ color: {YEL};  text-align: center; margin-bottom: 1; height: 1; }}
+#ioc-log    {{
+    height: 1fr;
+    background: {DKR};
+    border: round {LBG};
+    padding: 0 1;
+    scrollbar-color: {MUT};
+    scrollbar-background: {DBG};
+    scrollbar-size-vertical: 1;
+    margin-bottom: 1;
+}}
+.ioc-hint   {{ color: {MUT};  text-align: center; height: 1; }}
+
 /* ── Toast notifications ─────────────────────────────────────── */
 Toast {{ background: {DBG}; color: {FG}; border: round {ACC}; }}
 """
