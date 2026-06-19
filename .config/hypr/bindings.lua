@@ -1,6 +1,6 @@
 -- Application bindings.
-o.bind("SUPER + RETURN", "Terminal", { omarchy = "terminal" })
-o.bind("SUPER + ALT + RETURN", "Tmux", { omarchy = "terminal-tmux" })
+-- o.bind("SUPER + RETURN", "Terminal", { omarchy = "terminal" })
+-- o.bind("SUPER + ALT + RETURN", "Tmux", { omarchy = "terminal-tmux" })
 o.bind("SUPER + SHIFT + RETURN", "Browser", { omarchy = "browser" })
 o.bind("SUPER + SHIFT + F", "File manager", { omarchy = "nautilus" })
 o.bind("SUPER + ALT + SHIFT + F", "File manager (cwd)", { omarchy = "nautilus-cwd" })
@@ -114,6 +114,10 @@ o.bind("SUPER + CTRL + RIGHT", "Next workspace", hl.dsp.focus({ workspace = "e+1
 o.bind("SUPER + CTRL + LEFT", "Previous workspace", hl.dsp.focus({ workspace = "e-1" }))
 
 -- ── Applications ─────────────────────────────────────────────────────────
+
+-- Default Browser
+hl.unbind("SUPER + W")
+o.bind("SUPER + W", "Browser", "omarchy-launch-browser")
 
 -- QuteBrowser — GUI app, needs uwsm-app
 hl.unbind("SUPER + B")
