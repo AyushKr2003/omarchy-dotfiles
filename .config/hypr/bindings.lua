@@ -62,6 +62,9 @@ o.bind("SUPER + SHIFT + ALT + X", "X Post", { webapp = "https://x.com/compose/po
 
 -- ── Terminals & editors ───────────────────────────────────────────────────
 
+-- Full system info
+o.bind("SUPER + PAUSE", "float" ,hl.dsp.exec_cmd("foot fish -c full_sys", { float = true, size= "1120 680" }))
+
 -- Floating terminal — xdg-terminal-exec is a GUI app, needs uwsm-app
 hl.unbind("SUPER + SHIFT + RETURN")
 o.bind(
