@@ -164,9 +164,6 @@ o.bind("SUPER + TAB", "Overview", "omarchy-shell shell toggle local.overview")
 hl.unbind("SUPER + I")
 o.bind("SUPER + I", "Quickshell Settings", "omarchy-shell shell summon local.settings")
 
-hl.unbind("SUPER + SHIFT + T")
-o.bind("SUPER + SHIFT + T", "Screen Translator", "omarchy-shell shell summon local.screenTranslator")
-
 -- Terminal app launcher — xdg-terminal-exec is a GUI app, needs uwsm-app
 hl.unbind("SUPER + CTRL + L")
 o.bind(

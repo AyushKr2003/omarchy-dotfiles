@@ -69,7 +69,8 @@
       "id": "local.settings"
     },
     {
-      "id": "local.overview"
+      "id": "local.overview",
+      "showSpecialWorkspaces": false
     },
     {
       "id": "local.screenTranslator"
