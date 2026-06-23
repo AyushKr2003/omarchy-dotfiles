@@ -61,6 +61,7 @@ PACMAN_PACKAGES=(
   qutebrowser     # keyboard-driven browser
   python-adblock  # adblock backend for qutebrowser
   ydotool         # uinput-based input automation (keyboard-driven cursor)
+  superfile       # GUI like file manager in termianl
   # Add more pacman packages here as you grow this repo.
 )
 
