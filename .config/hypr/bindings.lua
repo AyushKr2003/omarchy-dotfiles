@@ -1,6 +1,6 @@
 -- Application bindings.
--- o.bind("SUPER + RETURN", "Terminal", { omarchy = "terminal" })
--- o.bind("SUPER + ALT + RETURN", "Tmux", { omarchy = "terminal-tmux" })
+o.bind("SUPER + RETURN", "Terminal", { omarchy = "terminal" })
+o.bind("SUPER + ALT + RETURN", "Tmux", { omarchy = "terminal-tmux" })
 o.bind("SUPER + SHIFT + RETURN", "Browser", { omarchy = "browser" })
 o.bind("SUPER + SHIFT + F", "File manager", { omarchy = "nautilus" })
 o.bind("SUPER + ALT + SHIFT + F", "File manager (cwd)", { omarchy = "nautilus-cwd" })
@@ -152,10 +152,6 @@ o.bind(
 hl.unbind("SUPER + SHIFT + W")
 o.bind("SUPER + SHIFT + W", "WhatsApp", { webapp = "https://web.whatsapp.com/", focus = true })
 
--- Signal — omarchy-launch-signal handles uwsm-app internally
-hl.unbind("SUPER + SHIFT + G")
-o.bind("SUPER + SHIFT + G", "Signal", { omarchy = "signal" })
-
 -- ── Shell plugins & menus ─────────────────────────────────────────────────
 
 hl.unbind("SUPER + TAB")
@@ -196,6 +192,47 @@ o.bind(
 	"~/.config/omarchy/plugins/orbit/scripts/orbit-release.sh",
 	{ locked = true, release = true }
 )
+
+
+
+
+
+-- Keyboard-driven cursor (ydotool)
+o.bind("SUPER + CTRL + ALT + M", "Enter keyboard cursor mode", function()
+  hl.exec_cmd("notify-send -a 'cursor-mode' -u low -t 0 'Cursor Mode' 'Keyboard mouse control: ON'")
+  hl.dispatch(hl.dsp.submap("cursor"))
+end)
+
+hl.define_submap("cursor", function()
+  -- Continuous movement while held
+  o.bind("H", "Cursor left",  "ydotool mousemove -- -15 0", { repeating = true })
+  o.bind("J", "Cursor down",  "ydotool mousemove -- 0 15",  { repeating = true })
+  o.bind("K", "Cursor up",    "ydotool mousemove -- 0 -15", { repeating = true })
+  o.bind("L", "Cursor right", "ydotool mousemove -- 15 0",  { repeating = true })
+
+  -- Clicks (0xC0 = left, 0xC1 = right, 0xC2 = middle)
+  o.bind("S", "Left click",   "ydotool click 0xC0")
+  o.bind("D", "Middle click", "ydotool click 0xC2")
+  o.bind("F", "Right click",  "ydotool click 0xC1")
+
+  -- Scroll
+  o.bind("E", "Scroll up",   "ydotool mousemove -w -x 0 -y -10", { repeating = true })
+  o.bind("R", "Scroll down", "ydotool mousemove -w -x 0 -y 10",  { repeating = true })
+
+  -- Exit back to normal Hyprland binds
+  o.bind("ESCAPE", "Exit cursor mode", function()
+    hl.exec_cmd("makoctl dismiss -a 'cursor-mode'")
+    hl.dispatch(hl.dsp.submap("reset"))
+  end)
+end)
+
+
+
+
+
+
+
+
 
 -- ── Window rules ─────────────────────────────────────────────────────────
 
