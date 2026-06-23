@@ -85,6 +85,22 @@ else
 fi
 
 # ════════════════════════════════════════════════════════════════════════
+# SECTION: browser — install Chrome, set as default, drop Chromium
+# ════════════════════════════════════════════════════════════════════════
+# omarchy-install-browser pulls google-chrome from the AUR and wires up
+# its policy dir / chromium-flags. omarchy-default-browser then points
+# xdg-settings + xdg-mime at it. Finally we remove Chromium, which Omarchy
+# ships by default, since Chrome replaces it here.
+
+gum style --foreground 2 "==> Installing and setting Chrome as default browser"
+
+omarchy-install-browser chrome
+omarchy-default-browser chrome
+
+echo "    Removing chromium (replaced by Chrome)"
+omarchy-pkg-drop chromium
+
+# ════════════════════════════════════════════════════════════════════════
 # SECTION: input group + uinput (required for ydotool)
 # ════════════════════════════════════════════════════════════════════════
 # Mirrors Omarchy's own install/config/input-group.sh pattern exactly.
@@ -210,4 +226,4 @@ fi
 # ════════════════════════════════════════════════════════════════════════
 
 echo ""
-gum style --foreground 2 --bold "All done. Some changes (install, input group) need a logout/reboot to fully apply."
+gum style --foreground 2 --bold "All done. Some changes (shell, input group) need a logout/reboot to fully apply."
