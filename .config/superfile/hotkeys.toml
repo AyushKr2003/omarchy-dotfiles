@@ -19,7 +19,7 @@
 #-- Basic Actions
 confirm = ['enter', 'l']
 quit = ['ctrl+c', ''] # a.k.a. "theprimeagen troller"
-cd_quit = ['Q', '']
+cd_quit = ['Q', 'esc']
 
 #-- Navigation
 list_up = ['k', '']
