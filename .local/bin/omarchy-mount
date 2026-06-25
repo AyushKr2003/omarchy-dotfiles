@@ -26,7 +26,7 @@ while IFS= read -r line; do
     21686148-6449-6e6f-744e-656564454649) continue ;; # BIOS boot
   esac
 
-  # Skip partitions that are already mounted (mountpoint is not empty)
+  # Skip partitions that are already mounted
   mountpoint=$(lsblk -no MOUNTPOINT "$name" 2>/dev/null | tr -d ' ')
   [[ -n "$mountpoint" ]] && continue
 
@@ -49,25 +49,40 @@ if [[ ${#unmounted[@]} -eq 0 ]]; then
   exit 0
 fi
 
-# Show picker
-selected=$(printf '%s\n' "${labels[@]}" | gum choose --header "Select partition to mount") || exit 1
-device=$(echo "$selected" | awk '{print $1}')
+# Multi-select with Tab, confirm with Enter
+selected=$(printf '%s\n' "${labels[@]}" | gum choose --no-limit --header "Select partitions to mount (Tab to select, Enter to confirm)") || exit 1
 
-gum style --foreground 3 "Mounting $device..."
+# Mount each selected partition
+failed=()
+mounted=()
 
-# gio mount — exact same call Nautilus makes internally
-if gio mount -d "$device"; then
-  mountpoint=$(lsblk -no MOUNTPOINT "$device" 2>/dev/null)
+while IFS= read -r item; do
+  [[ -z "$item" ]] && continue
+  device=$(echo "$item" | awk '{print $1}')
+
+  gum style --foreground 3 "Mounting $device..."
+
+  if gio mount -d "$device"; then
+    mp=$(lsblk -no MOUNTPOINT "$device" 2>/dev/null)
+    mounted+=("$device → $mp")
+  else
+    failed+=("$device")
+  fi
+done <<< "$selected"
+
+# Summary
+if [[ ${#mounted[@]} -gt 0 ]]; then
   gum style \
     --border normal \
     --padding "0 1" \
     --foreground 2 \
-    "Mounted at $mountpoint"
-else
+    "Mounted:" "${mounted[@]}"
+fi
+
+if [[ ${#failed[@]} -gt 0 ]]; then
   gum style \
     --border normal \
     --padding "0 1" \
     --foreground 1 \
-    "Failed to mount $device"
-  exit 1
+    "Failed:" "${failed[@]}"
 fi
