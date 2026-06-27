@@ -1,17 +1,28 @@
 # omarchy-dotfiles
 
-This is my custom Omarchy dotfiles setup for personal use.
+My personal dotfiles, tools, and shell plugins on top of [Omarchy](https://github.com/basecamp/omarchy).
 
-## Structure
+## Install
 
-- `.config/` - my own overrides and additions for the Omarchy system
-- `.local/` - my own local files, helpers, and custom additions
-- `Projects/` - my developed tools and plugins used in Omarchy shell or terminal tools
-- `Legacy/` - my developed tools and plugins not used anymore just keep for the reference
+```bash
+git clone https://github.com/AyushKr2003/omarchy-dotfiles.git ~/omarchy-dotfiles
+cd ~/omarchy-dotfiles
+./install.sh
+```
 
-## Projects
+## What's included
 
-- `omarchy-shell-plugins/` - development folder for custom Omarchy shell plugins and panels 
-- `omarchy-tui-apps/` - development folder for custom Omarchy TUIs
+**Shell plugins** (`Projects/omarchy-shell-plugins/`) — custom Omarchy bar widgets:
+- `local.clock` — clock with calendar popup
+- `local.sysstat` — compact system stats
+- `local.weather` — weather pill with detail popup
+- `local.overview` — workspace overview with live previews
+- `local.settings` — settings UI for shell and plugins
 
-This repo is meant for my own machine, so the layout is intentionally simple.
+**Other projects:**
+- `omarchy-aur-guard-tui/` — TUI security scanner for AUR packages
+- `omarchy-tui-apps/` — terminal app launcher built with Go + Bubbletea
+- `omarchy-menu-nvim-keybindings/` — searchable Vim/LazyVim keybinding reference
+- `omarchy-menu-qute-keybinds/` — searchable Qutebrowser keybinding reference
+- `orbit/` — radial menu plugin (see [`orbit/README.md`](orbit/README.md))
+- `fastfetch-config/` — theme-aware fastfetch setup
