@@ -65,12 +65,19 @@ o.bind("SUPER + SHIFT + ALT + X", "X Post", { webapp = "https://x.com/compose/po
 -- Full system info
 o.bind("SUPER + PAUSE", "float" ,hl.dsp.exec_cmd("xdg-terminal-exec fish -c full_sys", { float = true, size= "1120 680" }))
 
+hl.unbind("SUPER + RETURN")
+o.bind("SUPER  + RETURN", "Tmux", o.launch("omarchy-launch-terminal bash -c 'tmux attach -t Work || tmux new -s Work'"))
+
+hl.unbind("SUPER + ALT + RETURN")
+o.bind("SUPER + ALT + RETURN", "Terminal", { omarchy = "terminal" })
+
 -- Floating terminal — xdg-terminal-exec is a GUI app, needs uwsm-app
 hl.unbind("SUPER + SHIFT + RETURN")
 o.bind(
 	"SUPER + SHIFT + RETURN",
-	"Floating Terminal",
-	o.launch("xdg-terminal-exec --app-id=org.omarchy.terminal --title=Omarchy -e fish")
+	"Floating Tmux",
+  hl.dsp.exec_cmd("omarchy-launch-terminal bash -c 'tmux attach -t Float || tmux new -s Float'", {float=true, size="875 600"}) --875 600
+	-- o.launch("xdg-terminal-exec --app-id=org.omarchy.terminal --title=Omarchy -e fish")
 )
 
 -- Editor → VS Code
@@ -145,8 +152,10 @@ hl.unbind("SUPER + SHIFT + E")
 o.bind(
 	"SUPER + SHIFT + E",
 	"Superfile",
-	o.launch("xdg-terminal-exec --app-id=org.omarchy.terminal --title=Omarchy -c spf")
+	o.launch("xdg-terminal-exec --app-id=TUI.float -e spf")
 )
+
+
 
 -- WhatsApp
 hl.unbind("SUPER + SHIFT + W")
@@ -212,8 +221,8 @@ hl.define_submap("cursor", function()
   o.bind("F", "Right click",  "ydotool click 0xC1")
 
   -- Scroll
-  o.bind("E", "Scroll up",   "ydotool mousemove -w -x 0 -y -10", { repeating = true })
-  o.bind("R", "Scroll down", "ydotool mousemove -w -x 0 -y 10",  { repeating = true })
+  o.bind("E", "Scroll up",   "ydotool mousemove -w -x 0 -y -5", { repeating = true })
+  o.bind("R", "Scroll down", "ydotool mousemove -w -x 0 -y 5",  { repeating = true })
 
   -- Exit back to normal Hyprland binds
   o.bind("ESCAPE", "Exit cursor mode", function()
