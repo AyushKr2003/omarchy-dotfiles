@@ -104,9 +104,11 @@ omarchy-pkg-drop chromium
 # ════════════════════════════════════════════════════════════════════════
 # SECTION: terminal — install kitty, set as default, drop foot
 # ════════════════════════════════════════════════════════════════════════
-# omarchy-install-terminal install kitty with pacman and copy the kitty.desktop
-# in local application folder and update the xdg-terminals.list. 
-# omarchy-default-terminal set the kitty in top in the xdg-terminals.list
+# omarchy-install-terminal installs kitty via pacman (official repo) and
+# already points xdg-terminals.list at it; omarchy-default-terminal does
+# the same thing again explicitly (harmless, matches the browser pattern
+# above). foot is Omarchy's shipped default terminal, removed here since
+# kitty replaces it.
 
 gum style --foreground 2 "==> Installing and setting kitty as default terminal"
 
