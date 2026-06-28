@@ -102,6 +102,21 @@ echo "    Removing chromium (replaced by Chrome)"
 omarchy-pkg-drop chromium
 
 # ════════════════════════════════════════════════════════════════════════
+# SECTION: terminal — install kitty, set as default, drop foot
+# ════════════════════════════════════════════════════════════════════════
+# omarchy-install-terminal install kitty with pacman and copy the kitty.desktop
+# in local application folder and update the xdg-terminals.list. 
+# omarchy-default-terminal set the kitty in top in the xdg-terminals.list
+
+gum style --foreground 2 "==> Installing and setting kitty as default terminal"
+
+omarchy-install-terminal kitty
+omarchy-default-terminal kitty
+
+echo "    Removing foot (replaced by kitty)"
+omarchy-pkg-drop foot
+
+# ════════════════════════════════════════════════════════════════════════
 # SECTION: input group + uinput (required for ydotool)
 # ════════════════════════════════════════════════════════════════════════
 # Mirrors Omarchy's own install/config/input-group.sh pattern exactly.
