@@ -119,6 +119,13 @@ echo "    Removing foot (replaced by kitty)"
 omarchy-pkg-drop foot
 
 # ════════════════════════════════════════════════════════════════════════
+# SECTION: drop preinstall package
+# ════════════════════════════════════════════════════════════════════════
+# Remove some preinstall package from default install
+
+omarchy-pkg-drop 1password-beta 1password-cli
+
+# ════════════════════════════════════════════════════════════════════════
 # SECTION: input group + uinput (required for ydotool)
 # ════════════════════════════════════════════════════════════════════════
 # Mirrors Omarchy's own install/config/input-group.sh pattern exactly.
