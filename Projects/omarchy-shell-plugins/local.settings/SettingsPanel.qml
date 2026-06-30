@@ -797,6 +797,7 @@ Item {
   property bool folderPickerVisible: false
   property string folderCurrentPath: root.home
   property var folderDirs: []
+  property bool folderShowHidden: false
 
   function folderPickerUp() {
     var path = String(root.folderCurrentPath)
@@ -828,7 +829,7 @@ Item {
     if (folderListProcess.running) return
     var path = String(root.folderCurrentPath)
     folderListProcess.command = ["bash", "-c",
-      "find " + Util.shellQuote(path) + " -maxdepth 1 -mindepth 1 -type d ! -name '.*' | sort"]
+      "find " + Util.shellQuote(path) + " -maxdepth 1 -mindepth 1 -type d " + (root.folderShowHidden ? "" : "! -name '.*' ") + "| sort"]
     folderListProcess.running = true
   }
 
@@ -1448,6 +1449,17 @@ Item {
               fontFamily: root.fontFamily
               focusable: true
               onClicked: root.folderPickerUp()
+            }
+
+            Button {
+              text: root.folderShowHidden ? "\u2605" : "\u2606"
+              foreground: root.foreground
+              fontFamily: root.fontFamily
+              focusable: true
+              onClicked: {
+                root.folderShowHidden = !root.folderShowHidden
+                root.refreshFolderDirs()
+              }
             }
           }
 
