@@ -26,11 +26,11 @@ cd ~/omarchy-dotfiles
 - `local.weather` — weather pill with detail popup
 - `local.overview` — workspace overview with live previews
 - `local.settings` — settings UI for shell and plugins
+- `local.orbit` — radial menu plugins
 
 **Other projects:**
 - `omarchy-aur-guard-tui/` — TUI security scanner for AUR packages
 - `omarchy-tui-apps/` — terminal app launcher built with Go + Bubbletea
 - `omarchy-menu-nvim-keybindings/` — searchable Vim/LazyVim keybinding reference
 - `omarchy-menu-qute-keybinds/` — searchable Qutebrowser keybinding reference
-- `orbit/` — radial menu plugin (see [`orbit/README.md`](orbit/README.md))
-- `fastfetch-config/` — theme-aware fastfetch setup
+- `typetui` — typing coding practice like monkeytype 
