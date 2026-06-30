@@ -78,4 +78,4 @@ else
   payload+="}"
 fi
 
-omarchy-shell shell summon orbit "$payload"
+omarchy-shell shell summon local.orbit "$payload"

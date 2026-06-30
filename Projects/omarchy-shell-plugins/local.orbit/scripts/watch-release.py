@@ -71,7 +71,7 @@ def main() -> int:
                     for event in device.read():
                         if event.type == ecodes.EV_KEY and event.code == args.button and event.value == 0:
                             subprocess.run(
-                                ["omarchy-shell", "shell", "call", "orbit", "release", ""],
+                                ["omarchy-shell", "shell", "call", "local.orbit", "release", ""],
                                 stdout=subprocess.DEVNULL,
                                 stderr=subprocess.DEVNULL,
                                 check=False,

@@ -174,7 +174,7 @@ hl.unbind("SUPER + CTRL + L")
 o.bind(
 	"SUPER + CTRL + L",
 	"Terminal launcher",
-	o.launch("xdg-terminal-exec --app-id=org.omarchy.terminal --title=Omarchy -e fish -c 'a -a'")
+	o.launch("xdg-terminal-exec --app-id=TUI.float -e fish -c 'a -a'")
 )
 
 -- ── Keybinding menus ──────────────────────────────────────────────────────
@@ -192,13 +192,13 @@ o.bind("SUPER + Next", "Brightness down", "omarchy-brightness-display 5%-", { lo
 o.bind(
 	"mouse:276",
 	"Orbit press",
-	"~/.config/omarchy/plugins/orbit/scripts/orbit-press.sh --button 276",
+	"~/.config/omarchy/plugins/local.orbit/scripts/orbit-press.sh --button 276",
 	{ locked = true }
 )
 o.bind(
 	"mouse:276",
 	"Orbit release fallback",
-	"~/.config/omarchy/plugins/orbit/scripts/orbit-release.sh",
+	"~/.config/omarchy/plugins/local.orbit/scripts/orbit-release.sh",
 	{ locked = true, release = true }
 )
 

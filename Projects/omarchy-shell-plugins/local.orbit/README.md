@@ -1,24 +1,11 @@
-# Orbit
+# Local Orbit
 
 Orbit is an Omarchy shell overlay plugin for cursor-centered radial menus. It opens a ring at the cursor, highlights the slice you move toward, and can activate that slice when you release the bound mouse button.
 
 ## Install
 
-Add this repository as a trusted Omarchy plugin source once:
-
 ```bash
-omarchy plugin source add https://github.com/thinkoodle/omarchy-shell-plugins
-```
-
-Then add and enable Orbit:
-
-```bash
-omarchy plugin add orbit --enable
-```
-
-If it does not appear immediately, reload the shell:
-
-```bash
+omarchy plugin add local.orbit --enable
 omarchy restart shell
 ```
 
@@ -31,7 +18,7 @@ omarchy restart shell
 ## Try it
 
 ```bash
-~/.config/omarchy/plugins/orbit/scripts/orbit-press.sh
+~/.config/omarchy/plugins/local.orbit/scripts/orbit-press.sh
 ```
 
 Move toward a slice and click it, or press `Esc` to close.
@@ -41,7 +28,7 @@ Move toward a slice and click it, or press `Esc` to close.
 First sniff the button code:
 
 ```bash
-~/.config/omarchy/plugins/orbit/scripts/sniff-button.sh
+~/.config/omarchy/plugins/local.orbit/scripts/sniff-button.sh
 ```
 
 For a Logitech back/thumb button this is usually `mouse:275` (`BTN_SIDE`), but sniff it because Logitech devices can expose extra buttons differently.
@@ -49,12 +36,8 @@ For a Logitech back/thumb button this is usually `mouse:275` (`BTN_SIDE`), but s
 Add the binding to `~/.config/hypr/bindings.lua`:
 
 ```lua
--- Orbit radial launcher on mouse button.
--- Pass the button number to orbit-press.sh so it can watch evdev for release.
-o.bind("mouse:275", "Orbit press", "~/.config/omarchy/plugins/orbit/scripts/orbit-press.sh --button 275", { locked = true })
-
--- Fallback for compositors/devices where mouse release binds fire normally.
-o.bind("mouse:275", "Orbit release fallback", "~/.config/omarchy/plugins/orbit/scripts/orbit-release.sh", { locked = true, release = true })
+o.bind("mouse:275", "Orbit press", "~/.config/omarchy/plugins/local.orbit/scripts/orbit-press.sh --button 275", { locked = true })
+o.bind("mouse:275", "Orbit release fallback", "~/.config/omarchy/plugins/local.orbit/scripts/orbit-release.sh", { locked = true, release = true })
 ```
 
 Then validate/reload Hyprland:
@@ -68,7 +51,7 @@ If your sniffed token is not `mouse:275`, replace both occurrences.
 
 ## Configure rings
 
-Orbit reads `~/.config/omarchy/orbit.json`. If the file does not exist, it uses the built-in default rings.
+Orbit reads `~/.config/omarchy/local.orbit.json`. If the file does not exist, it uses the built-in default rings.
 
 The bundled default/example includes:
 
@@ -79,7 +62,7 @@ The bundled default/example includes:
 Start from the example:
 
 ```bash
-cp ~/.config/omarchy/plugins/orbit/config.example.json ~/.config/omarchy/orbit.json
+cp ~/.config/omarchy/plugins/local.orbit/config.example.json ~/.config/omarchy/local.orbit.json
 ```
 
 Minimal shape:
@@ -122,9 +105,9 @@ The file is watched, so edits apply without restarting the shell.
 ## IPC
 
 ```bash
-omarchy-shell shell summon orbit '{"mode":"click"}'
-omarchy-shell shell call orbit release ""
-omarchy-shell orbit state
+omarchy-shell shell summon local.orbit '{"mode":"click"}'
+omarchy-shell shell call local.orbit release ""
+omarchy-shell local.orbit state
 ```
 
 `orbit-press.sh` passes cursor coordinates from `hyprctl cursorpos` so the ring appears under the pointer.

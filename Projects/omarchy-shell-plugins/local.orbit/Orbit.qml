@@ -172,10 +172,10 @@ Item {
   property var config: defaultConfig
 
   readonly property string configPath: {
-    var custom = String(Quickshell.env("OMARCHY_ORBIT_CONFIG") || "").trim()
-    return custom !== "" ? expandPath(custom) : expandPath("~/.config/omarchy/orbit.json")
+    var custom = String(Quickshell.env("OMARCHY_LOCAL_ORBIT_CONFIG") || "").trim()
+    return custom !== "" ? expandPath(custom) : expandPath("~/.config/omarchy/local.orbit.json")
   }
-  readonly property string pluginId: manifest && manifest.id ? String(manifest.id) : "orbit"
+  readonly property string pluginId: manifest && manifest.id ? String(manifest.id) : "local.orbit"
   readonly property var actions: {
     var rev = configRevision
     return normalizedActionsForRing(ringId)
@@ -522,7 +522,7 @@ Item {
   }
 
   IpcHandler {
-    target: "orbit"
+    target: "local.orbit"
     function open(payloadJson: string): string { root.open(payloadJson); return "ok" }
     function close(): string { root.dismiss(); return "ok" }
     function toggle(payloadJson: string): string { root.toggle(payloadJson); return "ok" }
@@ -540,7 +540,7 @@ Item {
     onHeightChanged: root.applyPendingCenter()
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
-    WlrLayershell.namespace: "omarchy-orbit"
+    WlrLayershell.namespace: "local.orbit"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: root.opened ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
