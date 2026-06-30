@@ -39,7 +39,7 @@
         {
           "label": "Back",
           "icon": "",
-          "command": "hyprctl dispatch sendshortcut ALT,LEFT,activewindow"
+          "command": "hyprctl dispatch 'hl.dsp.send_shortcut({ mods = \"ALT\", key = \"LEFT\" })'"
         },
         {
           "label": "Emoji",
@@ -61,37 +61,37 @@
         {
           "label": "Float",
           "icon": "󰖯",
-          "command": "hyprctl dispatch togglefloating"
+          "command": "hyprctl dispatch 'hl.dsp.window.float()'"
         },
         {
           "label": "Fullscreen",
           "icon": "󰊓",
-          "command": "hyprctl dispatch fullscreen"
+          "command": "hyprctl dispatch 'hl.dsp.window.fullscreen()'"
         },
         {
           "label": "Close",
           "icon": "",
-          "command": "hyprctl dispatch killactive"
+          "command": "hyprctl dispatch 'hl.dsp.window.close()'"
         },
         {
           "label": "Scratchpad",
           "icon": "󰏖",
-          "command": "hyprctl dispatch togglespecialworkspace scratchpad"
+          "command": "hyprctl dispatch 'hl.dsp.workspace.toggle_special(\"scratchpad\")'"
         },
         {
           "label": "To Scratch",
           "icon": "󰘕",
-          "command": "hyprctl dispatch movetoworkspacesilent special:scratchpad"
+          "command": "hyprctl dispatch 'hl.dsp.window.move({ workspace = \"special:scratchpad\", follow = false })'"
         },
         {
           "label": "Prev WS",
           "icon": "",
-          "command": "hyprctl dispatch workspace e-1"
+          "command": "hyprctl dispatch 'hl.dsp.focus({ workspace = \"e-1\" })'"
         },
         {
           "label": "Next WS",
           "icon": "",
-          "command": "hyprctl dispatch workspace e+1"
+          "command": "hyprctl dispatch 'hl.dsp.focus({ workspace = \"e+1\" })'"
         }
       ]
     },

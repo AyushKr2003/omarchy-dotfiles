@@ -18,6 +18,8 @@ Item {
   property real pendingCenterX: -1
   property real pendingCenterY: -1
   property bool centerPending: false
+  property real lastMouseX: -1
+  property real lastMouseY: -1
   property int configRevision: 0
 
   property var defaultConfig: ({
@@ -61,7 +63,7 @@ Item {
           {
             "label": "Back",
             "icon": "",
-            "command": "hyprctl dispatch sendshortcut ALT,LEFT,activewindow"
+            "command": "hyprctl dispatch 'hl.dsp.send_shortcut({ mods = \"ALT\", key = \"LEFT\" })'"
           },
           {
             "label": "Emoji",
@@ -83,37 +85,37 @@ Item {
           {
             "label": "Float",
             "icon": "󰖯",
-            "command": "hyprctl dispatch togglefloating"
+            "command": "hyprctl dispatch 'hl.dsp.window.float()'"
           },
           {
             "label": "Fullscreen",
             "icon": "󰊓",
-            "command": "hyprctl dispatch fullscreen"
+            "command": "hyprctl dispatch 'hl.dsp.window.fullscreen()'"
           },
           {
             "label": "Close",
             "icon": "",
-            "command": "hyprctl dispatch killactive"
+            "command": "hyprctl dispatch 'hl.dsp.window.close()'"
           },
           {
             "label": "Scratchpad",
             "icon": "󰏖",
-            "command": "hyprctl dispatch togglespecialworkspace scratchpad"
+            "command": "hyprctl dispatch 'hl.dsp.workspace.toggle_special(\"scratchpad\")'"
           },
           {
             "label": "To Scratch",
             "icon": "󰘕",
-            "command": "hyprctl dispatch movetoworkspacesilent special:scratchpad"
+            "command": "hyprctl dispatch 'hl.dsp.window.move({ workspace = \"special:scratchpad\", follow = false })'"
           },
           {
             "label": "Prev WS",
             "icon": "",
-            "command": "hyprctl dispatch workspace e-1"
+            "command": "hyprctl dispatch 'hl.dsp.focus({ workspace = \"e-1\" })'"
           },
           {
             "label": "Next WS",
             "icon": "",
-            "command": "hyprctl dispatch workspace e+1"
+            "command": "hyprctl dispatch 'hl.dsp.focus({ workspace = \"e+1\" })'"
           }
         ]
       },
@@ -143,9 +145,9 @@ Item {
             "command": "omarchy launch nautilus"
           },
           {
-            "label": "Model Usage",
-            "icon": "󰚩",
-            "command": "omarchy-shell -q model-usage toggle"
+            "label": "Tmux",
+            "icon": "",
+            "command": "omarchy-launch-terminal bash -c 'tmux attach -t Work || tmux new -s Work'"
           },
           {
             "label": "Settings",
@@ -366,6 +368,14 @@ Item {
   }
 
   function open(payloadJson) {
+    // If already open (e.g. showing a subring), activate the current selection
+    // or dismiss.  The second press of the orbit button re-enters via IPC,
+    // so we consume it here rather than resetting the ring.
+    if (opened) {
+      if (selectedIndex >= 0) activateIndex(selectedIndex)
+      else dismiss()
+      return
+    }
     var payload = parseJson(payloadJson || "{}", ({}))
     holdMode = payload.mode !== "click" && payload.hold !== false
     ringId = String(payload.ring || payload.ringId || defaultRingId())
@@ -423,6 +433,8 @@ Item {
 
   function hoverAt(px, py) {
     if (centerPending) return
+    lastMouseX = px
+    lastMouseY = py
     selectedIndex = selectedIndexForPoint(px, py)
   }
 
@@ -447,6 +459,13 @@ Item {
       ringId = String(action.ring)
       selectedIndex = -1
       ringCanvas.requestPaint()
+      // Recalculate selection for the new ring at the current cursor position.
+      // onEntered won't re-fire after the ring switch (the MouseArea
+      // containsMouse is already true), so we compute the slice here so
+      // the user sees immediate feedback and can press again to activate.
+      if (lastMouseX >= 0 && lastMouseY >= 0) {
+        selectedIndex = selectedIndexForPoint(lastMouseX, lastMouseY)
+      }
       return
     }
 
@@ -456,12 +475,15 @@ Item {
     if (action.argv && Array.isArray(action.argv) && action.argv.length > 0) {
       var argv = []
       for (var i = 0; i < action.argv.length; i++) argv.push(String(action.argv[i]))
-      Quickshell.execDetached(argv)
+      Qt.callLater(function() { Quickshell.execDetached(argv) })
       return
     }
 
     var command = String(action.command || "").trim()
-    if (command !== "") Quickshell.execDetached(["bash", "-lc", command])
+    if (command !== "") {
+      var cmd = command
+      Qt.callLater(function() { Quickshell.execDetached(["bash", "-lc", cmd]) })
+    }
   }
 
   function css(c, alpha) {
@@ -621,8 +643,16 @@ Item {
           hoverEnabled: true
           acceptedButtons: Qt.AllButtons
           cursorShape: Qt.PointingHandCursor
-          onEntered: root.selectedIndex = index
-          onPositionChanged: root.selectedIndex = index
+          onEntered: {
+            root.selectedIndex = index
+            root.lastMouseX = actionItem.x + width / 2
+            root.lastMouseY = actionItem.y + height / 2
+          }
+          onPositionChanged: function(mouse) {
+            root.selectedIndex = index
+            root.lastMouseX = actionItem.x + mouse.x
+            root.lastMouseY = actionItem.y + mouse.y
+          }
           onClicked: root.activateIndex(index)
         }
       }
