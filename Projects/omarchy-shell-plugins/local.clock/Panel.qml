@@ -21,7 +21,7 @@ Panel {
   readonly property bool showSettingsGear: setting("showSettingsGear", true) === true
     || String(setting("showSettingsGear", "true")).toLowerCase() === "true"
   readonly property string settingsCommand: String(setting("settingsCommand", "omarchy-shell shell summon local.settings"))
-  readonly property bool gearRevealed: showSettingsGear && (clockHover.hovered || gearHover.hovered)
+  readonly property bool gearRevealed: showSettingsGear && (clockHover.hovered || gearHover.hovered || vertClockHover.hovered)
   readonly property string activeFormat: alt
     ? setting("formatAlt", "dd MMMM 'W'ww yyyy")
     : (bar && bar.vertical ? setting("verticalFormat", "HH\n—\nmm") : setting("format", "dddd HH:mm"))
@@ -88,8 +88,8 @@ Panel {
     return out
   }
 
-  implicitWidth: button.implicitWidth
-  implicitHeight: button.implicitHeight
+  implicitWidth: root.bar && root.bar.vertical ? vertLayout.implicitWidth : button.implicitWidth
+  implicitHeight: root.bar && root.bar.vertical ? vertLayout.implicitHeight : button.implicitHeight
 
   onOpenedChanged: if (opened) panelMonth = startOfMonth(displayDate)
 
@@ -111,15 +111,16 @@ Panel {
     id: button
     anchors.fill: parent
     spacing: 0
+    visible: !root.bar || !root.bar.vertical
 
     HoverHandler { id: clockHover }
 
     WidgetButton {
       id: gearButton
       bar: root.bar
-      visible: root.showSettingsGear && (!root.bar || !root.bar.vertical)
+      visible: root.showSettingsGear
       text: ""
-      keepSpace: root.showSettingsGear && (!root.bar || !root.bar.vertical)
+      keepSpace: root.showSettingsGear
       concealed: !root.gearRevealed
       interactive: root.gearRevealed
       horizontalMargin: 6.5
@@ -128,7 +129,6 @@ Panel {
         if (mouseButton === Qt.LeftButton && root.bar && root.settingsCommand)
           root.bar.run(root.settingsCommand)
       }
-
       HoverHandler { id: gearHover }
     }
 
@@ -147,9 +147,44 @@ Panel {
     }
   }
 
+  Column {
+    id: vertLayout
+    visible: root.bar && root.bar.vertical
+    spacing: 2
+    HoverHandler { id: vertClockHover }
+
+    WidgetButton {
+      bar: root.bar
+      visible: root.showSettingsGear
+      text: ""
+      horizontalMargin: 2
+      verticalPadding: 2
+      concealed: !root.gearRevealed
+      interactive: root.gearRevealed
+      onPressed: function(mouseButton) {
+        if (mouseButton === Qt.LeftButton && root.bar && root.settingsCommand)
+          root.bar.run(root.settingsCommand)
+      }
+    }
+
+    WidgetButton {
+      id: vertClockButton
+      bar: root.bar
+      text: root.formatted(root.displayDate)
+      horizontalMargin: 4
+      verticalPadding: 4
+      onPressed: function(mouseButton) {
+        if (!root.bar) return
+        if (mouseButton === Qt.RightButton) root.bar.run("omarchy-menu-timezone")
+        else if (mouseButton === Qt.MiddleButton) root.alt = !root.alt
+        else root.toggle()
+      }
+    }
+  }
+
   KeyboardPanel {
     id: panel
-    anchorItem: button
+    anchorItem: root.bar && root.bar.vertical ? vertLayout : button
     owner: root
     bar: root.bar
     open: root.opened
