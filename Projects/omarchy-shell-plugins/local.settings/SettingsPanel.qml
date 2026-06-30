@@ -159,10 +159,8 @@ Item {
   property int draftRevision: 0
   property int pluginRevision: 0
   property bool suppressReload: false
-  property string localPluginPath: ""
   property string localPluginStatus: ""
   property var sourcesList: []
-  property string newSourceUrl: ""
   property var availablePlugins: []
   property string onlineInstallStatus: ""
   property string pendingEnablePluginId: ""
@@ -729,13 +727,6 @@ Item {
     installLocalPluginProcess.running = true
   }
 
-  function chooseLocalPluginFolder() {
-    root.folderCurrentPath = root.home
-    root.folderDirs = []
-    root.folderPickerVisible = true
-    Qt.callLater(refreshFolderDirs)
-  }
-
   // ---------------- online install helpers ----------------------------------
   function fetchSources() {
     fetchSourcesProcess.command = ["omarchy", "plugin", "source", "list", "--json"]
@@ -743,7 +734,7 @@ Item {
   }
 
   function addSource() {
-    var url = String(root.newSourceUrl || "").trim()
+    var url = String(installSection.newSourceUrl || "").trim()
     if (!url) {
       root.onlineInstallStatus = "Enter a source URL"
       return
@@ -793,71 +784,6 @@ Item {
     }
   }
 
-  // ---------------- custom folder picker ------------------------------------
-  property string installMode: "local"
-  property bool folderPickerVisible: false
-  property string folderCurrentPath: root.home
-  property var folderDirs: []
-  property bool folderShowHidden: false
-
-  function folderPickerUp() {
-    var path = String(root.folderCurrentPath)
-    var parent = path.replace(/\/+$/, "").replace(/\/[^/]*$/, "")
-    if (parent === "") parent = "/"
-    root.folderCurrentPath = parent
-    refreshFolderDirs()
-  }
-
-  function folderPickerEnter(name) {
-    var path = String(root.folderCurrentPath)
-    if (!path.endsWith("/")) path += "/"
-    root.folderCurrentPath = path + name
-    refreshFolderDirs()
-  }
-
-  function folderPickerSelect() {
-    root.localPluginPath = root.folderCurrentPath
-    root.localPluginStatus = ""
-    root.folderPickerVisible = false
-  }
-
-  function folderPickerCancel() {
-    root.localPluginStatus = "Folder picker cancelled"
-    root.folderPickerVisible = false
-  }
-
-  function refreshFolderDirs() {
-    if (folderListProcess.running) return
-    var path = String(root.folderCurrentPath)
-    folderListProcess.command = ["bash", "-c",
-      "find " + Util.shellQuote(path) + " -maxdepth 1 -mindepth 1 -type d " + (root.folderShowHidden ? "" : "! -name '.*' ") + "| sort"]
-    folderListProcess.running = true
-  }
-
-  property Process folderListProcess: Process {
-    stdout: StdioCollector { waitForEnd: true }
-    onExited: function(code) {
-      var out = String(stdout.text || "").trim()
-      if (code === 0 && out) {
-        var lines = out.split("\n")
-        var dirs = []
-        var basePath = String(root.folderCurrentPath)
-        if (!basePath.endsWith("/")) basePath += "/"
-        for (var i = 0; i < lines.length; i++) {
-          var full = String(lines[i]).trim()
-          if (full && full.indexOf(basePath) === 0) {
-            dirs.push(full.substring(basePath.length))
-          } else if (full) {
-            dirs.push(full.replace(/.*\//, ""))
-          }
-        }
-        root.folderDirs = dirs
-      } else {
-        root.folderDirs = []
-      }
-    }
-  }
-
   // ---------------- online install processes --------------------------------
   property Process fetchSourcesProcess: Process {
     stdout: StdioCollector { waitForEnd: true }
@@ -884,7 +810,7 @@ Item {
       var err = String(stderr.text || "").trim()
       if (code === 0) {
         root.onlineInstallStatus = "Source added"
-        root.newSourceUrl = ""
+        installSection.newSourceUrl = ""
         root.fetchSources()
       } else {
         root.onlineInstallStatus = err || "Failed to add source"
@@ -1149,7 +1075,7 @@ Item {
             contentHeight: contentColumn.implicitHeight
             boundsBehavior: Flickable.StopAtBounds
             flickableDirection: Flickable.VerticalFlick
-            interactive: !root.folderPickerVisible
+            interactive: !folderPicker.visible
 
             ColumnLayout {
               id: contentColumn
@@ -1373,196 +1299,20 @@ Item {
       }
     }
 
-    // ---------- folder picker overlay ----------------------------------------
-    Rectangle {
-      anchors.fill: parent
-      visible: root.folderPickerVisible
-      color: Qt.rgba(0, 0, 0, 0.45)
-      z: 200
-
-      focus: visible
-      onVisibleChanged: if (visible) Qt.callLater(forceActiveFocus)
-
-      MouseArea {
-        anchors.fill: parent
-        onClicked: root.folderPickerCancel()
-        acceptedButtons: Qt.LeftButton | Qt.RightButton
+    Cmp.FolderPicker {
+      id: folderPicker
+      foreground: root.foreground
+      accent: root.accent
+      fontFamily: root.fontFamily
+      cornerRadius: root.cornerRadius
+      background: root.background
+      urgent: root.urgent
+      onSelected: function(path) {
+        installSection.localPluginPath = path
+        installSection.localPluginStatus = ""
       }
-
-      Keys.priority: Keys.BeforeItem
-      Keys.onPressed: function(event) {
-        if (event.key === Qt.Key_Escape) {
-          root.folderPickerCancel()
-          event.accepted = true
-        }
-      }
-
-      Rectangle {
-        anchors.centerIn: parent
-        width: Math.min(Style.space(520), parent.width - Style.gapsOut * 2)
-        height: Math.min(parent.height - Style.space(60), Style.space(440))
-        color: root.background
-        radius: Style.cornerRadius
-        border.color: Style.normalBorderFor(root.foreground, root.accent)
-        border.width: Style.normalBorderWidth
-
-        MouseArea { anchors.fill: parent }
-
-        ColumnLayout {
-          anchors.fill: parent
-          anchors.margins: Style.spacing.panelPadding
-          spacing: Style.spacing.rowPaddingX
-
-          Text {
-            text: "Select Omarchy plugin folder"
-            color: root.foreground
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.title
-            font.bold: true
-          }
-
-          RowLayout {
-            Layout.fillWidth: true
-            spacing: Style.spacing.rowGap
-
-            TextField {
-              id: folderPathField
-              Layout.fillWidth: true
-              text: root.folderCurrentPath
-              foreground: root.foreground
-              accent: root.accent
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.bodySmall
-              activeFocusOnTab: true
-              onEditingFinished: {
-                var t = String(text).trim()
-                if (t) {
-                  if (t.charAt(0) !== "/") t = "/" + t
-                  root.folderCurrentPath = t
-                  root.refreshFolderDirs()
-                }
-              }
-            }
-
-            Button {
-              text: "\u2191"
-              foreground: root.foreground
-              fontFamily: root.fontFamily
-              focusable: true
-              onClicked: root.folderPickerUp()
-            }
-
-            Button {
-              text: root.folderShowHidden ? "\u2605" : "\u2606"
-              foreground: root.foreground
-              fontFamily: root.fontFamily
-              focusable: true
-              onClicked: {
-                root.folderShowHidden = !root.folderShowHidden
-                root.refreshFolderDirs()
-              }
-            }
-          }
-
-          ListView {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            clip: true
-            focus: true
-            boundsBehavior: Flickable.StopAtBounds
-            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
-
-            model: root.folderDirs
-
-            delegate: Rectangle {
-              required property string modelData
-              required property int index
-
-              width: ListView.view.width
-              implicitHeight: Style.space(36)
-              color: folderDelegateMouse.containsMouse
-                ? Style.hoverFillFor(root.foreground, root.accent)
-                : "transparent"
-              radius: Style.cornerRadius - 2
-
-              RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: Style.spacing.controlGap
-                anchors.rightMargin: Style.spacing.controlGap
-                spacing: Style.spacing.rowGap
-
-                Text {
-                  text: "\u25B6"
-                  color: Qt.darker(root.foreground, 1.4)
-                  font.pixelSize: Style.font.caption
-                  Layout.alignment: Qt.AlignVCenter
-                }
-
-                Text {
-                  text: modelData
-                  color: root.foreground
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.body
-                  elide: Text.ElideRight
-                  Layout.fillWidth: true
-                  Layout.alignment: Qt.AlignVCenter
-                }
-              }
-
-              MouseArea {
-                id: folderDelegateMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                acceptedButtons: Qt.LeftButton
-                onClicked: {
-                  ListView.view.currentIndex = index
-                }
-                onDoubleClicked: {
-                  root.folderPickerEnter(modelData)
-                }
-              }
-            }
-
-            Rectangle {
-              anchors.horizontalCenter: parent.horizontalCenter
-              y: parent.contentHeight + Style.spacing.controlGap
-              visible: parent.count === 0
-              color: "transparent"
-              height: Style.space(32)
-              width: parent.width
-
-              Text {
-                anchors.centerIn: parent
-                text: "(empty folder)"
-                color: Qt.darker(root.foreground, 1.5)
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.bodySmall
-              }
-            }
-          }
-
-          Row {
-            Layout.alignment: Qt.AlignRight
-            spacing: Style.spacing.rowGap
-
-            Button {
-              text: "Cancel"
-              foreground: root.foreground
-              fontFamily: root.fontFamily
-              focusable: true
-              onClicked: root.folderPickerCancel()
-            }
-
-            Button {
-              text: "Select this folder"
-              foreground: root.foreground
-              fontFamily: root.fontFamily
-              focusable: true
-              bordered: true
-              onClicked: root.folderPickerSelect()
-            }
-          }
-        }
+      onCancelled: {
+        installSection.localPluginStatus = "Folder picker cancelled"
       }
     }
   }
@@ -1639,283 +1389,30 @@ Item {
       Layout.fillWidth: true
     }
 
-    Rectangle {
-      Layout.fillWidth: true
-      implicitHeight: installColumn.implicitHeight + Style.spacing.rowPaddingX * 2
-      radius: root.cornerRadius
-      color: Style.normalFillFor(root.foreground, root.accent)
-      border.color: Style.normalBorderFor(root.foreground, root.accent)
-      border.width: Style.normalBorderWidth
+    Cmp.InstallSection {
+      id: installSection
+      foreground: root.foreground
+      accent: root.accent
+      urgent: root.urgent
+      fontFamily: root.fontFamily
+      cornerRadius: root.cornerRadius
+      localPluginStatus: root.localPluginStatus
+      onlineInstallStatus: root.onlineInstallStatus
+      sourcesList: root.sourcesList
+      availablePlugins: root.availablePlugins
+      installLocalBusy: installLocalPluginProcess.running
+      addSourceBusy: addSourceProcess.running
+      refreshSourcesBusy: refreshSourcesProcess.running
+      fetchAvailableBusy: fetchAvailablePluginsProcess.running
+      installFromSourceBusy: installFromSourceProcess.running
 
-      ColumnLayout {
-        id: installColumn
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.verticalCenter: parent.verticalCenter
-        anchors.leftMargin: Style.spacing.rowPaddingX
-        anchors.rightMargin: Style.spacing.rowPaddingX
-        spacing: Style.spacing.labelGap
-
-        Text {
-          text: "Install"
-          color: root.foreground
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.body
-          font.bold: true
-          Layout.fillWidth: true
-        }
-
-        RowLayout {
-          Layout.fillWidth: true
-          spacing: Style.spacing.labelGap
-
-          Button {
-            text: "Local"
-            foreground: root.foreground
-            fontFamily: root.fontFamily
-            focusable: true
-            bordered: root.installMode !== "local"
-            selected: root.installMode === "local"
-            onClicked: root.installMode = "local"
-          }
-
-          Button {
-            text: "Source"
-            foreground: root.foreground
-            fontFamily: root.fontFamily
-            focusable: true
-            bordered: root.installMode !== "source"
-            selected: root.installMode === "source"
-            onClicked: root.installMode = "source"
-          }
-
-          Item { Layout.fillWidth: true; implicitHeight: 1 }
-        }
-
-        ColumnLayout {
-          Layout.fillWidth: true
-          visible: root.installMode === "local"
-          spacing: Style.spacing.labelGap
-
-          RowLayout {
-            Layout.fillWidth: true
-            spacing: Style.spacing.rowGap
-
-            TextField {
-              Layout.fillWidth: true
-              text: root.localPluginPath
-              placeholderText: "/path/to/plugin-folder"
-              foreground: root.foreground
-              accent: root.accent
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.body
-              activeFocusOnTab: true
-              onTextEdited: root.localPluginPath = text
-              onAccepted: root.installLocalPlugin(text)
-            }
-
-            Button {
-              text: "Browse"
-              foreground: root.foreground
-              fontFamily: root.fontFamily
-              focusable: true
-              bordered: true
-              enabled: true
-              onClicked: root.chooseLocalPluginFolder()
-            }
-
-            Button {
-              text: "Install"
-              foreground: root.foreground
-              fontFamily: root.fontFamily
-              focusable: true
-              bordered: true
-              enabled: !installLocalPluginProcess.running
-              onClicked: root.installLocalPlugin(root.localPluginPath)
-            }
-          }
-
-          Text {
-            visible: root.localPluginStatus !== ""
-            text: root.localPluginStatus
-            color: root.localPluginStatus.indexOf("failed") !== -1 || root.localPluginStatus.indexOf("Invalid") !== -1 || root.localPluginStatus.indexOf("not") !== -1
-              ? root.urgent
-              : Qt.darker(root.foreground, 1.5)
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
-            wrapMode: Text.WordWrap
-            Layout.fillWidth: true
-          }
-        }
-
-        ColumnLayout {
-          Layout.fillWidth: true
-          visible: root.installMode === "source"
-          spacing: Style.spacing.labelGap
-
-          Column {
-            Layout.fillWidth: true
-            visible: root.sourcesList.length > 0
-            spacing: Style.spacing.xxs
-
-            Repeater {
-              model: root.sourcesList
-              delegate: RowLayout {
-                required property var modelData
-                width: parent.width
-                spacing: Style.spacing.rowGap
-
-                Text {
-                  text: (modelData.name || "") + "  ·  " + (modelData.url || "")
-                  color: root.foreground
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.bodySmall
-                  elide: Text.ElideRight
-                  Layout.fillWidth: true
-                }
-
-                Button {
-                  text: "Remove"
-                  foreground: root.urgent
-                  fontFamily: root.fontFamily
-                  focusable: true
-                  onClicked: root.removeSource(modelData.name)
-                }
-              }
-            }
-          }
-
-          RowLayout {
-            Layout.fillWidth: true
-            spacing: Style.spacing.rowGap
-
-            TextField {
-              Layout.fillWidth: true
-              text: root.newSourceUrl
-              placeholderText: "https://github.com/owner/omarchy-plugins.git"
-              foreground: root.foreground
-              accent: root.accent
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.body
-              activeFocusOnTab: true
-              onTextEdited: root.newSourceUrl = text
-              onAccepted: root.addSource()
-            }
-
-            Button {
-              text: "Add"
-              foreground: root.foreground
-              fontFamily: root.fontFamily
-              focusable: true
-              bordered: true
-              enabled: !addSourceProcess.running
-              onClicked: root.addSource()
-            }
-          }
-
-          RowLayout {
-            Layout.fillWidth: true
-            spacing: Style.spacing.rowGap
-
-            Button {
-              text: "Refresh sources"
-              foreground: root.foreground
-              fontFamily: root.fontFamily
-              focusable: true
-              bordered: true
-              enabled: !refreshSourcesProcess.running
-              onClicked: root.refreshSources()
-            }
-
-            Button {
-              text: root.availablePlugins.length > 0 ? root.availablePlugins.length + " available" : "Available plugins"
-              foreground: root.foreground
-              fontFamily: root.fontFamily
-              focusable: true
-              bordered: true
-              enabled: !fetchAvailablePluginsProcess.running
-              onClicked: root.fetchAvailablePlugins()
-            }
-
-            Item { Layout.fillWidth: true; implicitHeight: 1 }
-          }
-
-          Column {
-            Layout.fillWidth: true
-            visible: root.availablePlugins.length > 0
-            spacing: Style.spacing.xxs
-
-            Repeater {
-              model: root.availablePlugins
-              delegate: Rectangle {
-                required property var modelData
-                width: parent.width
-                implicitHeight: Style.space(42)
-                radius: root.cornerRadius
-                color: "transparent"
-
-                RowLayout {
-                  anchors.fill: parent
-                  anchors.leftMargin: Style.spacing.controlGap
-                  anchors.rightMargin: Style.spacing.controlGap
-                  spacing: Style.spacing.rowGap
-
-                  Text {
-                    text: (modelData.name || modelData.id || "") + "  ·  " + (modelData.source || "")
-                    color: root.foreground
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.bodySmall
-                    elide: Text.ElideRight
-                    Layout.fillWidth: true
-                  }
-
-                  Text {
-                    text: modelData.status || ""
-                    color: modelData.status === "installed"
-                      ? Qt.lighter(root.accent, 1.3)
-                      : (modelData.status === "update-available" ? root.accent : Qt.darker(root.foreground, 1.5))
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.caption
-                    visible: modelData.status === "installed" || modelData.status === "update-available"
-                  }
-
-                  Button {
-                    text: modelData.status === "installed" ? "Installed" : "Install"
-                    foreground: modelData.status === "installed" ? Qt.darker(root.foreground, 1.5) : root.foreground
-                    fontFamily: root.fontFamily
-                    focusable: true
-                    bordered: modelData.status !== "installed"
-                    enabled: modelData.status !== "installed" && !installFromSourceProcess.running
-                    onClicked: root.installPluginFromSource(modelData.id)
-                  }
-                }
-              }
-            }
-          }
-
-          Text {
-            visible: root.sourcesList.length === 0 && root.availablePlugins.length === 0 && root.onlineInstallStatus === ""
-            text: "No sources configured. Add a plugin source URL above to install plugins from remote repositories."
-            color: Qt.darker(root.foreground, 1.5)
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
-            wrapMode: Text.WordWrap
-            Layout.fillWidth: true
-          }
-
-          Text {
-            visible: root.onlineInstallStatus !== ""
-            text: root.onlineInstallStatus
-            color: root.onlineInstallStatus.indexOf("failed") !== -1 || root.onlineInstallStatus.indexOf("Failed") !== -1
-              ? root.urgent
-              : Qt.darker(root.foreground, 1.5)
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
-            wrapMode: Text.WordWrap
-            Layout.fillWidth: true
-          }
-        }
-      }
+      onInstallLocalRequested: function(path) { root.installLocalPlugin(path) }
+      onBrowseRequested: { root.localPluginStatus = ""; folderPicker.open() }
+      onRemoveSourceRequested: function(name) { root.removeSource(name) }
+      onAddSourceRequested: root.addSource()
+      onRefreshSourcesRequested: root.refreshSources()
+      onFetchAvailableRequested: root.fetchAvailablePlugins()
+      onInstallFromSourceRequested: function(id) { root.installPluginFromSource(id) }
     }
 
     Column {
