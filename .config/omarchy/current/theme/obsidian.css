@@ -12,7 +12,7 @@
   --text-selection: #7aa2f7;
 
   /* Border color */
-  --background-modifier-border: #414868;
+  --background-modifier-border: #444b6a;
 
   /* Semantic heading colors */
   --text-title-h1: #f7768e;
@@ -43,10 +43,10 @@
 
   /* Tags */
   --tag-color: #449dab;
-  --tag-background: #414868;
+  --tag-background: #444b6a;
 
   /* Graph */
-  --graph-line: #414868;
+  --graph-line: #444b6a;
   --graph-node: #7aa2f7;
   --graph-node-focused: #7aa2f7;
   --graph-node-tag: #449dab;
@@ -70,7 +70,7 @@
 .cm-s-obsidian span.cm-keyword { color: #f7768e; }
 .cm-s-obsidian span.cm-string { color: #9ece6a; }
 .cm-s-obsidian span.cm-number { color: #e0af68; }
-.cm-s-obsidian span.cm-comment { color: #414868; }
+.cm-s-obsidian span.cm-comment { color: #444b6a; }
 .cm-s-obsidian span.cm-operator { color: #7aa2f7; }
 .cm-s-obsidian span.cm-def { color: #7aa2f7; }
 
