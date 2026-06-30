@@ -12,8 +12,8 @@
     "barWidget": "BarWidget.qml"
   },
   "barWidget": {
-    "displayName": "Local Weather",
-    "description": "Weather pill with detail popup and configurable location",
+    "displayName": "Weather",
+    "description": "Weather pill with detail popup",
     "category": "Info",
     "allowMultiple": false,
     "defaults": {
@@ -31,11 +31,7 @@
         "key": "unit",
         "type": "enum",
         "label": "Unit",
-        "options": [
-          "",
-          "metric",
-          "imperial"
-        ],
+        "options": [ "", "metric", "imperial" ],
         "defaultValue": ""
       },
       {

@@ -9,17 +9,39 @@ Panel {
   id: root
   moduleName: "local.weather"
   ipcTarget: "local.weather"
+  manageIpc: false
 
   property var anchorItem: null
+  property string scriptDir: String(Qt.resolvedUrl(".")).replace("file://", "")
+  property bool openedFromHotkey: false
 
   function open() {
+    openedFromHotkey = false
+    setCenterHoverRevealSuppressed(false)
     root.controller.show()
     root.refresh()
   }
 
+  function openFromHotkey() {
+    openedFromHotkey = true
+    setCenterHoverRevealSuppressed(true)
+    root.controller.show()
+    root.refresh()
+  }
+
+  function close() {
+    setCenterHoverRevealSuppressed(false)
+    root.controller.hide()
+  }
+
   function toggle() {
     if (root.opened) root.close()
-    else root.open()
+    else root.openFromHotkey()
+  }
+
+  function setCenterHoverRevealSuppressed(value) {
+    if (root.bar && "centerHoverRevealSuppressed" in root.bar)
+      root.bar.centerHoverRevealSuppressed = value
   }
 
   // Parsed wttr.in j1 response. Kept on failure so stale data stays visible.
@@ -40,14 +62,9 @@ Panel {
   readonly property var current: report && report.current_condition && report.current_condition[0] ? report.current_condition[0] : null
   readonly property var areaInfo: report && report.nearest_area && report.nearest_area[0] ? report.nearest_area[0] : null
   readonly property var forecastDays: buildForecastDays()
+  readonly property string reportCountry: areaInfo && areaInfo.country && areaInfo.country[0] ? areaInfo.country[0].value : ""
 
-  readonly property bool useImperial: {
-    var override = setting("unit", "")
-    if (override === "imperial") return true
-    if (override === "metric") return false
-    var name = String(Qt.locale().name || "")
-    return /^en_US/.test(name) || /^en_LR/.test(name) || /^my/.test(name)
-  }
+  readonly property bool useImperial: Model.shouldUseImperial(setting("unit", ""), Qt.locale().name, reportCountry)
 
   // Auto-refresh interval in minutes; clamped to a sane minimum.
   readonly property int refreshMinutes: Math.max(1, parseInt(setting("refreshMinutes", 15), 10) || 15)
@@ -55,20 +72,26 @@ Panel {
 
   readonly property string reportLocation:  wttrLocation || (areaInfo && areaInfo.areaName && areaInfo.areaName[0] ? areaInfo.areaName[0].value : "")
   readonly property string reportTempNum:   current ? String(useImperial ? current.temp_F : current.temp_C) : ""
-  readonly property string tempUnit:        "°" + (useImperial ? "F" : "C")
+  readonly property string tempUnit:        "\u00b0" + (useImperial ? "F" : "C")
   readonly property string reportFeels:     current ? formatTemp(useImperial ? current.FeelsLikeF : current.FeelsLikeC) : ""
   readonly property string reportWind:      current ? (useImperial ? (current.windspeedMiles + " mph") : (current.windspeedKmph + " km/h")) : ""
   readonly property string reportHumidity:  current ? (current.humidity + "%") : ""
 
   function refresh() {
-    forecastProc.command = forecastCommand()
+    forecastProc.command = root.forecastCommand()
+    weatherProc.command = ["bash", root.scriptDir + "/status.sh", root.configuredLocation]
+    locationProc.command = ["bash", "-lc", "curl -fsS --max-time 4 '" + (root.configuredLocation ? "https://wttr.in/" + encodeURIComponent(root.configuredLocation) + "?format=%l" : "https://wttr.in?format=%l") + "' 2>/dev/null"]
+
     if (!forecastProc.running) forecastProc.running = true
+    if (!weatherProc.running) weatherProc.running = true
     if (!locationProc.running) locationProc.running = true
   }
 
   function forecastCommand() {
-    var locationPart = configuredLocation ? "/" + encodeURIComponent(configuredLocation) : "/"
-    return ["curl", "-fsS", "--max-time", "5", "https://wttr.in" + locationPart + "?format=j1"]
+    var loc = root.configuredLocation
+    return loc
+      ? ["bash", "-lc", "curl -fsS --max-time 5 'https://wttr.in/" + encodeURIComponent(loc) + "?format=j1' 2>/dev/null"]
+      : ["bash", "-lc", "curl -fsS --max-time 5 'https://wttr.in/?format=j1' 2>/dev/null"]
   }
 
   function refreshDailyForecast(sourceReport) {
@@ -135,7 +158,7 @@ Panel {
     return Model.iconForOpenMeteoCode(code)
   }
 
-  // Mirrors Omarchy's wttr.in weather-code to nerd-font glyph mapping.
+  // Mirrors omarchy-weather-icon's wttr.in code → nerd-font glyph mapping.
   function iconForCode(code, night) {
     return Model.iconForCode(code, night)
   }
@@ -177,7 +200,7 @@ Panel {
 
   Process {
     id: locationProc
-    command: ["curl", "-fsS", "--max-time", "4", configuredLocation ? "https://wttr.in/" + encodeURIComponent(configuredLocation) + "?format=%l" : "https://wttr.in?format=%l"]
+    command: ["bash", "-lc", "curl -fsS --max-time 4 '" + (root.configuredLocation ? "https://wttr.in/" + encodeURIComponent(root.configuredLocation) + "?format=%l" : "https://wttr.in?format=%l") + "' 2>/dev/null"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
@@ -197,29 +220,46 @@ Panel {
     onTriggered: root.refresh()
   }
 
-  PopupCard {
-    id: popup
+  IpcHandler {
+    target: root.ipcTarget
+
+    function open(): void { root.openFromHotkey() }
+    function close(): void { root.close() }
+    function show(): void { root.openFromHotkey() }
+    function hide(): void { root.close() }
+    function toggle(): void { root.toggle() }
+  }
+
+  KeyboardPanel {
+    id: panel
     anchorItem: root.anchorItem
     owner: root
     bar: root.bar
     open: root.opened
     centerOnBar: true
-    triggerMode: "click"
-    contentWidth: popup.fittedContentWidth(Style.space(480))
-    contentHeight: popup.fittedContentHeight(weatherColumn.implicitHeight)
+    focusTarget: keyCatcher
+    contentWidth: panel.fittedContentWidth(Style.space(480))
+    contentHeight: panel.fittedContentHeight(weatherColumn.implicitHeight)
 
-    Flickable {
-      id: weatherScroll
+    PanelKeyCatcher {
+      id: keyCatcher
       anchors.fill: parent
-      contentWidth: width
-      contentHeight: weatherColumn.implicitHeight
-      clip: true
-      boundsBehavior: Flickable.StopAtBounds
+      onCloseRequested: root.close()
+      onTabRequested: function(direction) { root.switchPanel(direction) }
 
-      Column {
-        id: weatherColumn
-        width: weatherScroll.width
-        spacing: Style.space(14)
+      Flickable {
+        id: weatherScroll
+        anchors.fill: parent
+        contentWidth: width
+        contentHeight: weatherColumn.implicitHeight
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+        interactive: contentHeight > height
+
+        Column {
+          id: weatherColumn
+          width: weatherScroll.width
+          spacing: Style.space(14)
 
       // ---- Hero row: big icon + temp on the left; location and stats stacked on the right.
       Item {
@@ -438,29 +478,15 @@ Panel {
     }
   }
   }
+  }
 
   // Poll the weather pill text/class every minute. Local to this widget.
   Process {
     id: weatherProc
-    command: root.forecastCommand()
+    command: ["bash", root.scriptDir + "/status.sh", root.configuredLocation]
     stdout: StdioCollector {
       waitForEnd: true
-      onStreamFinished: {
-        var raw = String(text || "").trim()
-        if (!raw) {
-          root.updateWeather("")
-          return
-        }
-        try {
-          var parsed = JSON.parse(raw)
-          var current = parsed && parsed.current_condition && parsed.current_condition[0] ? parsed.current_condition[0] : null
-          var code = current ? String(current.weatherCode || "") : ""
-          var night = current ? String(current.localObsDateTime || "").toLowerCase().indexOf("pm") !== -1 : false
-          root.updateWeather(JSON.stringify({ text: root.iconForCode(code, night) }))
-        } catch (e) {
-          root.updateWeather("")
-        }
-      }
+      onStreamFinished: root.updateWeather(text)
     }
   }
 

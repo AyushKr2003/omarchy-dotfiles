@@ -49,13 +49,13 @@ BarWidget {
     bar: root.bar
     text: panelLoader.item ? panelLoader.item.label : ""
     active: panelLoader.item && panelLoader.item.klass === "active"
-    horizontalMargin: 5
+    horizontalMargin: 2.5
     // Tooltip suppressed because the panel is the detail view.
     tooltipText: ""
 
     onPressed: function(b) {
       if (!root.bar) return
-      if (b === Qt.RightButton) root.refresh()
+      if (b === Qt.RightButton) root.bar.run("omarchy-notification-send \"$(omarchy-weather-status)\"")
       else if (b === Qt.MiddleButton) root.refresh()
       else root.togglePanel()
     }
