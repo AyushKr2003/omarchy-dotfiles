@@ -117,9 +117,9 @@ Panel {
     WidgetButton {
       id: gearButton
       bar: root.bar
-      visible: root.showSettingsGear
+      visible: root.showSettingsGear && (!root.bar || !root.bar.vertical)
       text: ""
-      keepSpace: root.showSettingsGear
+      keepSpace: root.showSettingsGear && (!root.bar || !root.bar.vertical)
       concealed: !root.gearRevealed
       interactive: root.gearRevealed
       horizontalMargin: 6.5
