@@ -161,6 +161,10 @@ Item {
   property bool suppressReload: false
   property string localPluginPath: ""
   property string localPluginStatus: ""
+  property var sourcesList: []
+  property string newSourceUrl: ""
+  property var availablePlugins: []
+  property string onlineInstallStatus: ""
   property string pendingEnablePluginId: ""
   property string pluginFilter: "Third-party"
   property var lastValidUserConfig: null
@@ -726,17 +730,51 @@ Item {
   }
 
   function chooseLocalPluginFolder() {
-    if (chooseLocalPluginFolderProcess.running) return
-    localPluginStatus = "Opening folder picker..."
-    var script = ""
-      + "set -e\n"
-      + "if command -v zenity >/dev/null 2>&1; then zenity --file-selection --directory --title='Select Omarchy plugin folder'; exit $?; fi\n"
-      + "if command -v kdialog >/dev/null 2>&1; then kdialog --getexistingdirectory \"$HOME\"; exit $?; fi\n"
-      + "if command -v yad >/dev/null 2>&1; then yad --file --directory --title='Select Omarchy plugin folder'; exit $?; fi\n"
-      + "echo 'No graphical folder picker found. Paste the plugin folder path instead.' >&2\n"
-      + "exit 127\n"
-    chooseLocalPluginFolderProcess.command = ["bash", "-c", script]
-    chooseLocalPluginFolderProcess.running = true
+    root.folderCurrentPath = root.home
+    root.folderDirs = []
+    root.folderPickerVisible = true
+    Qt.callLater(refreshFolderDirs)
+  }
+
+  // ---------------- online install helpers ----------------------------------
+  function fetchSources() {
+    fetchSourcesProcess.command = ["omarchy", "plugin", "source", "list", "--json"]
+    fetchSourcesProcess.running = true
+  }
+
+  function addSource() {
+    var url = String(root.newSourceUrl || "").trim()
+    if (!url) {
+      root.onlineInstallStatus = "Enter a source URL"
+      return
+    }
+    root.onlineInstallStatus = "Adding source..."
+    addSourceProcess.command = ["bash", "-c", "omarchy plugin source add " + Util.shellQuote(url) + " --yes"]
+    addSourceProcess.running = true
+  }
+
+  function removeSource(name) {
+    root.onlineInstallStatus = "Removing source..."
+    removeSourceProcess.command = ["bash", "-c", "omarchy plugin source remove " + Util.shellQuote(name) + " --yes"]
+    removeSourceProcess.running = true
+  }
+
+  function refreshSources() {
+    root.onlineInstallStatus = "Refreshing sources..."
+    refreshSourcesProcess.command = ["bash", "-c", "omarchy plugin source refresh"]
+    refreshSourcesProcess.running = true
+  }
+
+  function fetchAvailablePlugins() {
+    root.onlineInstallStatus = "Fetching available plugins..."
+    fetchAvailablePluginsProcess.command = ["omarchy", "plugin", "available", "--json", "--no-refresh"]
+    fetchAvailablePluginsProcess.running = true
+  }
+
+  function installPluginFromSource(id) {
+    root.onlineInstallStatus = "Installing " + id + "..."
+    installFromSourceProcess.command = ["bash", "-c", "omarchy plugin add " + Util.shellQuote(id) + " --enable --yes"]
+    installFromSourceProcess.running = true
   }
 
   property Process installLocalPluginProcess: Process {
@@ -755,17 +793,160 @@ Item {
     }
   }
 
-  property Process chooseLocalPluginFolderProcess: Process {
-    stdout: StdioCollector { id: chooseLocalPluginFolderStdout; waitForEnd: true }
-    stderr: StdioCollector { id: chooseLocalPluginFolderStderr; waitForEnd: true }
-    onExited: function(exitCode) {
-      var out = String(chooseLocalPluginFolderStdout.text || "").trim()
-      var err = String(chooseLocalPluginFolderStderr.text || "").trim()
-      if (exitCode === 0 && out) {
-        root.localPluginPath = out.split("\n")[0]
-        root.localPluginStatus = ""
-      } else if (exitCode !== 0) {
-        root.localPluginStatus = err || "Folder picker cancelled"
+  // ---------------- custom folder picker ------------------------------------
+  property bool folderPickerVisible: false
+  property string folderCurrentPath: root.home
+  property var folderDirs: []
+
+  function folderPickerUp() {
+    var path = String(root.folderCurrentPath)
+    var parent = path.replace(/\/+$/, "").replace(/\/[^/]*$/, "")
+    if (parent === "") parent = "/"
+    root.folderCurrentPath = parent
+    refreshFolderDirs()
+  }
+
+  function folderPickerEnter(name) {
+    var path = String(root.folderCurrentPath)
+    if (!path.endsWith("/")) path += "/"
+    root.folderCurrentPath = path + name
+    refreshFolderDirs()
+  }
+
+  function folderPickerSelect() {
+    root.localPluginPath = root.folderCurrentPath
+    root.localPluginStatus = ""
+    root.folderPickerVisible = false
+  }
+
+  function folderPickerCancel() {
+    root.localPluginStatus = "Folder picker cancelled"
+    root.folderPickerVisible = false
+  }
+
+  function refreshFolderDirs() {
+    if (folderListProcess.running) return
+    var path = String(root.folderCurrentPath)
+    folderListProcess.command = ["bash", "-c",
+      "find " + Util.shellQuote(path) + " -maxdepth 1 -mindepth 1 -type d ! -name '.*' | sort"]
+    folderListProcess.running = true
+  }
+
+  property Process folderListProcess: Process {
+    stdout: StdioCollector { waitForEnd: true }
+    onExited: function(code) {
+      var out = String(stdout.text || "").trim()
+      if (code === 0 && out) {
+        var lines = out.split("\n")
+        var dirs = []
+        var basePath = String(root.folderCurrentPath)
+        if (!basePath.endsWith("/")) basePath += "/"
+        for (var i = 0; i < lines.length; i++) {
+          var full = String(lines[i]).trim()
+          if (full && full.indexOf(basePath) === 0) {
+            dirs.push(full.substring(basePath.length))
+          } else if (full) {
+            dirs.push(full.replace(/.*\//, ""))
+          }
+        }
+        root.folderDirs = dirs
+      } else {
+        root.folderDirs = []
+      }
+    }
+  }
+
+  // ---------------- online install processes --------------------------------
+  property Process fetchSourcesProcess: Process {
+    stdout: StdioCollector { waitForEnd: true }
+    stderr: StdioCollector { waitForEnd: true }
+    onExited: function(code) {
+      var out = String(stdout.text || "").trim()
+      if (code === 0 && out) {
+        try {
+          var parsed = JSON.parse(out)
+          root.sourcesList = parsed.sources || []
+        } catch (e) {
+          root.sourcesList = []
+        }
+      } else {
+        root.sourcesList = []
+      }
+    }
+  }
+
+  property Process addSourceProcess: Process {
+    stdout: StdioCollector { waitForEnd: true }
+    stderr: StdioCollector { waitForEnd: true }
+    onExited: function(code) {
+      var err = String(stderr.text || "").trim()
+      if (code === 0) {
+        root.onlineInstallStatus = "Source added"
+        root.newSourceUrl = ""
+        root.fetchSources()
+      } else {
+        root.onlineInstallStatus = err || "Failed to add source"
+      }
+    }
+  }
+
+  property Process removeSourceProcess: Process {
+    stdout: StdioCollector { waitForEnd: true }
+    stderr: StdioCollector { waitForEnd: true }
+    onExited: function(code) {
+      if (code === 0) {
+        root.onlineInstallStatus = "Source removed"
+        root.fetchSources()
+      } else {
+        root.onlineInstallStatus = "Failed to remove source"
+      }
+    }
+  }
+
+  property Process refreshSourcesProcess: Process {
+    stdout: StdioCollector { waitForEnd: true }
+    stderr: StdioCollector { waitForEnd: true }
+    onExited: function(code) {
+      if (code === 0) {
+        root.onlineInstallStatus = "Sources refreshed"
+      } else {
+        root.onlineInstallStatus = "Failed to refresh sources"
+      }
+    }
+  }
+
+  property Process fetchAvailablePluginsProcess: Process {
+    stdout: StdioCollector { waitForEnd: true }
+    stderr: StdioCollector { waitForEnd: true }
+    onExited: function(code) {
+      var out = String(stdout.text || "").trim()
+      if (code === 0 && out) {
+        try {
+          root.availablePlugins = JSON.parse(out)
+          root.onlineInstallStatus = root.availablePlugins.length + " plugins available"
+        } catch (e) {
+          root.availablePlugins = []
+          root.onlineInstallStatus = "Failed to parse available plugins"
+        }
+      } else {
+        var err = String(stderr.text || "").trim()
+        root.availablePlugins = []
+        root.onlineInstallStatus = err || "Failed to fetch available plugins"
+      }
+    }
+  }
+
+  property Process installFromSourceProcess: Process {
+    stdout: StdioCollector { waitForEnd: true }
+    stderr: StdioCollector { waitForEnd: true }
+    onExited: function(code) {
+      if (code === 0) {
+        root.onlineInstallStatus = "Plugin installed"
+        root.rescanPlugins()
+        root.fetchAvailablePlugins()
+      } else {
+        var err = String(stderr.text || "").trim()
+        root.onlineInstallStatus = err || "Failed to install plugin"
       }
     }
   }
@@ -783,7 +964,10 @@ Item {
     }
   }
 
-  Component.onCompleted: Qt.callLater(loadConfig)
+  Component.onCompleted: {
+    Qt.callLater(loadConfig)
+    Qt.callLater(fetchSources)
+  }
 
   // ---------------- window -------------------------------------------------
   // ---------------- per-widget settings dialog state -----------------------
@@ -963,6 +1147,7 @@ Item {
             contentHeight: contentColumn.implicitHeight
             boundsBehavior: Flickable.StopAtBounds
             flickableDirection: Flickable.VerticalFlick
+            interactive: !root.folderPickerVisible
 
             ColumnLayout {
               id: contentColumn
@@ -1185,6 +1370,188 @@ Item {
         }
       }
     }
+
+    // ---------- folder picker overlay ----------------------------------------
+    Rectangle {
+      anchors.fill: parent
+      visible: root.folderPickerVisible
+      color: Qt.rgba(0, 0, 0, 0.45)
+      z: 200
+
+      focus: visible
+      onVisibleChanged: if (visible) Qt.callLater(forceActiveFocus)
+
+      MouseArea {
+        anchors.fill: parent
+        onClicked: root.folderPickerCancel()
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+      }
+
+      Keys.priority: Keys.BeforeItem
+      Keys.onPressed: function(event) {
+        if (event.key === Qt.Key_Escape) {
+          root.folderPickerCancel()
+          event.accepted = true
+        }
+      }
+
+      Rectangle {
+        anchors.centerIn: parent
+        width: Math.min(Style.space(520), parent.width - Style.gapsOut * 2)
+        height: Math.min(parent.height - Style.space(60), Style.space(440))
+        color: root.background
+        radius: Style.cornerRadius
+        border.color: Style.normalBorderFor(root.foreground, root.accent)
+        border.width: Style.normalBorderWidth
+
+        MouseArea { anchors.fill: parent }
+
+        ColumnLayout {
+          anchors.fill: parent
+          anchors.margins: Style.spacing.panelPadding
+          spacing: Style.spacing.rowPaddingX
+
+          Text {
+            text: "Select Omarchy plugin folder"
+            color: root.foreground
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.title
+            font.bold: true
+          }
+
+          RowLayout {
+            Layout.fillWidth: true
+            spacing: Style.spacing.rowGap
+
+            TextField {
+              id: folderPathField
+              Layout.fillWidth: true
+              text: root.folderCurrentPath
+              foreground: root.foreground
+              accent: root.accent
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.bodySmall
+              activeFocusOnTab: true
+              onEditingFinished: {
+                var t = String(text).trim()
+                if (t) {
+                  if (t.charAt(0) !== "/") t = "/" + t
+                  root.folderCurrentPath = t
+                  root.refreshFolderDirs()
+                }
+              }
+            }
+
+            Button {
+              text: "\u2191"
+              foreground: root.foreground
+              fontFamily: root.fontFamily
+              focusable: true
+              onClicked: root.folderPickerUp()
+            }
+          }
+
+          ListView {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            clip: true
+            focus: true
+            boundsBehavior: Flickable.StopAtBounds
+            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+
+            model: root.folderDirs
+
+            delegate: Rectangle {
+              required property string modelData
+              required property int index
+
+              width: ListView.view.width
+              implicitHeight: Style.space(36)
+              color: folderDelegateMouse.containsMouse
+                ? Style.hoverFillFor(root.foreground, root.accent)
+                : "transparent"
+              radius: Style.cornerRadius - 2
+
+              RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: Style.spacing.controlGap
+                anchors.rightMargin: Style.spacing.controlGap
+                spacing: Style.spacing.rowGap
+
+                Text {
+                  text: "\u25B6"
+                  color: Qt.darker(root.foreground, 1.4)
+                  font.pixelSize: Style.font.caption
+                  Layout.alignment: Qt.AlignVCenter
+                }
+
+                Text {
+                  text: modelData
+                  color: root.foreground
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.body
+                  elide: Text.ElideRight
+                  Layout.fillWidth: true
+                  Layout.alignment: Qt.AlignVCenter
+                }
+              }
+
+              MouseArea {
+                id: folderDelegateMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                acceptedButtons: Qt.LeftButton
+                onClicked: {
+                  ListView.view.currentIndex = index
+                }
+                onDoubleClicked: {
+                  root.folderPickerEnter(modelData)
+                }
+              }
+            }
+
+            Rectangle {
+              anchors.horizontalCenter: parent.horizontalCenter
+              y: parent.contentHeight + Style.spacing.controlGap
+              visible: parent.count === 0
+              color: "transparent"
+              height: Style.space(32)
+              width: parent.width
+
+              Text {
+                anchors.centerIn: parent
+                text: "(empty folder)"
+                color: Qt.darker(root.foreground, 1.5)
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.bodySmall
+              }
+            }
+          }
+
+          Row {
+            Layout.alignment: Qt.AlignRight
+            spacing: Style.spacing.rowGap
+
+            Button {
+              text: "Cancel"
+              foreground: root.foreground
+              fontFamily: root.fontFamily
+              focusable: true
+              onClicked: root.folderPickerCancel()
+            }
+
+            Button {
+              text: "Select this folder"
+              foreground: root.foreground
+              fontFamily: root.fontFamily
+              focusable: true
+              bordered: true
+              onClicked: root.folderPickerSelect()
+            }
+          }
+        }
+      }
+    }
   }
 
   // ===================== plugin category ==================================
@@ -1308,7 +1675,7 @@ Item {
             fontFamily: root.fontFamily
             focusable: true
             bordered: true
-            enabled: !chooseLocalPluginFolderProcess.running
+            enabled: true
             onClicked: root.chooseLocalPluginFolder()
           }
 
@@ -1327,6 +1694,196 @@ Item {
           visible: root.localPluginStatus !== ""
           text: root.localPluginStatus
           color: root.localPluginStatus.indexOf("failed") !== -1 || root.localPluginStatus.indexOf("Invalid") !== -1 || root.localPluginStatus.indexOf("not") !== -1
+            ? root.urgent
+            : Qt.darker(root.foreground, 1.5)
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.caption
+          wrapMode: Text.WordWrap
+          Layout.fillWidth: true
+        }
+      }
+    }
+
+    Rectangle {
+      Layout.fillWidth: true
+      implicitHeight: onlineColumn.implicitHeight + Style.spacing.rowPaddingX * 2
+      radius: root.cornerRadius
+      color: Style.normalFillFor(root.foreground, root.accent)
+      border.color: Style.normalBorderFor(root.foreground, root.accent)
+      border.width: Style.normalBorderWidth
+
+      ColumnLayout {
+        id: onlineColumn
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.leftMargin: Style.spacing.rowPaddingX
+        anchors.rightMargin: Style.spacing.rowPaddingX
+        spacing: Style.spacing.labelGap
+
+        Text {
+          text: "Install from plugin sources"
+          color: root.foreground
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.body
+          font.bold: true
+          Layout.fillWidth: true
+        }
+
+        Column {
+          Layout.fillWidth: true
+          visible: root.sourcesList.length > 0
+          spacing: Style.spacing.xxs
+
+          Repeater {
+            model: root.sourcesList
+            delegate: RowLayout {
+              required property var modelData
+              width: parent.width
+              spacing: Style.spacing.rowGap
+
+              Text {
+                text: (modelData.name || "") + "  ·  " + (modelData.url || "")
+                color: root.foreground
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.bodySmall
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+              }
+
+              Button {
+                text: "Remove"
+                foreground: root.urgent
+                fontFamily: root.fontFamily
+                focusable: true
+                onClicked: root.removeSource(modelData.name)
+              }
+            }
+          }
+        }
+
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: Style.spacing.rowGap
+
+          TextField {
+            Layout.fillWidth: true
+            text: root.newSourceUrl
+            placeholderText: "https://github.com/owner/omarchy-plugins.git"
+            foreground: root.foreground
+            accent: root.accent
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.body
+            activeFocusOnTab: true
+            onTextEdited: root.newSourceUrl = text
+            onAccepted: root.addSource()
+          }
+
+          Button {
+            text: "Add"
+            foreground: root.foreground
+            fontFamily: root.fontFamily
+            focusable: true
+            bordered: true
+            enabled: !addSourceProcess.running
+            onClicked: root.addSource()
+          }
+        }
+
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: Style.spacing.rowGap
+
+          Button {
+            text: "Refresh sources"
+            foreground: root.foreground
+            fontFamily: root.fontFamily
+            focusable: true
+            bordered: true
+            enabled: !refreshSourcesProcess.running
+            onClicked: root.refreshSources()
+          }
+
+          Button {
+            text: root.availablePlugins.length > 0 ? root.availablePlugins.length + " available" : "Available plugins"
+            foreground: root.foreground
+            fontFamily: root.fontFamily
+            focusable: true
+            bordered: true
+            enabled: !fetchAvailablePluginsProcess.running
+            onClicked: root.fetchAvailablePlugins()
+          }
+
+          Item { Layout.fillWidth: true; implicitHeight: 1 }
+        }
+
+        Column {
+          Layout.fillWidth: true
+          visible: root.availablePlugins.length > 0
+          spacing: Style.spacing.xxs
+
+          Repeater {
+            model: root.availablePlugins
+            delegate: Rectangle {
+              required property var modelData
+              width: parent.width
+              implicitHeight: Style.space(42)
+              radius: root.cornerRadius
+              color: "transparent"
+
+              RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: Style.spacing.controlGap
+                anchors.rightMargin: Style.spacing.controlGap
+                spacing: Style.spacing.rowGap
+
+                Text {
+                  text: (modelData.name || modelData.id || "") + "  ·  " + (modelData.source || "")
+                  color: root.foreground
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.bodySmall
+                  elide: Text.ElideRight
+                  Layout.fillWidth: true
+                }
+
+                Text {
+                  text: modelData.status || ""
+                  color: modelData.status === "installed"
+                    ? Qt.lighter(root.accent, 1.3)
+                    : (modelData.status === "update-available" ? root.accent : Qt.darker(root.foreground, 1.5))
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                  visible: modelData.status === "installed" || modelData.status === "update-available"
+                }
+
+                Button {
+                  text: modelData.status === "installed" ? "Installed" : "Install"
+                  foreground: modelData.status === "installed" ? Qt.darker(root.foreground, 1.5) : root.foreground
+                  fontFamily: root.fontFamily
+                  focusable: true
+                  bordered: modelData.status !== "installed"
+                  enabled: modelData.status !== "installed" && !installFromSourceProcess.running
+                  onClicked: root.installPluginFromSource(modelData.id)
+                }
+              }
+            }
+          }
+        }
+
+        Text {
+          visible: root.sourcesList.length === 0 && root.availablePlugins.length === 0 && root.onlineInstallStatus === ""
+          text: "No sources configured. Add a plugin source URL above to install plugins from remote repositories."
+          color: Qt.darker(root.foreground, 1.5)
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.caption
+          wrapMode: Text.WordWrap
+          Layout.fillWidth: true
+        }
+
+        Text {
+          visible: root.onlineInstallStatus !== ""
+          text: root.onlineInstallStatus
+          color: root.onlineInstallStatus.indexOf("failed") !== -1 || root.onlineInstallStatus.indexOf("Failed") !== -1
             ? root.urgent
             : Qt.darker(root.foreground, 1.5)
           font.family: root.fontFamily
