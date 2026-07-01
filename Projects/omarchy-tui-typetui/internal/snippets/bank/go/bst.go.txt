@@ -1,0 +1,30 @@
+type Node struct {
+	Value int
+	Left  *Node
+	Right *Node
+}
+
+func (n *Node) Insert(value int) *Node {
+	if n == nil {
+		return &Node{Value: value}
+	}
+	if value < n.Value {
+		n.Left = n.Left.Insert(value)
+	} else if value > n.Value {
+		n.Right = n.Right.Insert(value)
+	}
+	return n
+}
+
+func (n *Node) Contains(value int) bool {
+	if n == nil {
+		return false
+	}
+	if value == n.Value {
+		return true
+	}
+	if value < n.Value {
+		return n.Left.Contains(value)
+	}
+	return n.Right.Contains(value)
+}
