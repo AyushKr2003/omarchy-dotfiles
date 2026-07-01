@@ -3,7 +3,7 @@ local utils = require "mp.utils"
 
 local home = os.getenv("HOME") or ""
 local theme_file = os.getenv("OMARCHY_MPV_THEME_COLORS") or (home .. "/.config/omarchy/current/theme/colors.toml")
-local osc_file = mp.command_native({ "expand-path", "~~/script-opts/niri_caelestia.conf" })
+local osc_file = mp.command_native({ "expand-path", "~~/script-opts/omarchy_mpv.conf" })
 local last_mtime = nil
 
 local fallback = {
@@ -174,14 +174,14 @@ hover_effect_color=%s
 # User button 1 - playlist
 usr_btn_1_icon= 󰷐
 usr_btn_1_tooltip=playlist
-usr_btn_1_mbtn_left_command=script-message-to niri_caelestia menu-toggle playlist; script-message-to niri_caelestia osc-hide
+usr_btn_1_mbtn_left_command=script-message-to omarchy_mpv menu-toggle playlist; script-message-to omarchy_mpv osc-hide
 usr_btn_1_mbtn_right_command=
 usr_btn_1_mbtn_mid_command=
 
 # User button 2 - subtitles
 usr_btn_2_icon= 
 usr_btn_2_tooltip=subtitles
-usr_btn_2_mbtn_left_command=script-message-to niri_caelestia menu-toggle sub; script-message-to niri_caelestia osc-hide
+usr_btn_2_mbtn_left_command=script-message-to omarchy_mpv menu-toggle sub; script-message-to omarchy_mpv osc-hide
 usr_btn_2_mbtn_right_command=cycle sub
 usr_btn_2_mbtn_mid_command=cycle sub down
 ]],
