@@ -63,7 +63,7 @@ o.bind("SUPER + SHIFT + ALT + X", "X Post", { webapp = "https://x.com/compose/po
 -- ── Terminals & editors ───────────────────────────────────────────────────
 
 -- Full system info
-o.bind("SUPER + PAUSE", "float" ,hl.dsp.exec_cmd("xdg-terminal-exec fish -c full_sys", { float = true, size= "1120 680" }))
+o.bind("SUPER + PAUSE", "float" ,hl.dsp.exec_cmd("xdg-terminal-exec fish -c full_sys", { float = true, size= "1220 680" }))
 
 hl.unbind("SUPER + RETURN")
 o.bind("SUPER  + RETURN", "Tmux", o.launch("omarchy-launch-terminal bash -c 'tmux attach -t Work || tmux new -s Work'"))
