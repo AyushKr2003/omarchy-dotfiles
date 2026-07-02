@@ -31,6 +31,4 @@ cd ~/omarchy-dotfiles
 **Other projects:**
 - `omarchy-aur-guard-tui/` — TUI security scanner for AUR packages
 - `omarchy-tui-apps/` — terminal app launcher built with Go + Bubbletea
-- `omarchy-menu-nvim-keybindings/` — searchable Vim/LazyVim keybinding reference
-- `omarchy-menu-qute-keybinds/` — searchable Qutebrowser keybinding reference
 - `typetui` — typing coding practice like monkeytype 
