@@ -1,0 +1,42 @@
+# omarchy-kali-vm
+
+pkgname=omarchy-kali-vm
+pkgver=0.1.2
+pkgrel=3
+pkgdesc="Standalone Kali Linux VM launcher with optional Omarchy integration (local build, quattro branch)"
+arch=('x86_64')
+url="https://github.com/Ayushkr2003/omarchy-dotfiles"
+license=('MIT')
+depends=(
+  'bash'
+  'coreutils'
+  'curl'
+  'docker'
+  'e2fsprogs'
+  'gnupg'
+  'gum'
+  'libnotify'
+  'sudo'
+  'virt-viewer'
+)
+makedepends=('git')
+source=()
+sha256sums=()
+
+package() {
+  cd "${startdir}"
+
+  install -Dm755 "bin/omarchy-kali-vm" "${pkgdir}/usr/bin/omarchy-kali-vm"
+  install -Dm755 "bin/omarchy-kali-vm-integrate-os" "${pkgdir}/usr/bin/omarchy-kali-vm-integrate-os"
+  install -Dm755 "bin/omarchy-kali-vm-unintegrate-os" "${pkgdir}/usr/bin/omarchy-kali-vm-unintegrate-os"
+
+  install -Dm644 "assets/icons/kali.png" "${pkgdir}/usr/share/icons/hicolor/512x512/apps/omarchy-kali-vm.png"
+
+  install -Dm644 "share/hypr/omarchy-kali-vm.lua" "${pkgdir}/usr/share/omarchy-kali-vm/hypr/omarchy-kali-vm.lua"
+  install -Dm644 "share/omarchy-menu.jsonc" "${pkgdir}/usr/share/omarchy-kali-vm/omarchy-menu.jsonc"
+
+  install -Dm644 "README.md" "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+  install -Dm644 "docs/cleanup.md" "${pkgdir}/usr/share/doc/${pkgname}/cleanup.md"
+  install -Dm644 "docs/integration.md" "${pkgdir}/usr/share/doc/${pkgname}/integration.md"
+  install -Dm644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}

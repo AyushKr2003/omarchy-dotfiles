@@ -1,0 +1,132 @@
+#!/bin/bash
+set -euo pipefail
+
+# --- Paths -------------------------------------------------------------
+#
+# NOTE: Hyprland's Lua bootstrap (default/hypr/bootstrap.lua) builds
+# package.path from a hardcoded "$HOME/.config/?.lua", NOT
+# $XDG_CONFIG_HOME. So the Lua module must live under $HOME/.config even
+# if the rest of the user's config has been relocated via XDG_CONFIG_HOME.
+# The menu extension file, by contrast, is just data read by Quickshell,
+# so it can safely follow XDG_CONFIG_HOME.
+
+CONFIG_ROOT="${XDG_CONFIG_HOME:-$HOME/.config}"
+LUA_MODULE_ROOT="$HOME/.config"
+DATA_DIR="${OMARCHY_KALI_VM_DATA_DIR:-/usr/share/omarchy-kali-vm}"
+
+PROJECT_ROOT="$LUA_MODULE_ROOT/omarchy-kali-vm"
+HYPR_TEMPLATE="$DATA_DIR/hypr/omarchy-kali-vm.lua"
+HYPR_TARGET_DIR="$PROJECT_ROOT/hypr"
+HYPR_TARGET="$HYPR_TARGET_DIR/omarchy-kali-vm.lua"
+
+MENU_TEMPLATE="$DATA_DIR/omarchy-menu.jsonc"
+OMARCHY_MENU="$CONFIG_ROOT/omarchy/extensions/omarchy-menu.jsonc"
+
+HYPRLAND_LUA="$CONFIG_ROOT/hypr/hyprland.lua"
+
+HYPR_MARKER_BEGIN="-- >>> omarchy-kali-vm hypr integration >>>"
+HYPR_MARKER_END="-- <<< omarchy-kali-vm hypr integration <<<"
+MENU_MARKER_BEGIN="// >>> omarchy-kali-vm menu integration >>>"
+MENU_MARKER_END="// <<< omarchy-kali-vm menu integration <<<"
+
+# --- Helpers -------------------------------------------------------------
+
+# Append a marker-delimited block to the end of a file, idempotently.
+# Used for hyprland.lua, where appending at end-of-file is safe (quattro's
+# own hyprland.lua ends with a comment inviting exactly this).
+append_marker_block() {
+  local file="$1"
+  local begin="$2"
+  local end="$3"
+  local body="$4"
+
+  mkdir -p "$(dirname "$file")"
+  touch "$file"
+  if grep -Fqx -- "$begin" "$file"; then
+    return 0
+  fi
+
+  {
+    printf '\n%s\n' "$begin"
+    printf '%s\n' "$body"
+    printf '%s\n' "$end"
+  } >> "$file"
+}
+
+# Insert a marker-delimited block just before the final top-level closing
+# brace of a JSON(C) object, idempotently. A plain end-of-file append (as
+# used for hyprland.lua) would land *after* the closing "}" and break the
+# file, so this walks back to the last line that is only "}" and splices
+# the block in before it. JSONC's tolerance for trailing commas (used
+# throughout omarchy-menu.jsonc) means we don't need to worry about a
+# dangling comma on the line before our insertion point.
+insert_before_final_brace() {
+  local file="$1"
+  local begin="$2"
+  local end="$3"
+  local body="$4"
+
+  if grep -Fqx -- "$begin" "$file"; then
+    return 0
+  fi
+
+  local last_brace_line
+  last_brace_line=$(grep -n '^}[[:space:]]*$' "$file" | tail -n1 | cut -d: -f1)
+
+  if [[ -z "$last_brace_line" ]]; then
+    printf 'Error: could not find a top-level closing brace in %s\n' "$file" >&2
+    printf 'Add the following rows manually:\n%s\n' "$body" >&2
+    return 1
+  fi
+
+  local tmp
+  tmp=$(mktemp)
+  {
+    head -n "$((last_brace_line - 1))" "$file"
+    printf '%s\n' "$begin"
+    printf '%s\n' "$body"
+    printf '%s\n' "$end"
+    tail -n +"$last_brace_line" "$file"
+  } > "$tmp"
+  mv "$tmp" "$file"
+}
+
+# --- 1. Install the Lua window-rule module ------------------------------
+# Placed under $HOME/.config/omarchy-kali-vm/hypr/omarchy-kali-vm.lua so
+# that require("omarchy-kali-vm.hypr.omarchy-kali-vm") resolves via the
+# "$HOME/.config/?.lua" entry in Hyprland's package.path.
+
+install -Dm644 "$HYPR_TEMPLATE" "$HYPR_TARGET"
+
+# --- 2. Hook it into the user's hyprland.lua ----------------------------
+
+if [[ ! -f "$HYPRLAND_LUA" ]]; then
+  printf 'Error: %s not found.\n' "$HYPRLAND_LUA" >&2
+  printf 'This integration targets Omarchy'"'"'s quattro branch (Lua config).\n' >&2
+  printf 'If you are on master/dev, use the classic .conf-based integration instead.\n' >&2
+  exit 1
+fi
+
+append_marker_block \
+  "$HYPRLAND_LUA" \
+  "$HYPR_MARKER_BEGIN" \
+  "$HYPR_MARKER_END" \
+  'require("omarchy-kali-vm.hypr.omarchy-kali-vm")'
+
+# --- 3. Merge the menu rows into the user's Quickshell menu extension ---
+
+mkdir -p "$(dirname "$OMARCHY_MENU")"
+if [[ ! -f "$OMARCHY_MENU" ]]; then
+  printf '{\n}\n' > "$OMARCHY_MENU"
+fi
+
+MENU_BODY=$(grep -v '^[[:space:]]*//' "$MENU_TEMPLATE" | sed -e 's/^/  /')
+
+insert_before_final_brace \
+  "$OMARCHY_MENU" \
+  "$MENU_MARKER_BEGIN" \
+  "$MENU_MARKER_END" \
+  "$MENU_BODY"
+
+printf 'Installed Omarchy quattro integration in %s\n' "$CONFIG_ROOT"
+printf 'Run "hyprctl reload" (or restart Hyprland) to apply the window rule and menu entries.\n'

@@ -7,3 +7,8 @@ aur-malware-check
 build/
 dist/
 *.egg-info/
+# makepkg build artifacts
+src/
+pkg/
+*.pkg.tar.*
+*.log
