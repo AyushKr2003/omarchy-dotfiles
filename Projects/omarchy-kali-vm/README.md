@@ -1,6 +1,7 @@
 # omarchy-kali-vm
 
-My custom fork of original [omarchy-kali-vm](https://github.com/r3b1s/omarchy-kali-vm.git)
+My custom fork of original [omarchy-kali-vm](https://github.com/r3b1s/omarchy-kali-vm.git). 
+
 Provides an accessible "click-to-install" Kali Linux VM using a dockerized QEMU environment to minimize dependencies. Intended for [Omarchy](https://github.com/basecamp/omarchy), but should work on any Arch setup with `docker` engine set up. Supports clipboard-sharing + display auto-resizing on Hyprland. Includes window rules for a smooth, borderless experience. Can integrate into Omarchy's menu alongside Omarchy's default Windows VM.
 
 > **Branch note:** This README describes integration with Omarchy's
@@ -53,8 +54,8 @@ Optional, for Omarchy's smoother integration:
    ```
 2. **Clone this repo:**
    ```sh
-   git clone https://github.com/r3b1s/omarchy-kali-vm.git
-   cd omarchy-kali-vm
+   git clone https://github.com/AyushKr2003/omarchy-dotfiles
+   cd omarchy-dotfiles/Projects/omarchy-kali-vm
    ```
 3. **Add the `PKGBUILD`** to the repo root (next to `bin/`, `share/`, `docs/`) — see [PKGBUILD](PKGBUILD) — then build and install with `makepkg`:
    ```sh
