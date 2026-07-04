@@ -21,12 +21,11 @@ That `Kali` launcher runs `omarchy-kali-vm launch` and is removed by `omarchy-ka
 
 Omarchy users can run `omarchy-kali-vm-integrate-os` to add two user-owned integrations:
 
-- **Hyprland window rule.** The packaged Lua module
-  `~/.config/omarchy-kali-vm/hypr/omarchy-kali-vm.lua` is loaded via a
-  `require("omarchy-kali-vm.hypr.omarchy-kali-vm")` line appended, inside
-  marker comments, to `~/.config/hypr/hyprland.lua`. It's installed under
-  `~/.config` (not `$XDG_CONFIG_HOME`) because Hyprland's Lua
-  `package.path` is hardcoded to `$HOME/.config/?.lua`.
+- **Hyprland window rule.** The `o.window(...)` rule from the packaged
+  `share/hypr/omarchy-kali-vm.lua` is inlined directly, inside marker
+  comments, into `~/.config/hypr/hyprland.lua`. There's no separate
+  module file and no `require()` — the rule lines themselves are copied
+  in.
 - **Omarchy menu entries.** Two rows, `install.kali` and `remove.kali`,
   are merged — inside marker comments, just before the file's closing
   `}` — into `~/.config/omarchy/extensions/omarchy-menu.jsonc`, the JSONC
@@ -37,17 +36,18 @@ This optional integration gives the smoothest Omarchy experience:
 - The Hyprland window rule makes the `remote-viewer` window behave correctly (fullscreen state, opacity) for the Kali session.
 - The menu rows give you direct Install and Remove entries in Omarchy's Quickshell launcher alongside the existing system flows, without relying on package-owned desktop files.
 
-The helper is idempotent. Re-running it does not duplicate the `require()` line or the menu rows — it checks for its own marker comments first.
+The helper is idempotent. Re-running it does not duplicate the window rule or the menu rows — it checks for its own marker comments first.
 
-Run `omarchy-kali-vm-unintegrate-os` to remove only the marker blocks and files managed by this project. It leaves the rest of `hyprland.lua` and `omarchy-menu.jsonc` untouched.
+Run `omarchy-kali-vm-unintegrate-os` to remove only the marker blocks managed by this project. It leaves the rest of `hyprland.lua` and `omarchy-menu.jsonc` untouched.
 
 ### What gets touched
 
 | File | Change |
 |---|---|
-| `~/.config/omarchy-kali-vm/hypr/omarchy-kali-vm.lua` | Created (copy of the packaged Lua rule module) |
-| `~/.config/hypr/hyprland.lua` | One `require(...)` line appended inside `-- >>> omarchy-kali-vm hypr integration >>>` / `-- <<< ... <<<` markers |
+| `~/.config/hypr/hyprland.lua` | The `o.window(...)` rule block appended inside `-- >>> omarchy-kali-vm hypr integration >>>` / `-- <<< ... <<<` markers |
 | `~/.config/omarchy/extensions/omarchy-menu.jsonc` | Two menu rows inserted before the closing `}`, inside `// >>> omarchy-kali-vm menu integration >>>` / `// <<< ... <<<` markers. Created (as `{}`) if it doesn't already exist |
+
+No files are created outside these two — there's no `~/.config/omarchy-kali-vm` module directory.
 
 ### Why not a plain end-of-file append for the menu file?
 

@@ -2,26 +2,13 @@
 set -euo pipefail
 
 # --- Paths -------------------------------------------------------------
-#
-# NOTE: Hyprland's Lua bootstrap (default/hypr/bootstrap.lua) builds
-# package.path from a hardcoded "$HOME/.config/?.lua", NOT
-# $XDG_CONFIG_HOME. So the Lua module must live under $HOME/.config even
-# if the rest of the user's config has been relocated via XDG_CONFIG_HOME.
-# The menu extension file, by contrast, is just data read by Quickshell,
-# so it can safely follow XDG_CONFIG_HOME.
 
 CONFIG_ROOT="${XDG_CONFIG_HOME:-$HOME/.config}"
-LUA_MODULE_ROOT="$HOME/.config"
 DATA_DIR="${OMARCHY_KALI_VM_DATA_DIR:-/usr/share/omarchy-kali-vm}"
 
-PROJECT_ROOT="$LUA_MODULE_ROOT/omarchy-kali-vm"
 HYPR_TEMPLATE="$DATA_DIR/hypr/omarchy-kali-vm.lua"
-HYPR_TARGET_DIR="$PROJECT_ROOT/hypr"
-HYPR_TARGET="$HYPR_TARGET_DIR/omarchy-kali-vm.lua"
-
 MENU_TEMPLATE="$DATA_DIR/omarchy-menu.jsonc"
 OMARCHY_MENU="$CONFIG_ROOT/omarchy/extensions/omarchy-menu.jsonc"
-
 HYPRLAND_LUA="$CONFIG_ROOT/hypr/hyprland.lua"
 
 HYPR_MARKER_BEGIN="-- >>> omarchy-kali-vm hypr integration >>>"
@@ -32,8 +19,6 @@ MENU_MARKER_END="// <<< omarchy-kali-vm menu integration <<<"
 # --- Helpers -------------------------------------------------------------
 
 # Append a marker-delimited block to the end of a file, idempotently.
-# Used for hyprland.lua, where appending at end-of-file is safe (quattro's
-# own hyprland.lua ends with a comment inviting exactly this).
 append_marker_block() {
   local file="$1"
   local begin="$2"
@@ -54,12 +39,7 @@ append_marker_block() {
 }
 
 # Insert a marker-delimited block just before the final top-level closing
-# brace of a JSON(C) object, idempotently. A plain end-of-file append (as
-# used for hyprland.lua) would land *after* the closing "}" and break the
-# file, so this walks back to the last line that is only "}" and splices
-# the block in before it. JSONC's tolerance for trailing commas (used
-# throughout omarchy-menu.jsonc) means we don't need to worry about a
-# dangling comma on the line before our insertion point.
+# brace of a JSON(C) object, idempotently.
 insert_before_final_brace() {
   local file="$1"
   local begin="$2"
@@ -91,14 +71,10 @@ insert_before_final_brace() {
   mv "$tmp" "$file"
 }
 
-# --- 1. Install the Lua window-rule module ------------------------------
-# Placed under $HOME/.config/omarchy-kali-vm/hypr/omarchy-kali-vm.lua so
-# that require("omarchy-kali-vm.hypr.omarchy-kali-vm") resolves via the
-# "$HOME/.config/?.lua" entry in Hyprland's package.path.
-
-install -Dm644 "$HYPR_TEMPLATE" "$HYPR_TARGET"
-
-# --- 2. Hook it into the user's hyprland.lua ----------------------------
+# --- 1. Inline the window rule directly into hyprland.lua ---------------
+# No separate module file or require() -- the packaged rule lines from
+# $HYPR_TEMPLATE are appended straight into hyprland.lua inside marker
+# comments.
 
 if [[ ! -f "$HYPRLAND_LUA" ]]; then
   printf 'Error: %s not found.\n' "$HYPRLAND_LUA" >&2
@@ -107,13 +83,20 @@ if [[ ! -f "$HYPRLAND_LUA" ]]; then
   exit 1
 fi
 
+if [[ ! -f "$HYPR_TEMPLATE" ]]; then
+  printf 'Error: packaged rule file not found at %s\n' "$HYPR_TEMPLATE" >&2
+  exit 1
+fi
+
+HYPR_BODY=$(grep -v '^[[:space:]]*--' "$HYPR_TEMPLATE" | sed '/^[[:space:]]*$/d')
+
 append_marker_block \
   "$HYPRLAND_LUA" \
   "$HYPR_MARKER_BEGIN" \
   "$HYPR_MARKER_END" \
-  'require("omarchy-kali-vm.hypr.omarchy-kali-vm")'
+  "$HYPR_BODY"
 
-# --- 3. Merge the menu rows into the user's Quickshell menu extension ---
+# --- 2. Merge the menu rows into the user's Quickshell menu extension ---
 
 mkdir -p "$(dirname "$OMARCHY_MENU")"
 if [[ ! -f "$OMARCHY_MENU" ]]; then

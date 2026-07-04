@@ -1,5 +1,6 @@
 # omarchy-kali-vm
 
+My custom fork of original [omarchy-kali-vm](https://github.com/r3b1s/omarchy-kali-vm.git)
 Provides an accessible "click-to-install" Kali Linux VM using a dockerized QEMU environment to minimize dependencies. Intended for [Omarchy](https://github.com/basecamp/omarchy), but should work on any Arch setup with `docker` engine set up. Supports clipboard-sharing + display auto-resizing on Hyprland. Includes window rules for a smooth, borderless experience. Can integrate into Omarchy's menu alongside Omarchy's default Windows VM.
 
 > **Branch note:** This README describes integration with Omarchy's
@@ -34,41 +35,22 @@ Optional, for Omarchy's smoother integration:
 
 ## Installation
 
-### Option A: AUR (recommended)
-
-```sh
-yay -S omarchy-kali-vm
-```
-
-This installs the `omarchy-kali-vm*` binaries to `/usr/bin`, the icon to `/usr/share/icons`, and the packaged Hyprland/menu snippets to `/usr/share/omarchy-kali-vm`.
-
-After installation, if you're on Omarchy, run:
-
-```sh
-omarchy-kali-vm-integrate-os
-```
-
-This imports the Hyprland window rule and Omarchy menu entries into your `~/.config` (see [Omarchy Integration](#omarchy-integration-quattro-branch) below). It can be undone at any time with:
-
-```sh
-omarchy-kali-vm-unintegrate-os
-```
-
-### Option B: Manual install (no AUR)
+### Manual install (no AUR)
 
 1. **Install base build tooling and dependencies** (see the table above):
-  non-Omarchy user 
+
+   **Non-Omarchy user:**
    ```sh
    sudo pacman -S base-devel git docker docker-compose sudo gum curl gnupg coreutils virt-viewer
    sudo systemctl enable --now docker
    sudo usermod -aG docker "$USER"   # log out/in afterward for group membership to take effect
    ```
-    omarchy-user 
-    ```sh
-    omarchy-pkg-install virt-viewer
-    ```
-    ```
-    ```
+
+   **Omarchy user:**
+   `base-devel`, `git`, `docker`, `docker-compose`, `gum`, `sudo`, `curl`, `gnupg`, and `coreutils` all ship with Omarchy by default. Docker is already set up too — Omarchy socket-activates it via `docker.socket` (so it starts on demand without a running `docker.service`), and your user is already in the `docker` group. The only thing missing is `virt-viewer`:
+   ```sh
+   omarchy-pkg-add virt-viewer
+   ```
 2. **Clone this repo:**
    ```sh
    git clone https://github.com/r3b1s/omarchy-kali-vm.git
@@ -101,7 +83,7 @@ The package does not edit `~/.local/share/omarchy` and does not clean up user do
 
 - Base package: launcher command, icon, packaged Hyprland and Omarchy menu snippets, and documentation.
 - User runtime data: `~/.config/kali`, `~/.kali`, `~/Kali`, and the runtime-created desktop entry in `~/.local/share/applications`.
-- Optional Omarchy integration: user-run helpers that add or remove Omarchy menu rows and a Hyprland window-rule `require()` under `~/.config`. The Hyprland window rule makes the SPICE viewer behave like a native Omarchy app. The runtime-created launcher works without Omarchy; Omarchy-specific menu and Hyprland integration is opt-in.
+- Optional Omarchy integration: user-run helpers that add or remove Omarchy menu rows and a Hyprland window rule under `~/.config`. The Hyprland window rule makes the SPICE viewer behave like a native Omarchy app. The runtime-created launcher works without Omarchy; Omarchy-specific menu and Hyprland integration is opt-in.
 
 ### Patching the QEMU Image
 The QEMU Image is patched during initial setup to apply selected configurations, expand the virtual harddrive and filesystem. While patching, SPICE agent support is wired in so resize events propagate properly. XFCE was given a small autoresize helper that polls `xrandr`, applies the preferred mode when the display changes, and restarts the user-session `spice-vdagent` if needed. That extra guest-side step was necessary because XFCE was not reliably applying the new SPICE-provided resolution on its own, which in turn caused mouse alignment to break after resizes.
@@ -132,7 +114,7 @@ For Omarchy users on the quattro branch, `omarchy-kali-vm-integrate-os` enables 
 
 `omarchy-kali-vm-integrate-os` makes two changes, both reversible and idempotent:
 
-1. Copies `share/hypr/omarchy-kali-vm.lua` to `~/.config/omarchy-kali-vm/hypr/omarchy-kali-vm.lua` and appends `require("omarchy-kali-vm.hypr.omarchy-kali-vm")` to `~/.config/hypr/hyprland.lua`, inside marker comments.
+1. Inlines the `o.window(...)` rule from `share/hypr/omarchy-kali-vm.lua` directly into `~/.config/hypr/hyprland.lua`, inside marker comments — no separate module file, no `require()`.
 2. Merges the `install.kali` / `remove.kali` rows from `share/omarchy-menu.jsonc` into `~/.config/omarchy/extensions/omarchy-menu.jsonc`, inside marker comments, just before the file's closing `}`.
 
 Run `hyprctl reload` afterward to pick up the window rule. See [docs/integration.md](docs/integration.md) for the full mechanics and [docs/cleanup.md](docs/cleanup.md) for exactly what gets removed by `omarchy-kali-vm-unintegrate-os`.

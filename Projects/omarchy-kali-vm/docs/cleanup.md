@@ -29,8 +29,7 @@ Run `omarchy-kali-vm remove --debug` when you want the same VM cleanup while pre
 
 Run `omarchy-kali-vm-unintegrate-os` when you want to remove the Omarchy integration that was previously added by this project. On the **quattro** branch, this removes:
 
-- The `require("omarchy-kali-vm.hypr.omarchy-kali-vm")` marker block from `~/.config/hypr/hyprland.lua`
+- The window-rule marker block from `~/.config/hypr/hyprland.lua`
 - The `install.kali` / `remove.kali` marker block from `~/.config/omarchy/extensions/omarchy-menu.jsonc`
-- The copied Lua module directory, `~/.config/omarchy-kali-vm`
 
-The helper removes only its own marked blocks and its own copied files — the rest of `hyprland.lua` and `omarchy-menu.jsonc` (including any other extensions you've added) is left exactly as it was.
+The helper removes only its own marked blocks — the rest of `hyprland.lua` and `omarchy-menu.jsonc` (including any other extensions you've added) is left exactly as it was.

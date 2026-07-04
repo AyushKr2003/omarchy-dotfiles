@@ -2,8 +2,6 @@
 set -euo pipefail
 
 CONFIG_ROOT="${XDG_CONFIG_HOME:-$HOME/.config}"
-LUA_MODULE_ROOT="$HOME/.config"
-PROJECT_ROOT="$LUA_MODULE_ROOT/omarchy-kali-vm"
 
 OMARCHY_MENU="$CONFIG_ROOT/omarchy/extensions/omarchy-menu.jsonc"
 HYPRLAND_LUA="$CONFIG_ROOT/hypr/hyprland.lua"
@@ -36,7 +34,6 @@ remove_marker_block() {
 
 remove_marker_block "$HYPRLAND_LUA" "$HYPR_MARKER_BEGIN" "$HYPR_MARKER_END"
 remove_marker_block "$OMARCHY_MENU" "$MENU_MARKER_BEGIN" "$MENU_MARKER_END"
-rm -rf "$PROJECT_ROOT"
 
 printf 'Removed Omarchy quattro integration managed by omarchy-kali-vm from %s\n' "$CONFIG_ROOT"
 printf 'Run "hyprctl reload" (or restart Hyprland) to apply.\n'
