@@ -411,12 +411,7 @@ check_launch_dependencies() {
   require_command remote-viewer virt-viewer
 }
 
-check_prerequisites() {
-  local DISK_SIZE_GB=${1:-64}
-  local OVERHEAD_GB=${OMARCHY_KALI_VM_DISK_OVERHEAD_GB:-10}
-  local REQUIRED_SPACE=$((DISK_SIZE_GB + OVERHEAD_GB))
-
-  # Check for KVM support
+check_kvm_support() {
   if [[ ! -e /dev/kvm ]]; then
     gum style \
       --border normal \
@@ -429,14 +424,32 @@ check_prerequisites() {
       "  sudo modprobe kvm-amd    # for AMD CPUs"
     exit 1
   fi
+}
 
-  # Check disk space
+check_disk_space() {
+  local DISK_SIZE_GB="$1"
+  local OVERHEAD_GB=${OMARCHY_KALI_VM_DISK_OVERHEAD_GB:-10}
+  local REQUIRED_SPACE=$((DISK_SIZE_GB + OVERHEAD_GB))
+
   AVAILABLE_SPACE=$(df "$HOME" | awk 'NR==2 {print int($4/1024/1024)}')
   if (( AVAILABLE_SPACE < REQUIRED_SPACE )); then
     echo "Insufficient disk space!"
     echo "   Available: ${AVAILABLE_SPACE}GB"
     echo "   Required: ${REQUIRED_SPACE}GB (${DISK_SIZE_GB}GB disk + ${OVERHEAD_GB}GB overhead)"
     exit 1
+  fi
+}
+
+check_prerequisites() {
+  local DISK_SIZE_GB="${1:-}"
+
+  check_kvm_support
+
+  # Only check disk space once an actual disk size is known -- called
+  # without an argument, this just does the KVM check (e.g. as an early
+  # sanity check before the user has picked a disk size yet).
+  if [[ -n "$DISK_SIZE_GB" ]]; then
+    check_disk_space "$DISK_SIZE_GB"
   fi
 }
 
