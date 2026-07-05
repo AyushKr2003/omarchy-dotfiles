@@ -4,7 +4,7 @@ from textual.message import Message
 from textual.widget import Widget
 from rich.text import Text
 from .theme import FG, BFG, SEL, LBG, RED, ORG, YEL, GRN, MUT
-from .icons import CRITICAL, HIGH, MEDIUM, LOW, CLEAN, UNKNOWN
+from .icons import CRITICAL, HIGH, MEDIUM, LOW, CLEAN, UNKNOWN, WARN
 
 
 class PkgItem(Widget):
@@ -46,6 +46,12 @@ class PkgItem(Widget):
         self.pkg_index = index
         self.pkgname   = pkgname
         self.verdict_  = verdict_
+        self.flagged   = False
+
+    def set_flagged(self, flagged: bool) -> None:
+        if self.flagged != flagged:
+            self.flagged = flagged
+            self.refresh()
 
     def update_state(self, verdict_: str, active: bool) -> None:
         """Update verdict and active state in-place without remounting."""
@@ -66,6 +72,8 @@ class PkgItem(Widget):
             self.pkgname,
             style=BFG if self.verdict_ != "UNKNOWN" else FG,
         )
+        if self.flagged:
+            t.append(f"  {WARN}", style=RED)
         return t
 
     def on_click(self) -> None:

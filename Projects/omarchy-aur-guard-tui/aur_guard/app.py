@@ -35,7 +35,7 @@ from .scanner import (
     load_session, save_session,
 )
 from .ioc import IocChecker
-from .threats import refresh_threat_list
+from .threats import refresh_threat_list, threat_list_sources_for
 from .widgets import PkgItem
 from .views import WelcomeView, LoadingView, ScanView
 from .icons import APP, HELP, WARN, OK, FAIL, INFO
@@ -206,6 +206,16 @@ class AurGuardApp(App):
                 pass
 
     # ── Sidebar pool ──────────────────────────────────────────────────────────
+    def _is_flagged_package(self, pkg: str) -> bool:
+        if threat_list_sources_for(pkg):
+            return True
+        result = self._results.get(pkg)
+        if result:
+            verdict = result.get("verdict", "")
+            if verdict in ("CRITICAL", "HIGH"):
+                return True
+        return False
+
     def _sync_list(self, filter_q: str = "") -> None:
         pkg_list = self.query_one("#pkg-list", ScrollableContainer)
         self._update_header_counts()
@@ -214,6 +224,7 @@ class AurGuardApp(App):
             item = PkgItem(index=idx, pkgname=self._packages[idx], verdict_="UNKNOWN")
             self._list_items.append(item)
             pkg_list.mount(item)
+        hidden_flag = 0
         for i, item in enumerate(self._list_items):
             if i < len(self._packages):
                 pkg     = self._packages[i]
@@ -221,13 +232,22 @@ class AurGuardApp(App):
                 result  = self._results.get(pkg)
                 verd    = result["verdict"] if result else "UNKNOWN"
                 active  = (i == self._sel)
+                flagged = self._is_flagged_package(pkg)
                 visible = not filter_q or filter_q.lower() in pkg.lower()
+                if filter_q and flagged and visible:
+                    visible = False
+                    hidden_flag += 1
                 item.pkg_index = i
                 item.pkgname   = pkg
                 item.display   = visible
                 item.update_state(verd, active)
+                item.set_flagged(flagged)
             else:
                 item.display = False
+        if hidden_flag > 0:
+            self.query_one("#pkg-search", Input).placeholder = f"Search AUR…  [{WARN} {hidden_flag} infected hidden]"
+        else:
+            self.query_one("#pkg-search", Input).placeholder = "Search AUR…"
 
     def _update_header_counts(self) -> None:
         done = sum(1 for p in self._packages if self._results.get(p, {}).get("info"))
