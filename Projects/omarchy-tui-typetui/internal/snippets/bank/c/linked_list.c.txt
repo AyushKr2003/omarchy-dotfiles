@@ -1,0 +1,50 @@
+#include <stdlib.h>
+
+typedef struct Node {
+    int data;
+    struct Node *next;
+} Node;
+
+Node *create_node(int data) {
+    Node *n = malloc(sizeof(Node));
+    n->data = data;
+    n->next = NULL;
+    return n;
+}
+
+void insert_front(Node **head, int data) {
+    Node *n = create_node(data);
+    n->next = *head;
+    *head = n;
+}
+
+void insert_back(Node **head, int data) {
+    Node *n = create_node(data);
+    if (*head == NULL) {
+        *head = n;
+        return;
+    }
+    Node *cur = *head;
+    while (cur->next) cur = cur->next;
+    cur->next = n;
+}
+
+void delete_by_value(Node **head, int data) {
+    Node *cur = *head, *prev = NULL;
+    while (cur && cur->data != data) {
+        prev = cur;
+        cur = cur->next;
+    }
+    if (cur == NULL) return;
+    if (prev) prev->next = cur->next;
+    else *head = cur->next;
+    free(cur);
+}
+
+void free_list(Node *head) {
+    while (head) {
+        Node *next = head->next;
+        free(head);
+        head = next;
+    }
+}

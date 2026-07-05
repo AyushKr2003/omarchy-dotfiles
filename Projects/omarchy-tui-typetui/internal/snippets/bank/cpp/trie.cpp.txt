@@ -1,0 +1,59 @@
+#include <algorithm>
+#include <string>
+#include <vector>
+
+class Trie {
+    struct Node {
+        std::map<char, Node*> children;
+        bool terminal = false;
+    };
+
+public:
+    void insert(const std::string &word) {
+        Node *cur = &root;
+        for (char c : word) {
+            if (!cur->children.count(c)) {
+                cur->children[c] = new Node();
+            }
+            cur = cur->children[c];
+        }
+        cur->terminal = true;
+    }
+
+    bool search(const std::string &word) const {
+        Node *cur = find(word);
+        return cur && cur->terminal;
+    }
+
+    bool starts_with(const std::string &prefix) const {
+        return find(prefix) != nullptr;
+    }
+
+    std::vector<std::string> autocomplete(const std::string &prefix) const {
+        std::vector<std::string> result;
+        Node *cur = find(prefix);
+        if (cur) collect_words(cur, prefix, result);
+        return result;
+    }
+
+private:
+    Node root;
+
+    Node* find(const std::string &s) const {
+        Node *cur = const_cast<Node*>(&root);
+        for (char c : s) {
+            auto it = cur->children.find(c);
+            if (it == cur->children.end()) return nullptr;
+            cur = it->second;
+        }
+        return cur;
+    }
+
+    void collect_words(Node *n, const std::string &prefix,
+                       std::vector<std::string> &out) const {
+        if (n->terminal) out.push_back(prefix);
+        for (auto &[c, child] : n->children) {
+            collect_words(child, prefix + c, out);
+        }
+    }
+};

@@ -1,0 +1,55 @@
+#include <pthread.h>
+#include <queue>
+#include <stdexcept>
+#include <vector>
+
+class ThreadPool {
+public:
+    ThreadPool(int num_threads) : stop(false) {
+        for (int i = 0; i < num_threads; i++) {
+            workers.emplace_back(&ThreadPool::worker_loop, this);
+        }
+    }
+
+    template <typename F>
+    void enqueue(F &&f) {
+        pthread_mutex_lock(&mtx);
+        tasks.push(std::forward<F>(f));
+        pthread_mutex_unlock(&mtx);
+        pthread_cond_signal(&cond);
+    }
+
+    ~ThreadPool() {
+        pthread_mutex_lock(&mtx);
+        stop = true;
+        pthread_mutex_unlock(&mtx);
+        pthread_cond_broadcast(&cond);
+        for (auto &w : workers) {
+            pthread_join(w, nullptr);
+        }
+    }
+
+private:
+    std::vector<pthread_t> workers;
+    std::queue<std::function<void()>> tasks;
+    pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
+    pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+    bool stop;
+
+    void worker_loop() {
+        while (true) {
+            pthread_mutex_lock(&mtx);
+            while (!stop && tasks.empty()) {
+                pthread_cond_wait(&cond, &mtx);
+            }
+            if (stop && tasks.empty()) {
+                pthread_mutex_unlock(&mtx);
+                return;
+            }
+            auto task = std::move(tasks.front());
+            tasks.pop();
+            pthread_mutex_unlock(&mtx);
+            task();
+        }
+    }
+};

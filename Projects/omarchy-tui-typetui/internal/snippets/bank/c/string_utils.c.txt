@@ -1,0 +1,42 @@
+#include <string.h>
+
+void reverse_string(char *s) {
+    int len = strlen(s);
+    for (int i = 0; i < len / 2; i++) {
+        char tmp = s[i];
+        s[i] = s[len - 1 - i];
+        s[len - 1 - i] = tmp;
+    }
+}
+
+int is_palindrome(const char *s) {
+    int left = 0;
+    int right = strlen(s) - 1;
+    while (left < right) {
+        if (s[left] != s[right]) return 0;
+        left++;
+        right--;
+    }
+    return 1;
+}
+
+void squeeze(char *s, char c) {
+    int j = 0;
+    for (int i = 0; s[i]; i++) {
+        if (s[i] != c) s[j++] = s[i];
+    }
+    s[j] = '\0';
+}
+
+int count_words(const char *s) {
+    int count = 0, in_word = 0;
+    for (int i = 0; s[i]; i++) {
+        if (s[i] == ' ' || s[i] == '\t' || s[i] == '\n') {
+            in_word = 0;
+        } else if (!in_word) {
+            in_word = 1;
+            count++;
+        }
+    }
+    return count;
+}

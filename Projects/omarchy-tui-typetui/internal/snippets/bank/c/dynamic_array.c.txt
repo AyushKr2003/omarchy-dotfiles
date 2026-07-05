@@ -1,0 +1,40 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+#define INITIAL_CAP 8
+
+typedef struct {
+    int *data;
+    int len;
+    int cap;
+} Vec;
+
+void vec_init(Vec *v) {
+    v->data = malloc(INITIAL_CAP * sizeof(int));
+    v->len = 0;
+    v->cap = INITIAL_CAP;
+}
+
+void vec_grow(Vec *v) {
+    v->cap *= 2;
+    v->data = realloc(v->data, v->cap * sizeof(int));
+}
+
+void vec_push(Vec *v, int val) {
+    if (v->len == v->cap) vec_grow(v);
+    v->data[v->len++] = val;
+}
+
+int vec_pop(Vec *v) {
+    return v->data[--v->len];
+}
+
+int vec_get(Vec *v, int idx) {
+    return v->data[idx];
+}
+
+void vec_free(Vec *v) {
+    free(v->data);
+    v->data = NULL;
+    v->len = v->cap = 0;
+}

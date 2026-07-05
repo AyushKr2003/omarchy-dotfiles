@@ -1,0 +1,48 @@
+#include <sstream>
+#include <string>
+#include <utility>
+#include <vector>
+
+std::vector<std::string> split(const std::string &s, char delim) {
+    std::vector<std::string> tokens;
+    std::stringstream ss(s);
+    std::string token;
+    while (std::getline(ss, token, delim)) {
+        tokens.push_back(token);
+    }
+    return tokens;
+}
+
+std::string join(const std::vector<std::string> &parts, const std::string &sep) {
+    std::string result;
+    for (size_t i = 0; i < parts.size(); i++) {
+        if (i > 0) result += sep;
+        result += parts[i];
+    }
+    return result;
+}
+
+std::string ltrim(std::string s) {
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(),
+        [](unsigned char c) { return !std::isspace(c); }));
+    return s;
+}
+
+std::string rtrim(std::string s) {
+    s.erase(std::find_if(s.rbegin(), s.rend(),
+        [](unsigned char c) { return !std::isspace(c); }).base(), s.end());
+    return s;
+}
+
+std::string trim(std::string s) {
+    return rtrim(ltrim(std::move(s)));
+}
+
+bool starts_with(const std::string &s, const std::string &prefix) {
+    return s.compare(0, prefix.size(), prefix) == 0;
+}
+
+bool ends_with(const std::string &s, const std::string &suffix) {
+    return s.size() >= suffix.size() &&
+           s.compare(s.size() - suffix.size(), suffix.size(), suffix) == 0;
+}

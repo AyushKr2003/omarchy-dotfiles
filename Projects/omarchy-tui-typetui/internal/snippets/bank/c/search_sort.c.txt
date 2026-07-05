@@ -1,0 +1,42 @@
+#include <stddef.h>
+
+size_t binary_search(int *arr, size_t len, int target) {
+    size_t low = 0, high = len;
+    while (low < high) {
+        size_t mid = low + (high - low) / 2;
+        if (arr[mid] == target) return mid;
+        else if (arr[mid] < target) low = mid + 1;
+        else high = mid;
+    }
+    return len;
+}
+
+void insertion_sort(int *arr, size_t len) {
+    for (size_t i = 1; i < len; i++) {
+        int key = arr[i];
+        size_t j = i;
+        while (j > 0 && arr[j - 1] > key) {
+            arr[j] = arr[j - 1];
+            j--;
+        }
+        arr[j] = key;
+    }
+}
+
+void merge(int *arr, int *tmp, size_t l, size_t m, size_t r) {
+    size_t i = l, j = m, k = l;
+    while (i < m && j < r) {
+        tmp[k++] = arr[i] <= arr[j] ? arr[i++] : arr[j++];
+    }
+    while (i < m) tmp[k++] = arr[i++];
+    while (j < r) tmp[k++] = arr[j++];
+    for (k = l; k < r; k++) arr[k] = tmp[k];
+}
+
+void merge_sort_rec(int *arr, int *tmp, size_t l, size_t r) {
+    if (r - l <= 1) return;
+    size_t mid = l + (r - l) / 2;
+    merge_sort_rec(arr, tmp, l, mid);
+    merge_sort_rec(arr, tmp, mid, r);
+    merge(arr, tmp, l, mid, r);
+}

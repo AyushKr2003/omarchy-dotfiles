@@ -1,0 +1,52 @@
+#include <iostream>
+#include <map>
+#include <string>
+#include <vector>
+
+class LruCache {
+public:
+    LruCache(int capacity) : cap(capacity) {}
+
+    int get(int key) {
+        auto it = map.find(key);
+        if (it == map.end()) return -1;
+        touch(it);
+        return it->second;
+    }
+
+    void put(int key, int value) {
+        auto it = map.find(key);
+        if (it != map.end()) {
+            touch(it);
+            map[key] = value;
+            return;
+        }
+        if ((int)order.size() >= cap) {
+            int oldest = order.front();
+            order.pop_front();
+            map.erase(oldest);
+        }
+        order.push_back(key);
+        map[key] = value;
+    }
+
+    void print_order() const {
+        for (int k : order) std::cout << k << ' ';
+        std::cout << '\n';
+    }
+
+private:
+    int cap;
+    std::vector<int> order;
+    std::map<int, int> map;
+
+    void touch(std::map<int,int>::iterator it) {
+        for (auto o = order.begin(); o != order.end(); ++o) {
+            if (*o == it->first) {
+                order.erase(o);
+                break;
+            }
+        }
+        order.push_back(it->first);
+    }
+};

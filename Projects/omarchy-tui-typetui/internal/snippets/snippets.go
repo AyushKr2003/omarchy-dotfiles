@@ -24,10 +24,12 @@ const (
 	Go         Language = "go"
 	Python     Language = "python"
 	JavaScript Language = "javascript"
+	C          Language = "c"
+	Cpp        Language = "cpp"
 )
 
 // Languages lists all supported languages in display order.
-var Languages = []Language{Go, Python, JavaScript}
+var Languages = []Language{Go, Python, JavaScript, C, Cpp}
 
 // Label returns a human-friendly display name for a language.
 func (l Language) Label() string {
@@ -38,6 +40,10 @@ func (l Language) Label() string {
 		return "Python"
 	case JavaScript:
 		return "JavaScript"
+	case C:
+		return "C"
+	case Cpp:
+		return "C++"
 	default:
 		return string(l)
 	}
@@ -52,6 +58,10 @@ func (l Language) Extension() string {
 		return "py"
 	case JavaScript:
 		return "js"
+	case C:
+		return "c"
+	case Cpp:
+		return "cpp"
 	default:
 		return ""
 	}
@@ -157,6 +167,16 @@ var seedRepos = map[Language][]string{
 		"lodash/lodash",
 		"expressjs/express",
 		"axios/axios",
+	},
+	C: {
+		"torvalds/linux",
+		"git/git",
+		"libgit2/libgit2",
+	},
+	Cpp: {
+		"nlohmann/json",
+		"fmtlib/fmt",
+		"google/abseil-cpp",
 	},
 }
 

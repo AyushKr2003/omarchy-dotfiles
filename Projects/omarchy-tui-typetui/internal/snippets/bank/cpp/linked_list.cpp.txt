@@ -1,0 +1,59 @@
+template <typename T>
+class LinkedList {
+public:
+    struct Node {
+        T data;
+        Node *next;
+        Node(T val) : data(val), next(nullptr) {}
+    };
+
+    LinkedList() : head(nullptr) {}
+
+    void push_front(T val) {
+        Node *n = new Node(val);
+        n->next = head;
+        head = n;
+    }
+
+    void push_back(T val) {
+        Node *n = new Node(val);
+        if (!head) {
+            head = n;
+            return;
+        }
+        Node *cur = head;
+        while (cur->next) cur = cur->next;
+        cur->next = n;
+    }
+
+    bool remove(T val) {
+        Node *cur = head, *prev = nullptr;
+        while (cur && cur->data != val) {
+            prev = cur;
+            cur = cur->next;
+        }
+        if (!cur) return false;
+        if (prev) prev->next = cur->next;
+        else head = cur->next;
+        delete cur;
+        return true;
+    }
+
+    bool contains(T val) const {
+        for (Node *cur = head; cur; cur = cur->next) {
+            if (cur->data == val) return true;
+        }
+        return false;
+    }
+
+    ~LinkedList() {
+        while (head) {
+            Node *n = head;
+            head = head->next;
+            delete n;
+        }
+    }
+
+private:
+    Node *head;
+};
