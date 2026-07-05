@@ -1037,7 +1037,13 @@ install_kali() {
 
   if managed_state_exists; then
     print_install_existing_state_error
-    exit 1
+    echo ""
+    if gum confirm --default=false "Existing Kali VM installation detected. Remove it now and continue installing?"; then
+      remove_kali
+    else
+      echo "Installation cancelled. Remove the existing VM before reinstalling: omarchy-kali-vm remove"
+      exit 1
+    fi
   fi
 
   check_install_dependencies
@@ -1087,43 +1093,37 @@ install_kali() {
     SELECTED_CORES=2
   fi
 
-  # Disk size — Kali QCOW2 ships with an 80G virtual disk, so 80G is the
-  # floor by default (the image can grow but this script never shrinks it).
-  # Override via env vars if you understand QCOW2 is sparse and want a
-  # smaller safety margin than the defaults below:
-  #   OMARCHY_KALI_VM_MIN_DISK_GB=40 OMARCHY_KALI_VM_DISK_OVERHEAD_GB=5 omarchy-kali-vm install
-  MIN_DISK_GB=${OMARCHY_KALI_VM_MIN_DISK_GB:-80}
+  # Disk size — Kali QCOW2 ships with an 80G virtual disk by default, and
+  # this script only ever grows it, never shrinks it. Ask the user directly
+  # for a size in GB (default 80 on empty input), enforcing a 20GB floor
+  # since anything smaller risks not fitting the extracted image at all.
+  MIN_DISK_GB=20
+  DEFAULT_DISK_GB=80
   DISK_OVERHEAD_GB=${OMARCHY_KALI_VM_DISK_OVERHEAD_GB:-10}
-  AVAILABLE_SPACE=$(df "$HOME" | awk 'NR==2 {print int($4/1024/1024)}')
-  MAX_DISK_GB=$((AVAILABLE_SPACE - DISK_OVERHEAD_GB))
 
-  if (( MAX_DISK_GB < MIN_DISK_GB )); then
-    echo "Insufficient disk space for Kali VM!"
-    echo "   Available: ${AVAILABLE_SPACE}GB"
-    echo "   Minimum required: $((MIN_DISK_GB + DISK_OVERHEAD_GB))GB (${MIN_DISK_GB}GB disk + ${DISK_OVERHEAD_GB}GB overhead)"
-    exit 1
-  fi
+  while true; do
+    DISK_SIZE_INPUT=$(gum input --placeholder="Disk size in GB (Press enter to use default: ${DEFAULT_DISK_GB}GB, minimum: ${MIN_DISK_GB}GB)" --header="Max disk size for the Kali VM? (starts at ~16GB, grows as needed up to this limit)")
 
-  DISK_OPTIONS=""
-  for size in 40 60 80 128 256 512; do
-    if (( size >= MIN_DISK_GB && size <= MAX_DISK_GB )); then
-      DISK_OPTIONS="$DISK_OPTIONS ${size}G"
+    if [[ -z "$DISK_SIZE_INPUT" ]]; then
+      DISK_SIZE_NUM=$DEFAULT_DISK_GB
+    else
+      DISK_SIZE_NUM=$(echo "$DISK_SIZE_INPUT" | sed -E 's/[Gg][Bb]?$//' | tr -d '[:space:]')
     fi
+
+    if ! [[ "$DISK_SIZE_NUM" =~ ^[0-9]+$ ]]; then
+      echo "Invalid input. Enter a whole number of GB (e.g. 80), or press enter for the default."
+      continue
+    fi
+
+    if (( DISK_SIZE_NUM < MIN_DISK_GB )); then
+      echo "Disk size must be at least ${MIN_DISK_GB}GB. You entered ${DISK_SIZE_NUM}GB."
+      continue
+    fi
+
+    break
   done
 
-  DEFAULT_DISK="128G"
-  if ! echo "$DISK_OPTIONS" | grep -q "128G"; then
-    DEFAULT_DISK="80G"
-  fi
-
-  SELECTED_DISK=$(echo $DISK_OPTIONS | tr ' ' '\n' | gum choose --selected="$DEFAULT_DISK" --header="Max disk size for the Kali VM? (starts at ~16GB, grows as needed up to this limit)")
-
-  if [[ -z $SELECTED_DISK ]]; then
-    echo "Installation cancelled by user"
-    exit 1
-  fi
-
-  DISK_SIZE_NUM=$(echo "$SELECTED_DISK" | sed 's/G//')
+  SELECTED_DISK="${DISK_SIZE_NUM}G"
 
   # Re-check prerequisites with selected disk size
   check_prerequisites "$DISK_SIZE_NUM"
