@@ -31,6 +31,7 @@ pkg/
 .config/fish/conf.d/
 .config/fish/functions/
 .config/fish/fish_variables
+.config/omarchy/current
 .config/omarchy/backgrounds/
 .config/omarchy/branding/
 .config/omarchy/extensions/
@@ -40,6 +41,7 @@ pkg/
 .config/omarchy/hooks/post-update.d/
 .config/omarchy/hooks/pre-refresh-pacman.d/
 .config/omarchy/themed/
+.config/omarchy/bar.json
 .config/qutebrowser/bookmarks
 .config/qutebrowser/quickmarks
 
@@ -48,12 +50,13 @@ pkg/
 !.local/bin/
 !.local/share/
 
-# .local/bin — keep only these 4
+# .local/bin — keep only these 
 .local/bin/*
 !.local/bin/a
 !.local/bin/omarchy-mount
 !.local/bin/spf-mount
 !.local/bin/typetui
+!.local/bin/omarchy-webp-convert
 
 # .local/share — only descend into applications/
 .local/share/*

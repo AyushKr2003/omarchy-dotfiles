@@ -1,3 +1,3 @@
 #!/bin/bash
 
-exec omarchy-launch-floating-terminal-with-presentation omarchy-mount
+omarchy-launch-floating-terminal-with-presentation ~/.local/bin/omarchy-mount

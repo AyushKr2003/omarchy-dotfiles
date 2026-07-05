@@ -1,0 +1,179 @@
+#!/bin/bash
+
+# omarchy-webp-convert
+#
+# Converts JPG/PNG images in a directory to WebP, with an interactive
+# gum-driven UI in the style of Omarchy's other bin/ scripts.
+#
+# Usage:
+#   omarchy-webp-convert [directory]
+#
+# If no directory is given, gum prompts for one.
+
+set -eEo pipefail
+
+# --- Ensure dependencies exist ----------------------------------------------
+
+if ! command -v gum &>/dev/null; then
+  echo "gum is required but not installed. Install it with: sudo pacman -S gum" >&2
+  exit 1
+fi
+
+if ! command -v cwebp &>/dev/null; then
+  gum style --foreground 212 "cwebp not found (provided by the libwebp-utils package)."
+  if gum confirm "Install libwebp-utils now?"; then
+    sudo pacman -S --needed libwebp-utils
+  else
+    gum style --foreground 196 "Cannot continue without cwebp. Exiting."
+    exit 1
+  fi
+
+  # Re-check after install attempt instead of assuming it worked
+  if ! command -v cwebp &>/dev/null; then
+    gum style --foreground 196 \
+      "cwebp still not found after installing libwebp-utils." \
+      "Try 'sudo pacman -Syu libwebp-utils' to make sure it's current, then re-run this script." \
+      "You can also check with: pacman -Ql libwebp-utils | grep bin"
+    exit 1
+  fi
+fi
+
+gum style --foreground 244 "Using cwebp: $(command -v cwebp)"
+
+# --- Resolve target directory ------------------------------------------------
+
+TARGET_DIR="$1"
+
+if [[ -z "$TARGET_DIR" ]]; then
+  TARGET_DIR=$(gum input --placeholder "Path to directory (e.g. ~/.config/omarchy/themes/my-theme/backgrounds)")
+fi
+
+# Expand a leading ~ since gum input returns it literally
+TARGET_DIR="${TARGET_DIR/#\~/$HOME}"
+
+if [[ -z "$TARGET_DIR" ]]; then
+  gum style --foreground 196 "No directory provided. Exiting."
+  exit 1
+fi
+
+if [[ ! -d "$TARGET_DIR" ]]; then
+  gum style --foreground 196 "Directory not found: $TARGET_DIR"
+  exit 1
+fi
+
+gum style --border normal --margin "1" --padding "0 2" --foreground 212 \
+  "Omarchy WebP Converter" "Target: $TARGET_DIR"
+
+# --- Gather options via gum ---------------------------------------------------
+
+RECURSIVE=false
+if gum confirm "Include subdirectories?"; then
+  RECURSIVE=true
+fi
+
+QUALITY_LABEL=$(gum choose --header "Choose WebP quality (higher = larger file, better quality)" \
+  "100 (lossless)" "95 (near-lossless)" "90 (recommended)" "80 (smaller, still sharp)" "70 (max savings)")
+QUALITY_VALUE=$(echo "$QUALITY_LABEL" | grep -oE '^[0-9]+')
+
+DELETE_ORIGINALS=false
+if gum confirm "Delete original files after successful conversion?" --default=false; then
+  DELETE_ORIGINALS=true
+fi
+
+# --- Build the list of image files --------------------------------------------
+
+if [[ "$RECURSIVE" == true ]]; then
+  MAXDEPTH=()
+else
+  MAXDEPTH=(-maxdepth 1)
+fi
+
+FILE_LIST=$(mktemp)
+RESULTS=$(mktemp)
+trap 'rm -f "$FILE_LIST" "$RESULTS"' EXIT
+
+find "$TARGET_DIR" "${MAXDEPTH[@]}" -type f \
+  \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" \) -print0 > "$FILE_LIST"
+
+TOTAL=$(tr -cd '\0' < "$FILE_LIST" | wc -c)
+
+if [[ "$TOTAL" -eq 0 ]]; then
+  gum style --foreground 214 "No JPG/PNG images found in $TARGET_DIR"
+  exit 0
+fi
+
+gum style --foreground 39 "Found $TOTAL image(s). Converting at quality $QUALITY_VALUE..."
+
+# --- Convert (with a gum spinner wrapping the whole batch) --------------------
+
+export QUALITY_VALUE DELETE_ORIGINALS RESULTS FILE_LIST
+
+gum spin --spinner dot --title "Converting $TOTAL image(s)..." -- bash -c '
+  while IFS= read -r -d "" src; do
+    dest="${src%.*}.webp"
+
+    if [[ -f "$dest" ]]; then
+      echo "SKIP|$src|0|0|" >> "$RESULTS"
+      continue
+    fi
+
+    before_size=$(stat -c%s "$src")
+
+    # Capture stderr instead of discarding it, so failures are diagnosable
+    err_output=$(cwebp -q "$QUALITY_VALUE" "$src" -o "$dest" 2>&1 1>/dev/null)
+    status=$?
+
+    if [[ $status -eq 0 && -f "$dest" ]]; then
+      after_size=$(stat -c%s "$dest")
+      echo "OK|$src|$before_size|$after_size|" >> "$RESULTS"
+      if [[ "$DELETE_ORIGINALS" == "true" ]]; then
+        rm -f "$src"
+      fi
+    else
+      clean_err=$(echo "$err_output" | tr "\n" " " | tr "|" "/")
+      echo "FAIL|$src|0|0|$clean_err" >> "$RESULTS"
+    fi
+  done < "$FILE_LIST"
+'
+
+# --- Tally results -------------------------------------------------------------
+
+CONVERTED=$(grep -c '^OK|' "$RESULTS" || true)
+SKIPPED=$(grep -c '^SKIP|' "$RESULTS" || true)
+FAILED=$(grep -c '^FAIL|' "$RESULTS" || true)
+
+TOTAL_BEFORE=$(awk -F'|' '$1=="OK"{s+=$3} END{print s+0}' "$RESULTS")
+TOTAL_AFTER=$(awk -F'|' '$1=="OK"{s+=$4} END{print s+0}' "$RESULTS")
+SAVED=$((TOTAL_BEFORE - TOTAL_AFTER))
+
+if [[ "$TOTAL_BEFORE" -gt 0 ]]; then
+  PERCENT=$(awk -v s="$SAVED" -v t="$TOTAL_BEFORE" 'BEGIN { printf "%.1f", (s/t)*100 }')
+else
+  PERCENT="0.0"
+fi
+
+human_size() {
+  numfmt --to=iec --suffix=B "$1" 2>/dev/null || echo "${1}B"
+}
+
+gum style --border normal --margin "1" --padding "1 2" --foreground 46 \
+  "Done." \
+  "Converted: $CONVERTED" \
+  "Skipped (already existed): $SKIPPED" \
+  "Failed: $FAILED" \
+  "Size before: $(human_size "$TOTAL_BEFORE")" \
+  "Size after:  $(human_size "$TOTAL_AFTER")" \
+  "Saved: $(human_size "$SAVED") (${PERCENT}%)"
+
+if [[ "$FAILED" -gt 0 ]]; then
+  gum style --foreground 196 "Some files failed to convert:"
+  awk -F'|' '$1=="FAIL"{print "  " $2 "\n    -> " $5}' "$RESULTS"
+fi
+
+if [[ "$DELETE_ORIGINALS" == true && "$CONVERTED" -gt 0 ]]; then
+  gum style --foreground 214 "Original files were deleted after conversion."
+elif [[ "$DELETE_ORIGINALS" == true ]]; then
+  gum style --foreground 214 "Nothing was deleted, since nothing converted successfully. Originals are untouched."
+else
+  gum style --foreground 39 "Originals kept alongside the new .webp files."
+fi

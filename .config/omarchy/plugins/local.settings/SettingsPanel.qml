@@ -159,8 +159,10 @@ Item {
   property int draftRevision: 0
   property int pluginRevision: 0
   property bool suppressReload: false
-  property string localPluginPath: ""
   property string localPluginStatus: ""
+  property var sourcesList: []
+  property var availablePlugins: []
+  property string onlineInstallStatus: ""
   property string pendingEnablePluginId: ""
   property string pluginFilter: "Third-party"
   property var lastValidUserConfig: null
@@ -725,18 +727,45 @@ Item {
     installLocalPluginProcess.running = true
   }
 
-  function chooseLocalPluginFolder() {
-    if (chooseLocalPluginFolderProcess.running) return
-    localPluginStatus = "Opening folder picker..."
-    var script = ""
-      + "set -e\n"
-      + "if command -v zenity >/dev/null 2>&1; then zenity --file-selection --directory --title='Select Omarchy plugin folder'; exit $?; fi\n"
-      + "if command -v kdialog >/dev/null 2>&1; then kdialog --getexistingdirectory \"$HOME\"; exit $?; fi\n"
-      + "if command -v yad >/dev/null 2>&1; then yad --file --directory --title='Select Omarchy plugin folder'; exit $?; fi\n"
-      + "echo 'No graphical folder picker found. Paste the plugin folder path instead.' >&2\n"
-      + "exit 127\n"
-    chooseLocalPluginFolderProcess.command = ["bash", "-c", script]
-    chooseLocalPluginFolderProcess.running = true
+  // ---------------- online install helpers ----------------------------------
+  function fetchSources() {
+    fetchSourcesProcess.command = ["omarchy", "plugin", "source", "list", "--json"]
+    fetchSourcesProcess.running = true
+  }
+
+  function addSource() {
+    var url = String(installSection.newSourceUrl || "").trim()
+    if (!url) {
+      root.onlineInstallStatus = "Enter a source URL"
+      return
+    }
+    root.onlineInstallStatus = "Adding source..."
+    addSourceProcess.command = ["bash", "-c", "omarchy plugin source add " + Util.shellQuote(url) + " --yes"]
+    addSourceProcess.running = true
+  }
+
+  function removeSource(name) {
+    root.onlineInstallStatus = "Removing source..."
+    removeSourceProcess.command = ["bash", "-c", "omarchy plugin source remove " + Util.shellQuote(name) + " --yes"]
+    removeSourceProcess.running = true
+  }
+
+  function refreshSources() {
+    root.onlineInstallStatus = "Refreshing sources..."
+    refreshSourcesProcess.command = ["bash", "-c", "omarchy plugin source refresh"]
+    refreshSourcesProcess.running = true
+  }
+
+  function fetchAvailablePlugins() {
+    root.onlineInstallStatus = "Fetching available plugins..."
+    fetchAvailablePluginsProcess.command = ["omarchy", "plugin", "available", "--json", "--no-refresh"]
+    fetchAvailablePluginsProcess.running = true
+  }
+
+  function installPluginFromSource(id) {
+    root.onlineInstallStatus = "Installing " + id + "..."
+    installFromSourceProcess.command = ["bash", "-c", "omarchy plugin add " + Util.shellQuote(id) + " --enable --yes"]
+    installFromSourceProcess.running = true
   }
 
   property Process installLocalPluginProcess: Process {
@@ -755,17 +784,97 @@ Item {
     }
   }
 
-  property Process chooseLocalPluginFolderProcess: Process {
-    stdout: StdioCollector { id: chooseLocalPluginFolderStdout; waitForEnd: true }
-    stderr: StdioCollector { id: chooseLocalPluginFolderStderr; waitForEnd: true }
-    onExited: function(exitCode) {
-      var out = String(chooseLocalPluginFolderStdout.text || "").trim()
-      var err = String(chooseLocalPluginFolderStderr.text || "").trim()
-      if (exitCode === 0 && out) {
-        root.localPluginPath = out.split("\n")[0]
-        root.localPluginStatus = ""
-      } else if (exitCode !== 0) {
-        root.localPluginStatus = err || "Folder picker cancelled"
+  // ---------------- online install processes --------------------------------
+  property Process fetchSourcesProcess: Process {
+    stdout: StdioCollector { waitForEnd: true }
+    stderr: StdioCollector { waitForEnd: true }
+    onExited: function(code) {
+      var out = String(stdout.text || "").trim()
+      if (code === 0 && out) {
+        try {
+          var parsed = JSON.parse(out)
+          root.sourcesList = parsed.sources || []
+        } catch (e) {
+          root.sourcesList = []
+        }
+      } else {
+        root.sourcesList = []
+      }
+    }
+  }
+
+  property Process addSourceProcess: Process {
+    stdout: StdioCollector { waitForEnd: true }
+    stderr: StdioCollector { waitForEnd: true }
+    onExited: function(code) {
+      var err = String(stderr.text || "").trim()
+      if (code === 0) {
+        root.onlineInstallStatus = "Source added"
+        installSection.newSourceUrl = ""
+        root.fetchSources()
+      } else {
+        root.onlineInstallStatus = err || "Failed to add source"
+      }
+    }
+  }
+
+  property Process removeSourceProcess: Process {
+    stdout: StdioCollector { waitForEnd: true }
+    stderr: StdioCollector { waitForEnd: true }
+    onExited: function(code) {
+      if (code === 0) {
+        root.onlineInstallStatus = "Source removed"
+        root.fetchSources()
+      } else {
+        root.onlineInstallStatus = "Failed to remove source"
+      }
+    }
+  }
+
+  property Process refreshSourcesProcess: Process {
+    stdout: StdioCollector { waitForEnd: true }
+    stderr: StdioCollector { waitForEnd: true }
+    onExited: function(code) {
+      if (code === 0) {
+        root.onlineInstallStatus = "Sources refreshed"
+      } else {
+        root.onlineInstallStatus = "Failed to refresh sources"
+      }
+    }
+  }
+
+  property Process fetchAvailablePluginsProcess: Process {
+    stdout: StdioCollector { waitForEnd: true }
+    stderr: StdioCollector { waitForEnd: true }
+    onExited: function(code) {
+      var out = String(stdout.text || "").trim()
+      if (code === 0 && out) {
+        try {
+          root.availablePlugins = JSON.parse(out)
+          root.onlineInstallStatus = root.availablePlugins.length + " plugins available"
+        } catch (e) {
+          root.availablePlugins = []
+          root.onlineInstallStatus = "Failed to parse available plugins"
+        }
+      } else {
+        var err = String(stderr.text || "").trim()
+        root.availablePlugins = []
+        root.onlineInstallStatus = err || "Failed to fetch available plugins"
+      }
+    }
+  }
+
+  property Process installFromSourceProcess: Process {
+    stdout: StdioCollector { waitForEnd: true }
+    stderr: StdioCollector { waitForEnd: true }
+    onExited: function(code) {
+      if (code === 0) {
+        root.onlineInstallStatus = "Plugin installed"
+        root.rescanPlugins()
+        root.fetchAvailablePlugins()
+      } else {
+        var err = String(stderr.text || "").trim()
+        root.onlineInstallStatus = err || "Failed to install plugin"
       }
     }
   }
@@ -783,7 +892,10 @@ Item {
     }
   }
 
-  Component.onCompleted: Qt.callLater(loadConfig)
+  Component.onCompleted: {
+    Qt.callLater(loadConfig)
+    Qt.callLater(fetchSources)
+  }
 
   // ---------------- window -------------------------------------------------
   // ---------------- per-widget settings dialog state -----------------------
@@ -963,6 +1075,7 @@ Item {
             contentHeight: contentColumn.implicitHeight
             boundsBehavior: Flickable.StopAtBounds
             flickableDirection: Flickable.VerticalFlick
+            interactive: !folderPicker.visible
 
             ColumnLayout {
               id: contentColumn
@@ -1185,6 +1298,23 @@ Item {
         }
       }
     }
+
+    Cmp.FolderPicker {
+      id: folderPicker
+      foreground: root.foreground
+      accent: root.accent
+      fontFamily: root.fontFamily
+      cornerRadius: root.cornerRadius
+      background: root.background
+      urgent: root.urgent
+      onSelected: function(path) {
+        installSection.localPluginPath = path
+        installSection.localPluginStatus = ""
+      }
+      onCancelled: {
+        installSection.localPluginStatus = "Folder picker cancelled"
+      }
+    }
   }
 
   // ===================== plugin category ==================================
@@ -1259,82 +1389,30 @@ Item {
       Layout.fillWidth: true
     }
 
-    Rectangle {
-      Layout.fillWidth: true
-      implicitHeight: installColumn.implicitHeight + Style.spacing.rowPaddingX * 2
-      radius: root.cornerRadius
-      color: Style.normalFillFor(root.foreground, root.accent)
-      border.color: Style.normalBorderFor(root.foreground, root.accent)
-      border.width: Style.normalBorderWidth
+    Cmp.InstallSection {
+      id: installSection
+      foreground: root.foreground
+      accent: root.accent
+      urgent: root.urgent
+      fontFamily: root.fontFamily
+      cornerRadius: root.cornerRadius
+      localPluginStatus: root.localPluginStatus
+      onlineInstallStatus: root.onlineInstallStatus
+      sourcesList: root.sourcesList
+      availablePlugins: root.availablePlugins
+      installLocalBusy: installLocalPluginProcess.running
+      addSourceBusy: addSourceProcess.running
+      refreshSourcesBusy: refreshSourcesProcess.running
+      fetchAvailableBusy: fetchAvailablePluginsProcess.running
+      installFromSourceBusy: installFromSourceProcess.running
 
-      ColumnLayout {
-        id: installColumn
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.verticalCenter: parent.verticalCenter
-        anchors.leftMargin: Style.spacing.rowPaddingX
-        anchors.rightMargin: Style.spacing.rowPaddingX
-        spacing: Style.spacing.labelGap
-
-        Text {
-          text: "Install from local folder"
-          color: root.foreground
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.body
-          font.bold: true
-          Layout.fillWidth: true
-        }
-
-        RowLayout {
-          Layout.fillWidth: true
-          spacing: Style.spacing.rowGap
-
-          TextField {
-            Layout.fillWidth: true
-            text: root.localPluginPath
-            placeholderText: "/path/to/plugin-folder"
-            foreground: root.foreground
-            accent: root.accent
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.body
-            activeFocusOnTab: true
-            onTextEdited: root.localPluginPath = text
-            onAccepted: root.installLocalPlugin(text)
-          }
-
-          Button {
-            text: "Browse"
-            foreground: root.foreground
-            fontFamily: root.fontFamily
-            focusable: true
-            bordered: true
-            enabled: !chooseLocalPluginFolderProcess.running
-            onClicked: root.chooseLocalPluginFolder()
-          }
-
-          Button {
-            text: "Install"
-            foreground: root.foreground
-            fontFamily: root.fontFamily
-            focusable: true
-            bordered: true
-            enabled: !installLocalPluginProcess.running
-            onClicked: root.installLocalPlugin(root.localPluginPath)
-          }
-        }
-
-        Text {
-          visible: root.localPluginStatus !== ""
-          text: root.localPluginStatus
-          color: root.localPluginStatus.indexOf("failed") !== -1 || root.localPluginStatus.indexOf("Invalid") !== -1 || root.localPluginStatus.indexOf("not") !== -1
-            ? root.urgent
-            : Qt.darker(root.foreground, 1.5)
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.caption
-          wrapMode: Text.WordWrap
-          Layout.fillWidth: true
-        }
-      }
+      onInstallLocalRequested: function(path) { root.installLocalPlugin(path) }
+      onBrowseRequested: { root.localPluginStatus = ""; folderPicker.open() }
+      onRemoveSourceRequested: function(name) { root.removeSource(name) }
+      onAddSourceRequested: root.addSource()
+      onRefreshSourcesRequested: root.refreshSources()
+      onFetchAvailableRequested: root.fetchAvailablePlugins()
+      onInstallFromSourceRequested: function(id) { root.installPluginFromSource(id) }
     }
 
     Column {
