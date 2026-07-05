@@ -49,31 +49,33 @@
 --   },
 -- })
 
--- FIx the always the popup opening in the first worspace
 hl.config({
-	misc = {
-		initial_workspace_tracking = 0,
-	},
+  general = {
+    -- No gaps between windows or borders.
+    gaps_in = 2,
+    gaps_out = 2,
+  },
+
+  -- FIx the always the popup opening in the first worspace
+  misc = {
+    initial_workspace_tracking = 0,
+  },
+
+  -- Blur style
+  decoration = {
+    blur = {
+      enabled = true,
+      size = 8,
+      passes = 3,
+      noise = 0.1, -- same as niri's noise 0.3
+      vibrancy = 0.5, -- equivalent to niri's saturation (tune to taste)
+      new_optimizations = true,
+    },
+
+    -- Apply opacity + blur to all windows
+    active_opacity = 0.9,
+    inactive_opacity = 0.9,
+
+  },
 })
 
--- Blur style
-hl.config({
-	decoration = {
-		blur = {
-			enabled = true,
-			size = 8,
-			passes = 3,
-			noise = 0.1, -- same as niri's noise 0.3
-			vibrancy = 0.5, -- equivalent to niri's saturation (tune to taste)
-			new_optimizations = true,
-		},
-	},
-})
-
--- Apply opacity + blur to all windows
-hl.config({
-	decoration = {
-		active_opacity = 0.9,
-		inactive_opacity = 0.9,
-	},
-})
