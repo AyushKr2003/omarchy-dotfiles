@@ -413,7 +413,8 @@ check_launch_dependencies() {
 
 check_prerequisites() {
   local DISK_SIZE_GB=${1:-64}
-  local REQUIRED_SPACE=$((DISK_SIZE_GB + 10))
+  local OVERHEAD_GB=${OMARCHY_KALI_VM_DISK_OVERHEAD_GB:-10}
+  local REQUIRED_SPACE=$((DISK_SIZE_GB + OVERHEAD_GB))
 
   # Check for KVM support
   if [[ ! -e /dev/kvm ]]; then
@@ -434,7 +435,7 @@ check_prerequisites() {
   if (( AVAILABLE_SPACE < REQUIRED_SPACE )); then
     echo "Insufficient disk space!"
     echo "   Available: ${AVAILABLE_SPACE}GB"
-    echo "   Required: ${REQUIRED_SPACE}GB (${DISK_SIZE_GB}GB disk + 10GB overhead)"
+    echo "   Required: ${REQUIRED_SPACE}GB (${DISK_SIZE_GB}GB disk + ${OVERHEAD_GB}GB overhead)"
     exit 1
   fi
 }
@@ -1086,21 +1087,26 @@ install_kali() {
     SELECTED_CORES=2
   fi
 
-  # Disk size — Kali QCOW2 ships with an 80G virtual disk, so 80G is the minimum
-  MIN_DISK_GB=80
+  # Disk size — Kali QCOW2 ships with an 80G virtual disk, so 80G is the
+  # floor by default (the image can grow but this script never shrinks it).
+  # Override via env vars if you understand QCOW2 is sparse and want a
+  # smaller safety margin than the defaults below:
+  #   OMARCHY_KALI_VM_MIN_DISK_GB=40 OMARCHY_KALI_VM_DISK_OVERHEAD_GB=5 omarchy-kali-vm install
+  MIN_DISK_GB=${OMARCHY_KALI_VM_MIN_DISK_GB:-80}
+  DISK_OVERHEAD_GB=${OMARCHY_KALI_VM_DISK_OVERHEAD_GB:-10}
   AVAILABLE_SPACE=$(df "$HOME" | awk 'NR==2 {print int($4/1024/1024)}')
-  MAX_DISK_GB=$((AVAILABLE_SPACE - 10))
+  MAX_DISK_GB=$((AVAILABLE_SPACE - DISK_OVERHEAD_GB))
 
   if (( MAX_DISK_GB < MIN_DISK_GB )); then
     echo "Insufficient disk space for Kali VM!"
     echo "   Available: ${AVAILABLE_SPACE}GB"
-    echo "   Minimum required: $((MIN_DISK_GB + 10))GB (${MIN_DISK_GB}GB disk + 10GB overhead)"
+    echo "   Minimum required: $((MIN_DISK_GB + DISK_OVERHEAD_GB))GB (${MIN_DISK_GB}GB disk + ${DISK_OVERHEAD_GB}GB overhead)"
     exit 1
   fi
 
   DISK_OPTIONS=""
-  for size in 80 128 256 512; do
-    if (( size <= MAX_DISK_GB )); then
+  for size in 40 60 80 128 256 512; do
+    if (( size >= MIN_DISK_GB && size <= MAX_DISK_GB )); then
       DISK_OPTIONS="$DISK_OPTIONS ${size}G"
     fi
   done
