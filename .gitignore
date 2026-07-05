@@ -12,3 +12,62 @@ src/
 pkg/
 *.pkg.tar.*
 *.log
+
+# Personal / machine-specific configs
+.config/fastfetch/config.jsonc
+.config/hypr/scripts/
+.config/hypr/envs.conf
+.config/hypr/envs.lua
+.config/hypr/hypridle.conf
+.config/hypr/hyprland.conf
+.config/hypr/hyprland.lua
+.config/hypr/hyprlock.conf
+.config/hypr/hyprsunset.conf
+.config/hypr/monitors.lua
+.config/hypr/xdph.conf
+.config/hypr/.luarc.json
+.config/superfile/theme/
+.config/fish/completions/
+.config/fish/conf.d/
+.config/fish/functions/
+.config/fish/fish_variables
+.config/omarchy/backgrounds/
+.config/omarchy/branding/
+.config/omarchy/extensions/
+.config/omarchy/hooks/battery-low.d/
+.config/omarchy/hooks/font-set.d/
+.config/omarchy/hooks/post-boot.d/
+.config/omarchy/hooks/post-update.d/
+.config/omarchy/hooks/pre-refresh-pacman.d/
+.config/omarchy/themed/
+.config/qutebrowser/bookmarks
+.config/qutebrowser/quickmarks
+
+# --- .local: ignore everything except the specific files below ---
+.local/*
+!.local/bin/
+!.local/share/
+
+# .local/bin — keep only these 4
+.local/bin/*
+!.local/bin/a
+!.local/bin/omarchy-mount
+!.local/bin/spf-mount
+!.local/bin/typetui
+
+# .local/share — only descend into applications/
+.local/share/*
+!.local/share/applications/
+
+# .local/share/applications — keep only these 3 desktop files + icons/
+.local/share/applications/*
+!.local/share/applications/Instagram.desktop
+!.local/share/applications/Reddit.desktop
+!.local/share/applications/Superfile.desktop
+!.local/share/applications/icons/
+
+# .local/share/applications/icons — keep only these 3 pngs
+.local/share/applications/icons/*
+!.local/share/applications/icons/Instagram.png
+!.local/share/applications/icons/Reddit.png
+!.local/share/applications/icons/Superfile.png
