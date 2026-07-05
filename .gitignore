@@ -12,6 +12,7 @@ src/
 pkg/
 *.pkg.tar.*
 *.log
+*.csv
 
 # Personal / machine-specific configs
 .config/fastfetch/config.jsonc
@@ -67,6 +68,7 @@ pkg/
 !.local/share/applications/Instagram.desktop
 !.local/share/applications/Reddit.desktop
 !.local/share/applications/Superfile.desktop
+!.local/share/applications/yazi.desktop
 !.local/share/applications/icons/
 
 # .local/share/applications/icons — keep only these 3 pngs
