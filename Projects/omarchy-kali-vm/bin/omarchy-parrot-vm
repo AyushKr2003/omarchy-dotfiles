@@ -573,7 +573,7 @@ trap cleanup EXIT
 
 # Install tools not included in the base image
 apt-get update -qq
-apt-get install -y --no-install-recommends parted openssl btrfs-progs xfsprogs > /dev/null 2>&1
+apt-get install -y --no-install-recommends parted openssl btrfs-progs > /dev/null 2>&1
 
 # Resize virtual disk if needed
 QEMU_INFO=$(qemu-img info "$QCOW2")
@@ -620,26 +620,14 @@ if [[ -z "$ROOT_PART_NUM" ]]; then
 fi
 
 if [[ -n "$ROOT_PART_NUM" ]]; then
-  echo "Expanding partition ${NBD_DEV}p${ROOT_PART_NUM}..."
-
-  # Read the current partition definition so we can preserve the start sector
-  # and bootable flag while extending the partition to fill the larger virtual disk.
+  # No resize -- see the comment above SELECTED_DISK in install_parrot()
+  # for why. This just needs the partition's start sector to map it via
+  # qemu-nbd --offset below; the partition itself is left exactly as
+  # Parrot's image shipped it.
   PARTITION_DUMP=$(sfdisk -d "$NBD_DEV" 2>/dev/null)
   ROOT_PART_DEF=$(grep "${NBD_DEV}p${ROOT_PART_NUM}" <<< "$PARTITION_DUMP")
   START_SECTOR=$(awk -F'[=, ]+' '{for(i=1;i<=NF;i++) if($i=="start") print $(i+1)}' <<< "$ROOT_PART_DEF")
 
-  BOOT_FLAG=""
-  if grep -q "bootable" <<< "$ROOT_PART_DEF"; then
-    BOOT_FLAG=",*"
-  fi
-
-  echo "${START_SECTOR},+,L${BOOT_FLAG}" | sfdisk -N "$ROOT_PART_NUM" "$NBD_DEV" --force --no-reread
-  blockdev --rereadpt "$NBD_DEV" 2>/dev/null || true
-  partx -u "$NBD_DEV" 2>/dev/null || true
-  sleep 1
-
-  # Drop the full-disk mapping after repartitioning so we can remap just the
-  # filesystem-bearing partition without a competing write lock.
   qemu-nbd --disconnect "$NBD_DEV"
   NBD_CONNECTED=false
   wait_for_nbd_disconnect "$NBD_DEV"
@@ -668,38 +656,6 @@ if [[ -n "$ROOT_PART_NUM" ]]; then
     lsblk || true
     exit 1
   fi
-
-  # Filesystem type determines how the grow actually happens:
-  # ext2/3/4 are grown OFFLINE (fsck + resize2fs against the raw device,
-  # before mounting). btrfs and xfs can only be grown ONLINE (while
-  # mounted), via their own tools -- resize2fs would just fail/no-op on
-  # them. This branch was previously ext-only despite ROOT_PART_PATH's own
-  # detection already listing btrfs/xfs as recognized root filesystem
-  # types, which broke non-ext-family images (e.g. Parrot's btrfs root).
-  # blkid actively probes the device's superblock directly; lsblk relies on
-  # udev's cached probe data, which may not have populated yet on a
-  # freshly-connected NBD device (this was returning empty on Parrot's
-  # btrfs root, causing the resize to be skipped entirely). Poll briefly
-  # rather than assuming the device is immediately ready after connect.
-  udevadm settle 2>/dev/null || true
-  ROOT_FSTYPE=""
-  for _ in 1 2 3 4 5; do
-    ROOT_FSTYPE=$(blkid -o value -s TYPE "$PART_NBD_DEV" 2>/dev/null)
-    [[ -n "$ROOT_FSTYPE" ]] && break
-    sleep 1
-  done
-  case "$ROOT_FSTYPE" in
-    ext2|ext3|ext4)
-      e2fsck -f -y "$PART_NBD_DEV"
-      resize2fs "$PART_NBD_DEV"
-      ;;
-    btrfs|xfs)
-      # Grown after mounting below -- see ROOT_FSTYPE handling there.
-      ;;
-    *)
-      echo "WARNING: Unrecognized root filesystem type '$ROOT_FSTYPE' -- skipping offline resize, will attempt online resize after mount if possible."
-      ;;
-  esac
 fi
 
 # Mount root partition
@@ -767,19 +723,6 @@ if [[ -n "$ROOT_SUBVOL" ]]; then
     fi
   fi
 fi
-
-# Online grow for btrfs/xfs -- these can only be resized while mounted,
-# unlike ext2/3/4 which were already grown offline above (if applicable).
-case "${ROOT_FSTYPE:-}" in
-  btrfs)
-    echo "Growing btrfs filesystem to fill resized partition..."
-    btrfs filesystem resize max "$MNT" || echo "WARNING: btrfs resize failed -- continuing with original filesystem size."
-    ;;
-  xfs)
-    echo "Growing xfs filesystem to fill resized partition..."
-    xfs_growfs "$MNT" || echo "WARNING: xfs_growfs failed -- continuing with original filesystem size."
-    ;;
-esac
 
 # --- Credentials ---
 PASS_HASH=$(openssl passwd -6 "$NEW_PASSWORD")
@@ -912,7 +855,7 @@ wait_for_nbd_disconnect "$NBD_DEV" || true
 rmdir "$MNT" 2>/dev/null || true
 
 # Remove temporarily installed packages
-apt-get purge -y parted openssl btrfs-progs xfsprogs > /dev/null 2>&1
+apt-get purge -y parted openssl btrfs-progs > /dev/null 2>&1
 apt-get autoremove -y > /dev/null 2>&1
 rm -rf /var/lib/apt/lists/*
 
@@ -1105,45 +1048,20 @@ install_parrot() {
     SELECTED_CORES=2
   fi
 
-  # Disk size — TODO -- VERIFY: 80GB default carried over from Kali's known
-  # virtual disk size. Parrot's actual qcow2 virtual size is NOT confirmed
-  # here (their download page lists compressed file sizes ~9-12GB, which is
-  # NOT the same as the qcow2 header's declared virtual size -- check with
-  # `qemu-img info` on the real downloaded file). This script only ever
-  # grows the disk, never shrinks it, so if Parrot's real virtual size is
-  # larger than whatever default is left here, the resize will just be a
-  # no-op (harmless) -- but if it's smaller, 80GB default is just wasted
-  # allocation headroom, not a functional problem either way.
-  MIN_DISK_GB=20
-  DEFAULT_DISK_GB=80
-  DISK_OVERHEAD_GB=${OMARCHY_PARROT_VM_DISK_OVERHEAD_GB:-10}
+  # Disk size is fixed at Parrot's own confirmed native virtual size (64GB,
+  # read directly from `qemu-img info`/the disk-expansion step's own output
+  # on the pristine downloaded image: "Disk /dev/nbd0: 64 GiB"). Unlike
+  # Kali, the partition is NOT resized at all -- growing it corrupted the
+  # filesystem (the disk's GPT reserves a much larger backup partition
+  # table than standard, and every resize attempt -- sfdisk "+", then
+  # sgdisk -e, then a full sgdisk-native recreate -- either overlapped that
+  # reserved area or required destructively rebuilding the partition table
+  # sgdisk itself refused to do safely). Using the disk as shipped avoids
+  # this entire class of bug rather than continuing to fight it, and 64GB
+  # native is already reasonable headroom for a Parrot VM.
+  SELECTED_DISK="64G"
 
-  while true; do
-    DISK_SIZE_INPUT=$(gum input --placeholder="Disk size in GB (Press enter to use default: ${DEFAULT_DISK_GB}GB, minimum: ${MIN_DISK_GB}GB)" --header="Max disk size for the Parrot VM? (starts at ~16GB, grows as needed up to this limit)")
-
-    if [[ -z "$DISK_SIZE_INPUT" ]]; then
-      DISK_SIZE_NUM=$DEFAULT_DISK_GB
-    else
-      DISK_SIZE_NUM=$(echo "$DISK_SIZE_INPUT" | sed -E 's/[Gg][Bb]?$//' | tr -d '[:space:]')
-    fi
-
-    if ! [[ "$DISK_SIZE_NUM" =~ ^[0-9]+$ ]]; then
-      echo "Invalid input. Enter a whole number of GB (e.g. 80), or press enter for the default."
-      continue
-    fi
-
-    if (( DISK_SIZE_NUM < MIN_DISK_GB )); then
-      echo "Disk size must be at least ${MIN_DISK_GB}GB. You entered ${DISK_SIZE_NUM}GB."
-      continue
-    fi
-
-    break
-  done
-
-  SELECTED_DISK="${DISK_SIZE_NUM}G"
-
-  # Re-check prerequisites with selected disk size
-  check_prerequisites "$DISK_SIZE_NUM"
+  check_prerequisites
 
   # Prompt for username and password
   USERNAME=$(gum input --placeholder="Username (Press enter to use default: parrot)" --header="Enter Parrot username:")
@@ -1208,7 +1126,15 @@ services:
       RAM_SIZE: "$SELECTED_RAM"
       CPU_CORES: "$SELECTED_CORES"
       DISK_SIZE: "$SELECTED_DISK"
-      BOOT_MODE: "legacy"
+      # UEFI, not legacy -- confirmed required by Parrot's actual partition
+      # table (GPT disk with a dedicated EFI System partition, not a BIOS
+      # boot partition). "legacy" was copied from Kali's config without
+      # verifying against Parrot's real layout and produced a blank SPICE
+      # display with no error at all -- legacy BIOS has no valid boot code
+      # to find on a UEFI-formatted disk. qemux/qemu defaults to UEFI when
+      # BOOT_MODE is unset at all, so this is also just restoring the
+      # container's own default rather than fighting it.
+      BOOT_MODE: "uefi"
       VGA: "virtio"
       DISPLAY: "disabled"
       WEB: "N"
