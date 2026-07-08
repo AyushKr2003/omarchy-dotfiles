@@ -1,0 +1,1574 @@
+#!/bin/bash
+set -euo pipefail
+
+CONFIG_ROOT="${XDG_CONFIG_HOME:-$HOME/.config}"
+DATA_ROOT="${XDG_DATA_HOME:-$HOME/.local/share}"
+STATE_ROOT="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy-parrot-vm"
+COMPOSE_FILE="$CONFIG_ROOT/parrot/docker-compose.yml"
+PARROT_CONFIG_DIR="$CONFIG_ROOT/parrot"
+PARROT_STORAGE="$HOME/.parrot"
+PARROT_SHARED_DIR="$HOME/Parrot"
+CONTAINER_NAME="${OMARCHY_PARROT_VM_CONTAINER_NAME:-omarchy-parrot-vm}"
+USER_APPLICATIONS_DIR="$DATA_ROOT/applications"
+RUNTIME_DESKTOP_FILE="$USER_APPLICATIONS_DIR/omarchy-parrot-vm.desktop"
+
+DEBUG_MODE=false
+DEBUG_SUBCOMMAND=""
+DEBUG_REPORT_DIR=""
+DEBUG_STAGE="setup"
+DEBUG_STATUS="pending"
+DEBUG_MESSAGE=""
+DEBUG_IMAGE_ACTION="not-applicable"
+DEBUG_PRESERVED_ARTIFACTS=()
+DEBUG_URLS=()
+
+record_debug_url() {
+  local url="$1"
+
+  if [[ "$DEBUG_MODE" != true ]] || [[ -z "$url" ]]; then
+    return 0
+  fi
+
+  DEBUG_URLS+=("$url")
+}
+
+record_preserved_artifact() {
+  local artifact_path="$1"
+
+  if [[ "$DEBUG_MODE" != true ]] || [[ -z "$artifact_path" ]]; then
+    return 0
+  fi
+
+  DEBUG_PRESERVED_ARTIFACTS+=("$artifact_path")
+}
+
+ensure_debug_report_dir() {
+  if [[ "$DEBUG_MODE" != true ]] || [[ -n "$DEBUG_REPORT_DIR" ]]; then
+    return 0
+  fi
+
+  local timestamp
+  timestamp=$(date -u +%Y%m%dT%H%M%SZ)
+  DEBUG_REPORT_DIR="$STATE_ROOT/${DEBUG_SUBCOMMAND}-${timestamp}"
+  mkdir -p "$DEBUG_REPORT_DIR"
+}
+
+write_debug_report() {
+  if [[ "$DEBUG_MODE" != true ]]; then
+    return 0
+  fi
+
+  ensure_debug_report_dir
+
+  {
+    printf 'subcommand: %s\n' "$DEBUG_SUBCOMMAND"
+    printf 'debug: true\n'
+    printf 'timestamp: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf 'status: %s\n' "$DEBUG_STATUS"
+    printf 'stage: %s\n' "$DEBUG_STAGE"
+    printf 'message: %s\n' "${DEBUG_MESSAGE:-none}"
+    printf 'report_dir: %s\n' "$DEBUG_REPORT_DIR"
+    printf 'compose_file: %s\n' "$COMPOSE_FILE"
+    printf 'config_dir: %s\n' "$PARROT_CONFIG_DIR"
+    printf 'storage_dir: %s\n' "$PARROT_STORAGE"
+    printf 'shared_dir: %s\n' "$PARROT_SHARED_DIR"
+    printf 'runtime_launcher: %s\n' "$RUNTIME_DESKTOP_FILE"
+    printf 'docker_image_action: %s\n' "$DEBUG_IMAGE_ACTION"
+    printf '\nurls:\n'
+    if (( ${#DEBUG_URLS[@]} == 0 )); then
+      printf '  (none)\n'
+    else
+      printf '  %s\n' "${DEBUG_URLS[@]}"
+    fi
+    printf '\npreserved_artifacts:\n'
+    if (( ${#DEBUG_PRESERVED_ARTIFACTS[@]} == 0 )); then
+      printf '  (none)\n'
+    else
+      printf '  %s\n' "${DEBUG_PRESERVED_ARTIFACTS[@]}"
+    fi
+  } > "$DEBUG_REPORT_DIR/report.txt"
+}
+
+print_debug_summary() {
+  if [[ "$DEBUG_MODE" != true ]]; then
+    return 0
+  fi
+
+  echo "Debug report written to: $DEBUG_REPORT_DIR"
+  if (( ${#DEBUG_PRESERVED_ARTIFACTS[@]} > 0 )); then
+    echo "Preserved artifacts:"
+    printf '  %s\n' "${DEBUG_PRESERVED_ARTIFACTS[@]}"
+  fi
+}
+
+prepare_debug_run() {
+  local subcommand="$1"
+
+  DEBUG_MODE=true
+  DEBUG_SUBCOMMAND="$subcommand"
+  DEBUG_REPORT_DIR=""
+  DEBUG_STAGE="setup"
+  DEBUG_STATUS="running"
+  DEBUG_MESSAGE=""
+  DEBUG_IMAGE_ACTION="not-applicable"
+  DEBUG_PRESERVED_ARTIFACTS=()
+  DEBUG_URLS=()
+
+  ensure_debug_report_dir
+  echo "Debug mode enabled."
+  echo "Reports will be written under: $DEBUG_REPORT_DIR"
+}
+
+capture_debug_sidecar() {
+  local source_path="$1"
+  local dest_name="$2"
+
+  if [[ "$DEBUG_MODE" != true ]] || [[ ! -f "$source_path" ]]; then
+    return 0
+  fi
+
+  ensure_debug_report_dir
+  cp -f "$source_path" "$DEBUG_REPORT_DIR/$dest_name"
+  record_preserved_artifact "$DEBUG_REPORT_DIR/$dest_name"
+}
+
+snapshot_archive_stats() {
+  local archive_glob="$1"
+  local archive_path
+  local archive_paths=()
+
+  if [[ "$DEBUG_MODE" != true ]]; then
+    return 0
+  fi
+
+  ensure_debug_report_dir
+  : > "$DEBUG_REPORT_DIR/archive.stat"
+  mapfile -t archive_paths < <(compgen -G "$archive_glob" || true)
+  for archive_path in "${archive_paths[@]}"; do
+    printf '%s\t%s bytes\n' "$archive_path" "$(stat -c%s "$archive_path" 2>/dev/null || echo unknown)" >> "$DEBUG_REPORT_DIR/archive.stat"
+  done
+
+  if [[ -s "$DEBUG_REPORT_DIR/archive.stat" ]]; then
+    record_preserved_artifact "$DEBUG_REPORT_DIR/archive.stat"
+  else
+    rm -f "$DEBUG_REPORT_DIR/archive.stat"
+  fi
+}
+
+preserve_install_debug_artifacts() {
+  local archive_path
+
+  if [[ "$DEBUG_MODE" != true ]]; then
+    return 0
+  fi
+
+  shopt -s nullglob
+  for archive_path in "$PARROT_STORAGE"/*.qcow2.xz; do
+    record_preserved_artifact "$archive_path"
+  done
+  shopt -u nullglob
+
+  capture_debug_sidecar "$PARROT_STORAGE/SHA256SUMS" "SHA256SUMS"
+  capture_debug_sidecar "$PARROT_STORAGE/SHA256SUMS.gpg" "SHA256SUMS.gpg"
+  snapshot_archive_stats "$PARROT_STORAGE/*.qcow2.xz"
+}
+
+fail_install() {
+  local stage="$1"
+  local message="$2"
+
+  DEBUG_STAGE="$stage"
+  DEBUG_STATUS="failed"
+  DEBUG_MESSAGE="$message"
+  preserve_install_debug_artifacts
+  write_debug_report
+  echo "ERROR: $message"
+  print_debug_summary
+  exit 1
+}
+
+preserve_remove_debug_artifacts() {
+  local archive_path
+  local archive_name
+
+  if [[ "$DEBUG_MODE" != true ]]; then
+    return 0
+  fi
+
+  shopt -s nullglob
+  for archive_path in "$PARROT_STORAGE"/*.qcow2.xz; do
+    archive_name=$(basename "$archive_path")
+    mv "$archive_path" "$DEBUG_REPORT_DIR/$archive_name"
+    record_preserved_artifact "$DEBUG_REPORT_DIR/$archive_name"
+  done
+  shopt -u nullglob
+  snapshot_archive_stats "$DEBUG_REPORT_DIR/*.qcow2.xz"
+}
+
+refresh_desktop_database() {
+  if ! command -v update-desktop-database >/dev/null 2>&1; then
+    return 0
+  fi
+
+  update-desktop-database "$USER_APPLICATIONS_DIR" >/dev/null 2>&1 || true
+}
+
+write_runtime_launcher() {
+  mkdir -p "$USER_APPLICATIONS_DIR"
+
+  cat > "$RUNTIME_DESKTOP_FILE" << 'EOF'
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Parrot
+Comment=Launch the packaged Parrot OS virtual machine
+Exec=omarchy-parrot-vm launch
+Icon=omarchy-parrot-vm
+Terminal=false
+Categories=System;Security;Utility;
+Keywords=parrot;virtual machine;vm;security;
+EOF
+
+  refresh_desktop_database
+}
+
+remove_runtime_launcher() {
+  rm -f "$RUNTIME_DESKTOP_FILE"
+  refresh_desktop_database
+}
+
+list_managed_state_paths() {
+  printf '%s\n' \
+    "$PARROT_CONFIG_DIR" \
+    "$COMPOSE_FILE" \
+    "$PARROT_STORAGE" \
+    "$PARROT_SHARED_DIR" \
+    "$RUNTIME_DESKTOP_FILE"
+}
+
+list_existing_managed_state_paths() {
+  local managed_path
+
+  while IFS= read -r managed_path; do
+    if [[ -e "$managed_path" ]]; then
+      printf '%s\n' "$managed_path"
+    fi
+  done < <(list_managed_state_paths)
+}
+
+managed_state_exists() {
+  local existing_state
+
+  while IFS= read -r existing_state; do
+    if [[ -n "$existing_state" ]]; then
+      return 0
+    fi
+  done < <(list_existing_managed_state_paths)
+
+  return 1
+}
+
+print_install_existing_state_error() {
+  local existing_state
+
+  echo "Existing managed Parrot VM state detected."
+  echo "'omarchy-parrot-vm install' only supports first-time setup."
+  echo "Remove the existing VM before reinstalling: omarchy-parrot-vm remove"
+  echo ""
+  echo "Detected managed state:"
+  while IFS= read -r existing_state; do
+    printf '  %s\n' "$existing_state"
+  done < <(list_existing_managed_state_paths)
+}
+
+path_state_label() {
+  local managed_path="$1"
+
+  if [[ -e "$managed_path" ]]; then
+    printf 'present'
+  else
+    printf 'not present'
+  fi
+}
+
+print_remove_preview() {
+  echo "Managed Parrot VM targets scheduled for deletion:"
+  printf '  Config directory: %s (%s)\n' "$PARROT_CONFIG_DIR" "$(path_state_label "$PARROT_CONFIG_DIR")"
+  printf '  Compose file:     %s (%s)\n' "$COMPOSE_FILE" "$(path_state_label "$COMPOSE_FILE")"
+  printf '  Storage directory:%s (%s)\n' " $PARROT_STORAGE" "$(path_state_label "$PARROT_STORAGE")"
+  printf '  Shared directory: %s (%s)\n' "$PARROT_SHARED_DIR" "$(path_state_label "$PARROT_SHARED_DIR")"
+  printf '  Runtime launcher: %s (%s)\n' "$RUNTIME_DESKTOP_FILE" "$(path_state_label "$RUNTIME_DESKTOP_FILE")"
+}
+
+docker_available() {
+  command -v docker >/dev/null 2>&1
+}
+
+docker_compose_available() {
+  docker_available && docker compose version >/dev/null 2>&1
+}
+
+best_effort_remove_docker_artifacts() {
+  if docker_compose_available; then
+    docker compose -f "$COMPOSE_FILE" down 2>/dev/null || echo "Warning: Docker Compose shutdown failed during removal; continuing."
+  elif docker_available; then
+    echo "Skipping Docker Compose shutdown during removal: docker compose is unavailable or Docker is not ready."
+  else
+    echo "Skipping Docker cleanup during removal: docker is unavailable."
+  fi
+
+  if [[ "$DEBUG_MODE" = true ]]; then
+    if docker_available; then
+      DEBUG_IMAGE_ACTION="preserved"
+    else
+      DEBUG_IMAGE_ACTION="preserved-docker-unavailable"
+    fi
+    return 0
+  fi
+
+  if docker_available; then
+    if docker rmi qemux/qemu 2>/dev/null; then
+      DEBUG_IMAGE_ACTION="removed-if-present"
+    else
+      echo "Skipping Docker image removal during removal: image is unavailable or Docker is not ready."
+      DEBUG_IMAGE_ACTION="remove-attempted"
+    fi
+  else
+    DEBUG_IMAGE_ACTION="skipped-docker-unavailable"
+  fi
+}
+
+parse_debug_flag() {
+  local subcommand="$1"
+  shift
+
+  DEBUG_MODE=false
+  if [[ $# -eq 0 ]]; then
+    return 0
+  fi
+
+  case "$1" in
+    --debug)
+      if [[ $# -ne 1 ]]; then
+        echo "Unknown option(s) for $subcommand: ${*:2}" >&2
+        exit 1
+      fi
+      prepare_debug_run "$subcommand"
+      ;;
+    *)
+      echo "Unknown option for $subcommand: $1" >&2
+      exit 1
+      ;;
+  esac
+}
+
+require_command() {
+  local command_name="$1"
+  local package_hint="${2:-$1}"
+
+  if ! command -v "$command_name" >/dev/null 2>&1; then
+    echo "Missing required command: $command_name"
+    echo "Install the package that provides it before continuing: $package_hint"
+    exit 1
+  fi
+}
+
+require_compose() {
+  if ! docker compose version >/dev/null 2>&1; then
+    echo "docker compose is required."
+    echo "Install Docker with the compose plugin and ensure the daemon is running."
+    exit 1
+  fi
+}
+
+notify_if_available() {
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send "$@"
+  fi
+}
+
+check_common_dependencies() {
+  require_command docker docker
+  require_command gum gum
+  require_command sudo sudo
+  require_compose
+}
+
+check_remove_dependencies() {
+  require_command gum gum
+}
+
+check_install_dependencies() {
+  check_common_dependencies
+  require_command curl curl
+  require_command gpg gnupg
+  require_command remote-viewer virt-viewer
+  require_command sha256sum coreutils
+  require_command unzip unzip
+}
+
+check_launch_dependencies() {
+  check_common_dependencies
+  require_command remote-viewer virt-viewer
+}
+
+check_kvm_support() {
+  if [[ ! -e /dev/kvm ]]; then
+    gum style \
+      --border normal \
+      --padding "1 2" \
+      --margin "1" \
+      "KVM virtualization not available!" \
+      "" \
+      "Please enable virtualization in BIOS or run:" \
+      "  sudo modprobe kvm-intel  # for Intel CPUs" \
+      "  sudo modprobe kvm-amd    # for AMD CPUs"
+    exit 1
+  fi
+}
+
+check_disk_space() {
+  local DISK_SIZE_GB="$1"
+  local OVERHEAD_GB=${OMARCHY_PARROT_VM_DISK_OVERHEAD_GB:-10}
+  local REQUIRED_SPACE=$((DISK_SIZE_GB + OVERHEAD_GB))
+
+  AVAILABLE_SPACE=$(df "$HOME" | awk 'NR==2 {print int($4/1024/1024)}')
+  if (( AVAILABLE_SPACE < REQUIRED_SPACE )); then
+    echo "Insufficient disk space!"
+    echo "   Available: ${AVAILABLE_SPACE}GB"
+    echo "   Required: ${REQUIRED_SPACE}GB (${DISK_SIZE_GB}GB disk + ${OVERHEAD_GB}GB overhead)"
+    exit 1
+  fi
+}
+
+check_prerequisites() {
+  local DISK_SIZE_GB="${1:-}"
+
+  check_kvm_support
+
+  # Only check disk space once an actual disk size is known -- called
+  # without an argument, this just does the KVM check (e.g. as an early
+  # sanity check before the user has picked a disk size yet).
+  if [[ -n "$DISK_SIZE_GB" ]]; then
+    check_disk_space "$DISK_SIZE_GB"
+  fi
+}
+
+parrot_qemu_arguments() {
+  echo "-spice unix=on,addr=/storage/spice.sock,disable-ticketing=on -device qemu-xhci -device usb-tablet -device virtio-serial-pci -chardev spicevmc,id=vdagent,name=vdagent -device virtserialport,chardev=vdagent,name=com.redhat.spice.0"
+}
+
+write_parrot_start_hook() {
+  mkdir -p "$PARROT_CONFIG_DIR"
+
+  cat << 'EOF' | tee "$PARROT_CONFIG_DIR/start.sh" > /dev/null
+#!/bin/bash
+set -e
+
+if qemu-system-x86_64 -spice help >/dev/null 2>&1; then
+  exit 0
+fi
+
+echo "Installing QEMU SPICE module..."
+DEBIAN_FRONTEND=noninteractive apt-get -qq update
+DEBIAN_FRONTEND=noninteractive apt-get -qq --no-install-recommends -y install qemu-system-modules-spice > /dev/null
+EOF
+
+  chmod +x "$PARROT_CONFIG_DIR/start.sh"
+}
+
+ensure_parrot_runtime_config() {
+  write_parrot_start_hook
+
+  if [[ -f "$COMPOSE_FILE" ]]; then
+    local QEMU_ARGUMENTS
+    QEMU_ARGUMENTS=$(parrot_qemu_arguments)
+    sed -i "s|^\([[:space:]]*ARGUMENTS:\).*|\1 \"$QEMU_ARGUMENTS\"|" "$COMPOSE_FILE"
+  fi
+}
+
+
+# patch_qcow2
+#
+# Patches the downloaded QCOW2 inside a privileged one-shot container using the
+# qemux/qemu image (which already ships qemu-nbd, qemu-img, sfdisk, e2fsck).
+# Only `parted` (partprobe) and `openssl` (password hashing) need to be installed
+# temporarily. The --rm flag discards the container layer when done.
+#
+# What it does:
+# - Resizes the QCOW2 partition + filesystem (qemux only resizes the virtual disk,
+#   not the partitions inside a pre-built image).
+# - Configures user credentials.
+# - Patches XFCE to not intercept the ACPI shutdown signal, enabling reliable
+#   graceful shutdowns when the VM window is closed.
+# - Installs a SPICE auto-resize workaround script for Hyprland/XFCE.
+patch_qcow2() {
+  local NEW_USERNAME="$1"
+  local NEW_PASSWORD="$2"
+  local DISK_SIZE="$3"
+
+  if [[ ! -f "$PARROT_STORAGE/data.qcow2" ]]; then
+    echo "ERROR: QCOW2 image not found"
+    return 1
+  fi
+
+  echo "Configuring Parrot image..."
+
+  # The nbd kernel module must be loaded on the host — container needs the /dev/nbd* devices
+  sudo modprobe nbd max_part=8
+
+  # Run patch inside the qemux/qemu container (already has qemu-nbd, sfdisk, e2fsck)
+  docker run --rm --privileged -i \
+    --entrypoint /bin/bash \
+    -v "$PARROT_STORAGE:/storage" \
+    -e "NEW_USERNAME=$NEW_USERNAME" \
+    -e "NEW_PASSWORD=$NEW_PASSWORD" \
+    -e "DISK_SIZE=$DISK_SIZE" \
+    qemux/qemu -s << 'PATCHEOF'
+set -e
+
+QCOW2="/storage/data.qcow2"
+NBD_DEV="/dev/nbd0"
+PART_NBD_DEV=""
+MNT="/tmp/parrot-mount"
+NBD_CONNECTED=false
+PART_NBD_CONNECTED=false
+MNT_ACTIVE=false
+
+cleanup() {
+  if [[ $MNT_ACTIVE == "true" ]]; then
+    # If a separate home subvolume was mounted at $MNT/home, it must be
+    # unmounted first -- unmounting the parent ($MNT) while a child mount
+    # is still active underneath it can fail with "target is busy" or
+    # leave the home mount orphaned.
+    mountpoint -q "$MNT/home" 2>/dev/null && umount "$MNT/home" 2>/dev/null
+    umount "$MNT" 2>/dev/null || true
+  fi
+  if [[ $PART_NBD_CONNECTED == "true" ]]; then
+    qemu-nbd --disconnect "$PART_NBD_DEV" 2>/dev/null || true
+  fi
+  if [[ $NBD_CONNECTED == "true" ]]; then
+    qemu-nbd --disconnect "$NBD_DEV" 2>/dev/null || true
+  fi
+  rmdir "$MNT" 2>/dev/null || true
+}
+
+wait_for_nbd_disconnect() {
+  local dev_name timeout
+  dev_name=$(basename "$1")
+  timeout=30
+
+  while (( timeout > 0 )); do
+    if [[ ! -e "/sys/block/$dev_name/pid" ]]; then
+      return 0
+    fi
+    sleep 1
+    (( timeout-- ))
+  done
+
+  echo "ERROR: Timed out waiting for $1 to disconnect."
+  return 1
+}
+trap cleanup EXIT
+
+# Install tools not included in the base image
+apt-get update -qq
+apt-get install -y --no-install-recommends parted openssl btrfs-progs xfsprogs > /dev/null 2>&1
+
+# Resize virtual disk if needed
+QEMU_INFO=$(qemu-img info "$QCOW2")
+CURRENT_GB=$(awk '/virtual size/{print int($3)}' <<< "$QEMU_INFO")
+REQUESTED_GB=${DISK_SIZE%%[gG]}
+if (( REQUESTED_GB > CURRENT_GB )); then
+  echo "Resizing virtual disk from ${CURRENT_GB}G to ${REQUESTED_GB}G..."
+  qemu-img resize "$QCOW2" "$DISK_SIZE"
+fi
+
+# Find a free nbd device
+for dev in /dev/nbd{0..7}; do
+  if [[ -b "$dev" ]] && ! grep -q "$(basename "$dev")" /proc/partitions 2>/dev/null; then
+    NBD_DEV="$dev"
+    break
+  fi
+done
+
+# Connect QCOW2 to nbd
+qemu-nbd --connect="$NBD_DEV" "$QCOW2"
+NBD_CONNECTED=true
+sleep 2
+
+# Grow root partition
+ROOT_PART_PATH=$(lsblk -nrpo NAME,TYPE,FSTYPE "$NBD_DEV" | awk '$2 == "part" && ($3 == "ext4" || $3 == "ext3" || $3 == "ext2" || $3 == "xfs" || $3 == "btrfs") {print $1; exit}')
+LARGEST_PART_PATH=$(lsblk -nrbo NAME,SIZE,TYPE "$NBD_DEV" | awk '$3 == "part" {print $1, $2}' | sort -k2 -nr | awk 'NR == 1 {print $1}')
+PARTITION_LISTING=$(sfdisk -l "$NBD_DEV" 2>/dev/null || true)
+ROOT_PART_NUM=""
+
+if [[ -n "$ROOT_PART_PATH" ]]; then
+  ROOT_PART_NUM=$(grep -oP '\d+$' <<< "$ROOT_PART_PATH" || true)
+fi
+
+if [[ -z "$ROOT_PART_NUM" && -n "$LARGEST_PART_PATH" ]]; then
+  ROOT_PART_NUM=$(grep -oP '\d+$' <<< "$LARGEST_PART_PATH" || true)
+fi
+
+if [[ -z "$ROOT_PART_NUM" ]]; then
+  ROOT_PART_LINE=$(awk '$2 == "*" && ($6 == "83" || $6 == "Linux") {print; exit}' <<< "$PARTITION_LISTING")
+  if [[ -z "$ROOT_PART_LINE" ]]; then
+    ROOT_PART_LINE=$(awk '$5 == "83" || $6 == "83" || /Linux/ {print; exit}' <<< "$PARTITION_LISTING")
+  fi
+  ROOT_PART_NUM=$(grep -oP '\d+$' <<< "$ROOT_PART_LINE" || true)
+fi
+
+if [[ -n "$ROOT_PART_NUM" ]]; then
+  echo "Expanding partition ${NBD_DEV}p${ROOT_PART_NUM}..."
+
+  # Read the current partition definition so we can preserve the start sector
+  # and bootable flag while extending the partition to fill the larger virtual disk.
+  PARTITION_DUMP=$(sfdisk -d "$NBD_DEV" 2>/dev/null)
+  ROOT_PART_DEF=$(grep "${NBD_DEV}p${ROOT_PART_NUM}" <<< "$PARTITION_DUMP")
+  START_SECTOR=$(awk -F'[=, ]+' '{for(i=1;i<=NF;i++) if($i=="start") print $(i+1)}' <<< "$ROOT_PART_DEF")
+
+  BOOT_FLAG=""
+  if grep -q "bootable" <<< "$ROOT_PART_DEF"; then
+    BOOT_FLAG=",*"
+  fi
+
+  echo "${START_SECTOR},+,L${BOOT_FLAG}" | sfdisk -N "$ROOT_PART_NUM" "$NBD_DEV" --force --no-reread
+  blockdev --rereadpt "$NBD_DEV" 2>/dev/null || true
+  partx -u "$NBD_DEV" 2>/dev/null || true
+  sleep 1
+
+  # Drop the full-disk mapping after repartitioning so we can remap just the
+  # filesystem-bearing partition without a competing write lock.
+  qemu-nbd --disconnect "$NBD_DEV"
+  NBD_CONNECTED=false
+  wait_for_nbd_disconnect "$NBD_DEV"
+
+  # Attach the root partition directly via offset so we do not depend on /dev/nbdXpY nodes.
+  for dev in /dev/nbd{0..7}; do
+    if [[ -b "$dev" ]] && ! grep -q "$(basename "$dev")" /proc/partitions 2>/dev/null; then
+      PART_NBD_DEV="$dev"
+      break
+    fi
+  done
+
+  if [[ -z "$PART_NBD_DEV" ]]; then
+    echo "ERROR: No free secondary nbd device found for partition mapping."
+    lsblk || true
+    exit 1
+  fi
+
+  PART_OFFSET=$((START_SECTOR * 512))
+  qemu-nbd --offset="$PART_OFFSET" --connect="$PART_NBD_DEV" "$QCOW2"
+  PART_NBD_CONNECTED=true
+  sleep 2
+
+  if [[ ! -b "$PART_NBD_DEV" ]]; then
+    echo "ERROR: Failed to map root partition device: $PART_NBD_DEV"
+    lsblk || true
+    exit 1
+  fi
+
+  # Filesystem type determines how the grow actually happens:
+  # ext2/3/4 are grown OFFLINE (fsck + resize2fs against the raw device,
+  # before mounting). btrfs and xfs can only be grown ONLINE (while
+  # mounted), via their own tools -- resize2fs would just fail/no-op on
+  # them. This branch was previously ext-only despite ROOT_PART_PATH's own
+  # detection already listing btrfs/xfs as recognized root filesystem
+  # types, which broke non-ext-family images (e.g. Parrot's btrfs root).
+  # blkid actively probes the device's superblock directly; lsblk relies on
+  # udev's cached probe data, which may not have populated yet on a
+  # freshly-connected NBD device (this was returning empty on Parrot's
+  # btrfs root, causing the resize to be skipped entirely). Poll briefly
+  # rather than assuming the device is immediately ready after connect.
+  udevadm settle 2>/dev/null || true
+  ROOT_FSTYPE=""
+  for _ in 1 2 3 4 5; do
+    ROOT_FSTYPE=$(blkid -o value -s TYPE "$PART_NBD_DEV" 2>/dev/null)
+    [[ -n "$ROOT_FSTYPE" ]] && break
+    sleep 1
+  done
+  case "$ROOT_FSTYPE" in
+    ext2|ext3|ext4)
+      e2fsck -f -y "$PART_NBD_DEV"
+      resize2fs "$PART_NBD_DEV"
+      ;;
+    btrfs|xfs)
+      # Grown after mounting below -- see ROOT_FSTYPE handling there.
+      ;;
+    *)
+      echo "WARNING: Unrecognized root filesystem type '$ROOT_FSTYPE' -- skipping offline resize, will attempt online resize after mount if possible."
+      ;;
+  esac
+fi
+
+# Mount root partition
+mkdir -p "$MNT"
+ROOT_FOUND=false
+ROOT_SUBVOL=""
+ROOT_PART=""
+PARTITION_CANDIDATES=$(lsblk -nrpo NAME,TYPE "$NBD_DEV" | awk '$2 == "part" {print $1}')
+for part in "$PART_NBD_DEV" $PARTITION_CANDIDATES "$NBD_DEV"; do
+  if [[ -b "$part" ]]; then
+    if mount "$part" "$MNT" 2>/dev/null; then
+      if [[ -d "$MNT/etc/systemd" ]]; then
+        ROOT_FOUND=true
+        MNT_ACTIVE=true
+        ROOT_PART="$part"
+        break
+      fi
+
+      # Some btrfs images (e.g. Debian/Ubuntu-style layouts) put the real
+      # root in a named subvolume rather than the top-level volume, so a
+      # bare mount here would show subvolume directories instead of /etc
+      # directly. Check for common subvolume names and remount into one
+      # if found before giving up on this partition.
+      if [[ "$(blkid -o value -s TYPE "$part" 2>/dev/null)" == "btrfs" ]]; then
+        for subvol in @ rootfs root; do
+          if [[ -d "$MNT/$subvol/etc/systemd" ]]; then
+            umount "$MNT"
+            if mount -o "subvol=$subvol" "$part" "$MNT" 2>/dev/null && [[ -d "$MNT/etc/systemd" ]]; then
+              ROOT_FOUND=true
+              MNT_ACTIVE=true
+              ROOT_SUBVOL="$subvol"
+              ROOT_PART="$part"
+              break 2
+            fi
+          fi
+        done
+      fi
+
+      umount "$MNT" 2>/dev/null || true
+    fi
+  fi
+done
+if [[ $ROOT_FOUND != "true" ]]; then
+  echo "ERROR: Could not find root partition"
+  exit 1
+fi
+
+# On subvolume-layout btrfs images (Debian/Ubuntu-style), /home inside the
+# root subvolume is typically just an empty mountpoint -- the actual home
+# data lives in a SEPARATE sibling subvolume that needs its own explicit
+# mount, or $MNT/home/<user> won't exist even though /etc/passwd lists the
+# account correctly. Mount the matching home subvolume, if one exists,
+# directly over $MNT/home before doing any account patching below.
+if [[ -n "$ROOT_SUBVOL" ]]; then
+  case "$ROOT_SUBVOL" in
+    @) HOME_SUBVOL_CANDIDATE="@home" ;;
+    *) HOME_SUBVOL_CANDIDATE="home" ;;
+  esac
+  if btrfs subvolume list "$MNT" 2>/dev/null | grep -qE "path ${HOME_SUBVOL_CANDIDATE}\$"; then
+    mkdir -p "$MNT/home"
+    if mount -o "subvol=${HOME_SUBVOL_CANDIDATE}" "$ROOT_PART" "$MNT/home" 2>/dev/null; then
+      echo "Mounted separate home subvolume '${HOME_SUBVOL_CANDIDATE}' at /home"
+    else
+      echo "WARNING: Found home subvolume '${HOME_SUBVOL_CANDIDATE}' but failed to mount it at /home -- account home directories may be missing."
+    fi
+  fi
+fi
+
+# Online grow for btrfs/xfs -- these can only be resized while mounted,
+# unlike ext2/3/4 which were already grown offline above (if applicable).
+case "${ROOT_FSTYPE:-}" in
+  btrfs)
+    echo "Growing btrfs filesystem to fill resized partition..."
+    btrfs filesystem resize max "$MNT" || echo "WARNING: btrfs resize failed -- continuing with original filesystem size."
+    ;;
+  xfs)
+    echo "Growing xfs filesystem to fill resized partition..."
+    xfs_growfs "$MNT" || echo "WARNING: xfs_growfs failed -- continuing with original filesystem size."
+    ;;
+esac
+
+# --- Credentials ---
+PASS_HASH=$(openssl passwd -6 "$NEW_PASSWORD")
+
+# Rather than assuming a fixed literal account name (Kali's script can
+# safely assume "kali" because that's Kali's own image), detect the
+# image's actual default account by finding the first regular user
+# (UID 1000, the standard first-user allocation on Debian-family images,
+# which Parrot is). This makes the patch step robust to Parrot renaming
+# or changing their default account across releases, instead of silently
+# no-op'ing every sed/mv below if the name ever doesn't match "kali".
+DEFAULT_ACCOUNT=$(awk -F: '$3 == 1000 {print $1; exit}' "$MNT/etc/passwd")
+if [[ -z "$DEFAULT_ACCOUNT" ]]; then
+  echo "ERROR: Could not detect the default UID 1000 account inside the Parrot image."
+  echo "Dumping /etc/passwd for diagnosis:"
+  cat "$MNT/etc/passwd" || true
+  exit 1
+fi
+echo "Detected default account in image: $DEFAULT_ACCOUNT"
+
+sed -i "s|^${DEFAULT_ACCOUNT}:[^:]*:|${DEFAULT_ACCOUNT}:${PASS_HASH}:|" "$MNT/etc/shadow"
+
+if [[ "$NEW_USERNAME" != "$DEFAULT_ACCOUNT" ]]; then
+  sed -i "s/^${DEFAULT_ACCOUNT}:/${NEW_USERNAME}:/" "$MNT/etc/passwd"
+  sed -i "s|/home/${DEFAULT_ACCOUNT}|/home/${NEW_USERNAME}|" "$MNT/etc/passwd"
+  sed -i "s/^${DEFAULT_ACCOUNT}:/${NEW_USERNAME}:/" "$MNT/etc/shadow"
+  sed -i "s/^${DEFAULT_ACCOUNT}:/${NEW_USERNAME}:/" "$MNT/etc/group"
+  sed -i "s/^${DEFAULT_ACCOUNT}:/${NEW_USERNAME}:/" "$MNT/etc/gshadow"
+  sed -i "s/,${DEFAULT_ACCOUNT}/,${NEW_USERNAME}/g" "$MNT/etc/group"
+  sed -i "s/,${DEFAULT_ACCOUNT}/,${NEW_USERNAME}/g" "$MNT/etc/gshadow"
+  mv "$MNT/home/${DEFAULT_ACCOUNT}" "$MNT/home/${NEW_USERNAME}"
+fi
+
+HOME_DIR="$MNT/home/$NEW_USERNAME"
+GUEST_SHARED_MOUNT="$HOME_DIR/Parrot"
+
+# --- Ensure configured user keeps sudo access ---
+mkdir -p "$MNT/etc/sudoers.d"
+cat > "$MNT/etc/sudoers.d/90-omarchy-parrot-user" << EOF
+$NEW_USERNAME ALL=(ALL:ALL) ALL
+EOF
+chmod 440 "$MNT/etc/sudoers.d/90-omarchy-parrot-user"
+
+# --- Host shared folder mount ---
+mkdir -p "$GUEST_SHARED_MOUNT"
+sed -i '\|[[:space:]]/home/[^[:space:]]\+/Parrot[[:space:]]\+9p[[:space:]]|d' "$MNT/etc/fstab"
+printf 'shared /home/%s/Parrot 9p trans=virtio,version=9p2000.L,rw,nofail,x-systemd.automount,_netdev 0 0\n' "$NEW_USERNAME" >> "$MNT/etc/fstab"
+
+# --- XFCE session file ---
+echo "xfce4-session" > "$HOME_DIR/.xsession"
+
+# --- Disable screensaver and screen lock ---
+XFCE_DIR="$HOME_DIR/.config/xfce4/xfconf/xfce-perchannel-xml"
+mkdir -p "$XFCE_DIR"
+
+cat > "$XFCE_DIR/xfce4-screensaver.xml" << 'XFCEXML'
+<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xfce4-screensaver" version="1.0">
+  <property name="saver" type="empty">
+    <property name="enabled" type="bool" value="false"/>
+  </property>
+  <property name="lock" type="empty">
+    <property name="enabled" type="bool" value="false"/>
+  </property>
+</channel>
+XFCEXML
+
+cat > "$XFCE_DIR/xfce4-power-manager.xml" << 'XFCEXML'
+<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xfce4-power-manager" version="1.0">
+  <property name="xfce4-power-manager" type="empty">
+    <property name="dpms-enabled" type="bool" value="false"/>
+    <property name="blank-on-ac" type="int" value="0"/>
+    <property name="dpms-on-ac-sleep" type="uint" value="0"/>
+    <property name="dpms-on-ac-off" type="uint" value="0"/>
+    <property name="power-button-action" type="uint" value="4"/>
+  </property>
+</channel>
+XFCEXML
+
+# --- XFCE session: skip logout prompt on ACPI power button ---
+cat > "$XFCE_DIR/xfce4-session.xml" << 'XFCEXML'
+<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xfce4-session" version="1.0">
+  <property name="general" type="empty">
+    <property name="SaveOnExit" type="bool" value="false"/>
+  </property>
+  <property name="shutdown" type="empty">
+    <property name="ShowHibernate" type="bool" value="false"/>
+    <property name="ShowSuspend" type="bool" value="false"/>
+  </property>
+</channel>
+XFCEXML
+
+# ============================================================================
+# TODO -- SPICE auto-resize DISABLED for Parrot, not ported
+# ============================================================================
+# Kali's equivalent script here calls `xrandr` and `xfdesktop --reload`
+# directly -- both are XFCE/X11-specific. Parrot has never defaulted to
+# XFCE (MATE historically, KDE Plasma 6 on Wayland as of Parrot 7), and
+# `xrandr` does not function under native Wayland at all. Writing a correct
+# equivalent needs real testing against a live Parrot session (KDE's own
+# display-management D-Bus calls, or whatever QXL/virtio-gpu does under
+# Wayland) that hasn't been done here. Deliberately left out rather than
+# shipping a script that silently does nothing.
+#
+# Practical effect: window resizing via SPICE may not auto-apply in the
+# guest. You can still resize manually inside the guest's display settings.
+# ============================================================================
+
+# --- Fix ownership ---
+uid=$(grep "^${NEW_USERNAME}:" "$MNT/etc/passwd" | cut -d: -f3)
+gid=$(grep "^${NEW_USERNAME}:" "$MNT/etc/passwd" | cut -d: -f4)
+chown "${uid}:${gid}" "$HOME_DIR/.xsession"
+chown "${uid}:${gid}" "$GUEST_SHARED_MOUNT"
+chown -R "${uid}:${gid}" "$HOME_DIR/.config"
+
+# --- Cleanup nbd (unmount + disconnect happen via EXIT trap) ---
+MNT_ACTIVE=false
+mountpoint -q "$MNT/home" 2>/dev/null && umount "$MNT/home"
+umount "$MNT"
+if [[ $PART_NBD_CONNECTED == "true" ]]; then
+  PART_NBD_CONNECTED=false
+  qemu-nbd --disconnect "$PART_NBD_DEV"
+  wait_for_nbd_disconnect "$PART_NBD_DEV" || true
+fi
+NBD_CONNECTED=false
+qemu-nbd --disconnect "$NBD_DEV"
+wait_for_nbd_disconnect "$NBD_DEV" || true
+rmdir "$MNT" 2>/dev/null || true
+
+# Remove temporarily installed packages
+apt-get purge -y parted openssl btrfs-progs xfsprogs > /dev/null 2>&1
+apt-get autoremove -y > /dev/null 2>&1
+rm -rf /var/lib/apt/lists/*
+
+echo "Parrot image configured."
+PATCHEOF
+}
+
+# The raw qcow2 is downloaded onto the host to perform initial
+# configuration - see patch_qcow2() above.
+#
+# Confirmed real download: Parrot ships a versioned directory tree at
+# https://deb.parrot.sh/parrot/iso/<version>/Parrot-security-<version>_amd64.qcow2.zip
+# (e.g. .../7.3/Parrot-security-7.3_amd64.qcow2.zip -- confirmed directly from
+# parrotsec.org/download/'s QCOW2 button). There is no stable "latest" alias
+# for this path (the /latest/ directory holds unrelated small rootfs
+# tarballs, not the desktop qcow2), so the version number is resolved by
+# scraping the parent directory listing and taking the highest version --
+# same robustness principle as Kali's resolver, just adapted to Parrot's
+# version-numbered directories instead of dated ones.
+#
+# ============================================================================
+# TODO -- checksum/signature verification still NOT implemented.
+# Parrot's FAQ states hashes are published per-release and the repo is
+# GPG-signed, but the exact companion-file naming (e.g. a .sha256 file next
+# to the .zip, or a single manifest covering the whole version directory)
+# is not confirmed here. Check directly:
+#   curl -fsSL https://deb.parrot.sh/parrot/iso/7.3/
+# and look for a hash/signature file sitting next to the .zip before trusting
+# this download the way Kali's SHA256SUMS+GPG step is trusted.
+# ============================================================================
+resolve_current_parrot_version() {
+  curl -fsSL https://deb.parrot.sh/parrot/iso/ \
+    | grep -oE 'href="[0-9]+\.[0-9]+(\.[0-9]+)?/"' \
+    | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' \
+    | sort -V \
+    | tail -1
+}
+
+download_parrot_qcow2() {
+  local QCOW2="$PARROT_STORAGE/data.qcow2"
+
+  if [[ -f "$QCOW2" ]]; then
+    echo "Parrot QCOW2 image already downloaded, skipping."
+    return 0
+  fi
+
+  local PARROT_VERSION PARROT_URL DOWNLOAD_FILENAME DOWNLOAD_FILE
+  PARROT_VERSION=$(resolve_current_parrot_version)
+  if [[ -z "$PARROT_VERSION" ]]; then
+    if [[ "$DEBUG_MODE" = true ]]; then
+      fail_install "download" "Could not determine the current Parrot version from https://deb.parrot.sh/parrot/iso/"
+    fi
+    echo "ERROR: Could not determine the current Parrot version."
+    echo "Run: curl -fsSL https://deb.parrot.sh/parrot/iso/  and check the directory listing format."
+    return 1
+  fi
+
+  PARROT_URL="https://deb.parrot.sh/parrot/iso/${PARROT_VERSION}/Parrot-security-${PARROT_VERSION}_amd64.qcow2.zip"
+  DOWNLOAD_FILENAME="${PARROT_URL##*/}"
+  DOWNLOAD_FILE="$PARROT_STORAGE/$DOWNLOAD_FILENAME"
+  record_debug_url "$PARROT_URL"
+
+  echo "Downloading Parrot QCOW2 image (version ${PARROT_VERSION})..."
+  echo "URL: $PARROT_URL"
+
+  DEBUG_STAGE="download"
+  curl -fL --retry 2 --retry-delay 5 -C - -o "$DOWNLOAD_FILE" "$PARROT_URL" || {
+    if [[ "$DEBUG_MODE" = true ]]; then
+      fail_install "download" "Failed to download Parrot QCOW2 image."
+    fi
+    echo "ERROR: Failed to download Parrot QCOW2 image."
+    rm -f "$DOWNLOAD_FILE"
+    return 1
+  }
+
+  # ==========================================================================
+  # TODO -- checksum/signature verification is NOT implemented here yet.
+  # See the TODO block above this function for what's needed before trusting
+  # this the way Kali's SHA256SUMS+GPG verification is trusted. An
+  # unverified multi-gigabyte disk image is a real attack surface -- don't
+  # skip filling this in before relying on this for anything beyond your own
+  # local testing.
+  # ==========================================================================
+  echo "WARNING: Checksum/signature verification is not yet implemented for Parrot."
+  echo "The downloaded image has NOT been cryptographically verified."
+
+  echo "Extracting QCOW2 from zip archive..."
+  DEBUG_STAGE="extract"
+  if ! unzip -o -d "$PARROT_STORAGE" "$DOWNLOAD_FILE"; then
+    if [[ "$DEBUG_MODE" = true ]]; then
+      fail_install "extract" "Failed to extract QCOW2 from zip archive."
+    fi
+    echo "ERROR: Failed to extract QCOW2 from zip archive."
+    echo "Archive: $DOWNLOAD_FILE"
+    rm -f "$DOWNLOAD_FILE"
+    return 1
+  fi
+
+  local EXTRACTED
+  EXTRACTED=$(find "$PARROT_STORAGE" -maxdepth 1 -name "*.qcow2" ! -name "data.qcow2" | head -1)
+  if [[ -n "$EXTRACTED" ]]; then
+    mv "$EXTRACTED" "$QCOW2"
+  fi
+  rm -f "$DOWNLOAD_FILE"
+
+  if [[ ! -f "$QCOW2" ]]; then
+    if [[ "$DEBUG_MODE" = true ]]; then
+      fail_install "extract" "No QCOW2 file found after extraction."
+    fi
+    echo "ERROR: No QCOW2 file found after extraction"
+    return 1
+  fi
+
+  # Disable CoW on the new file before any writes (btrfs)
+  chattr +C "$QCOW2" 2>/dev/null || true
+
+  echo "Download complete."
+  echo "Preserved archive: $DOWNLOAD_FILE"
+}
+
+
+cleanup_stale_data_disk() {
+  if [[ -f "$PARROT_STORAGE/data.qcow2" ]] && [[ -f "$PARROT_STORAGE/data.img" ]]; then
+    echo "Removing stale qemux data disk from earlier failed boot attempt..."
+    rm -f "$PARROT_STORAGE/data.img"
+  fi
+}
+
+install_parrot() {
+  parse_debug_flag install "$@"
+
+  # Set up trap to handle Ctrl+C
+  trap "echo ''; echo 'Installation cancelled by user'; exit 1" INT
+
+  if managed_state_exists; then
+    print_install_existing_state_error
+    echo ""
+    if gum confirm --default=false "Existing Parrot VM installation detected. Remove it now and continue installing?"; then
+      remove_parrot
+    else
+      echo "Installation cancelled. Remove the existing VM before reinstalling: omarchy-parrot-vm remove"
+      exit 1
+    fi
+  fi
+
+  check_install_dependencies
+  check_prerequisites
+
+  mkdir -p "$PARROT_STORAGE"
+  # Disable copy-on-write for QCOW2 storage (critical for btrfs performance)
+  chattr +C "$PARROT_STORAGE" 2>/dev/null || true
+  mkdir -p "$PARROT_CONFIG_DIR"
+
+  # Get system resources
+  TOTAL_RAM=$(free -h | awk 'NR==2 {print $2}')
+  TOTAL_RAM_GB=$(awk 'NR==1 {printf "%d", $2/1024/1024}' /proc/meminfo)
+  TOTAL_CORES=$(nproc)
+
+  echo ""
+  echo "System Resources Detected:"
+  echo "  Total RAM: $TOTAL_RAM"
+  echo "  Total CPU Cores: $TOTAL_CORES"
+  echo ""
+
+  # RAM selection
+  RAM_OPTIONS=""
+  for size in 2 4 8 16 32 64; do
+    if (( size <= TOTAL_RAM_GB )); then
+      RAM_OPTIONS="$RAM_OPTIONS ${size}G"
+    fi
+  done
+
+  SELECTED_RAM=$(echo $RAM_OPTIONS | tr ' ' '\n' | gum choose --selected="4G" --header="How much RAM would you like to allocate to the Parrot VM?")
+
+  if [[ -z $SELECTED_RAM ]]; then
+    echo "Installation cancelled by user"
+    exit 1
+  fi
+
+  # CPU cores
+  SELECTED_CORES=$(gum input --placeholder="Number of CPU cores (1-$TOTAL_CORES)" --value="2" --header="How many CPU cores would you like to allocate to the Parrot VM?" --char-limit=2)
+
+  if [[ -z $SELECTED_CORES ]]; then
+    echo "Installation cancelled by user"
+    exit 1
+  fi
+
+  if ! [[ $SELECTED_CORES =~ ^[0-9]+$ ]] || (( SELECTED_CORES < 1 )) || (( SELECTED_CORES > TOTAL_CORES )); then
+    echo "Invalid input. Using default: 2 cores"
+    SELECTED_CORES=2
+  fi
+
+  # Disk size — TODO -- VERIFY: 80GB default carried over from Kali's known
+  # virtual disk size. Parrot's actual qcow2 virtual size is NOT confirmed
+  # here (their download page lists compressed file sizes ~9-12GB, which is
+  # NOT the same as the qcow2 header's declared virtual size -- check with
+  # `qemu-img info` on the real downloaded file). This script only ever
+  # grows the disk, never shrinks it, so if Parrot's real virtual size is
+  # larger than whatever default is left here, the resize will just be a
+  # no-op (harmless) -- but if it's smaller, 80GB default is just wasted
+  # allocation headroom, not a functional problem either way.
+  MIN_DISK_GB=20
+  DEFAULT_DISK_GB=80
+  DISK_OVERHEAD_GB=${OMARCHY_PARROT_VM_DISK_OVERHEAD_GB:-10}
+
+  while true; do
+    DISK_SIZE_INPUT=$(gum input --placeholder="Disk size in GB (Press enter to use default: ${DEFAULT_DISK_GB}GB, minimum: ${MIN_DISK_GB}GB)" --header="Max disk size for the Parrot VM? (starts at ~16GB, grows as needed up to this limit)")
+
+    if [[ -z "$DISK_SIZE_INPUT" ]]; then
+      DISK_SIZE_NUM=$DEFAULT_DISK_GB
+    else
+      DISK_SIZE_NUM=$(echo "$DISK_SIZE_INPUT" | sed -E 's/[Gg][Bb]?$//' | tr -d '[:space:]')
+    fi
+
+    if ! [[ "$DISK_SIZE_NUM" =~ ^[0-9]+$ ]]; then
+      echo "Invalid input. Enter a whole number of GB (e.g. 80), or press enter for the default."
+      continue
+    fi
+
+    if (( DISK_SIZE_NUM < MIN_DISK_GB )); then
+      echo "Disk size must be at least ${MIN_DISK_GB}GB. You entered ${DISK_SIZE_NUM}GB."
+      continue
+    fi
+
+    break
+  done
+
+  SELECTED_DISK="${DISK_SIZE_NUM}G"
+
+  # Re-check prerequisites with selected disk size
+  check_prerequisites "$DISK_SIZE_NUM"
+
+  # Prompt for username and password
+  USERNAME=$(gum input --placeholder="Username (Press enter to use default: parrot)" --header="Enter Parrot username:")
+  if [[ -z $USERNAME ]]; then
+    USERNAME="parrot"
+  fi
+
+  PASSWORD=$(gum input --placeholder="Password (Press enter to use default: parrot)" --password --header="Enter Parrot password:")
+  if [[ -z $PASSWORD ]]; then
+    PASSWORD="parrot"
+    PASSWORD_DISPLAY="(default)"
+  else
+    PASSWORD_DISPLAY="(user-defined)"
+  fi
+
+  # Display configuration summary
+  gum style \
+    --border normal \
+    --padding "1 2" \
+    --margin "1" \
+    --align left \
+    --bold \
+    "Parrot VM Configuration" \
+    "" \
+    "RAM:       $SELECTED_RAM" \
+    "CPU:       $SELECTED_CORES cores" \
+    "Disk:      $SELECTED_DISK" \
+    "Username:  $USERNAME" \
+    "Password:  $PASSWORD_DISPLAY"
+
+  # Ask for confirmation
+  echo ""
+  if ! gum confirm "Proceed with this configuration?"; then
+    echo "Installation cancelled by user"
+    exit 1
+  fi
+
+  # Requires sudo on the host to load the nbd kernel module before containerized patching
+  echo "sudo is required to load the nbd kernel module for initial image configuration."
+  echo ""
+  sudo -v || exit 1
+
+  # Keep the sudo credential alive in the background for the rest of install.
+  # Without this, a long download (Parrot's qcow2 is ~10GB) can outlast
+  # sudo's cached-credential timeout, causing the later `sudo modprobe nbd`
+  # call in patch_qcow2() to fail with no TTY to prompt on.
+  ( while true; do sudo -n true; sleep 60; kill -0 "$$" 2>/dev/null || exit; done ) 2>/dev/null &
+  SUDO_KEEPALIVE_PID=$!
+  trap 'kill "$SUDO_KEEPALIVE_PID" 2>/dev/null || true' EXIT
+
+  mkdir -p "$PARROT_SHARED_DIR"
+
+  write_parrot_start_hook
+
+  # Create docker-compose.yml in user config directory
+  cat << EOF | tee "$COMPOSE_FILE" > /dev/null
+services:
+  parrot:
+    image: qemux/qemu
+    container_name: ${CONTAINER_NAME}
+    environment:
+      RAM_SIZE: "$SELECTED_RAM"
+      CPU_CORES: "$SELECTED_CORES"
+      DISK_SIZE: "$SELECTED_DISK"
+      BOOT_MODE: "legacy"
+      VGA: "virtio"
+      DISPLAY: "disabled"
+      WEB: "N"
+      # TODO -- BEST GUESS, not confirmed: qemux/qemu's entry.sh (v7.34, pulled
+      # fresh) crashes with "SHUTDOWN: unbound variable" under `set -u` if this
+      # isn't defined -- not documented anywhere in their README/compose
+      # examples. Setting it explicitly avoids the crash; the actual intended
+      # semantics of this variable are unconfirmed. Following this project's
+      # own Y/N convention (DEBUG, DHCP, WEB above) as the most likely format.
+      # If behavior looks wrong after boot, this is the first place to revisit.
+      SHUTDOWN: "N"
+      ARGUMENTS: "$(parrot_qemu_arguments)"
+    devices:
+      - /dev/kvm
+      - /dev/net/tun
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - $HOME/.parrot:/storage
+      - $PARROT_SHARED_DIR:/shared
+      - $PARROT_CONFIG_DIR/start.sh:/run/start.sh:ro
+    restart: "no"
+    stop_grace_period: 2m
+EOF
+
+  ensure_parrot_runtime_config
+
+  echo ""
+  echo "Starting Parrot VM installation..."
+  echo "This will download a pre-built Parrot QCOW2 image and configure it."
+  echo "The setup takes 5-15 minutes depending on your internet speed."
+  echo ""
+
+  # Step 1: Download and verify the QCOW2 on the host
+  DEBUG_STAGE="download"
+  if ! download_parrot_qcow2; then
+    echo "Failed to download Parrot QCOW2 image!"
+    exit 1
+  fi
+
+  # Step 2: Configure the QCOW2 offline (credentials, XFCE, SPICE, etc.)
+  if [[ ! -f "$PARROT_STORAGE/.configured" ]]; then
+    echo ""
+    DEBUG_STAGE="patch"
+    if patch_qcow2 "$USERNAME" "$PASSWORD" "$SELECTED_DISK"; then
+      touch "$PARROT_STORAGE/.configured"
+    else
+      if [[ "$DEBUG_MODE" = true ]]; then
+        fail_install "patch" "Failed to configure Parrot image."
+      fi
+      echo "Failed to configure Parrot image."
+      echo "You can retry by running: omarchy-parrot-vm install"
+      exit 1
+    fi
+  else
+    echo "Parrot image already configured, skipping."
+  fi
+
+  # Step 3: Start the VM
+  echo ""
+  echo "Starting Parrot VM..."
+  cleanup_stale_data_disk
+  DEBUG_STAGE="startup"
+  if ! docker compose -f "$COMPOSE_FILE" up -d 2>&1; then
+    if [[ "$DEBUG_MODE" = true ]]; then
+      fail_install "startup" "Failed to start Parrot VM."
+    fi
+    echo "Failed to start Parrot VM!"
+    echo "   Common issues:"
+    echo "   - Docker daemon not running: sudo systemctl start docker"
+    echo "   - KVM not available: check /dev/kvm"
+    exit 1
+  fi
+
+  # Wait for SPICE socket and launch viewer detached so the install terminal can close
+  local SPICE_SOCK="$PARROT_STORAGE/spice.sock"
+  echo "Waiting for VM to be ready..."
+  local WAIT_COUNT=0
+  until [[ -S "$SPICE_SOCK" ]]; do
+    sleep 2
+    WAIT_COUNT=$((WAIT_COUNT + 1))
+    if (( WAIT_COUNT > 60 )); then
+      if [[ "$DEBUG_MODE" = true ]]; then
+        fail_install "startup" "Timeout waiting for Parrot VM SPICE to become ready."
+      fi
+      echo "Timeout: Parrot VM SPICE not ready within 2 minutes"
+      exit 1
+    fi
+  done
+  docker exec "$CONTAINER_NAME" chmod 666 /storage/spice.sock
+  write_runtime_launcher
+
+  if [[ "$DEBUG_MODE" = true ]]; then
+    DEBUG_STATUS="succeeded"
+    DEBUG_MESSAGE="Install completed successfully."
+    write_debug_report
+    print_debug_summary
+  fi
+
+  echo ""
+  echo "Parrot VM installed! Launching..."
+  echo "Closing the viewer will power down the VM by default."
+  echo "The host shared folder ~/Parrot will be mounted inside Parrot at ~/Parrot."
+  # Launch viewer detached so the install terminal can close immediately.
+  # Uses a wrapper subshell (not bare setsid) so that when the viewer window
+  # is closed, the container is stopped — matching launch_parrot's default behavior.
+  setsid bash -c "
+    remote-viewer 'spice+unix://$SPICE_SOCK' -t 'Parrot VM' --auto-resize=always &>/dev/null
+    # Graceful ACPI shutdown so guest can flush writes to QCOW2
+    docker exec '$CONTAINER_NAME' bash -c 'echo system_powerdown | nc -q1 localhost 7100' 2>/dev/null || true
+    WAIT=0
+    while docker inspect --format='{{.State.Status}}' '$CONTAINER_NAME' 2>/dev/null | grep -q running; do
+      sleep 2
+      WAIT=\$((WAIT + 1))
+      (( WAIT > 30 )) && break
+    done
+    docker compose -f '$COMPOSE_FILE' down 2>/dev/null || true
+    rm -f '$SPICE_SOCK'
+  " &>/dev/null &
+}
+
+remove_parrot() {
+  parse_debug_flag remove "$@"
+  check_remove_dependencies
+
+  print_remove_preview
+
+  if ! gum confirm --default=false "Remove Parrot VM and delete all associated data?"; then
+    echo "Removal cancelled by user"
+    exit 1
+  fi
+
+  echo "Removing Parrot VM..."
+  DEBUG_STAGE="remove"
+
+  best_effort_remove_docker_artifacts
+
+  if [[ "$DEBUG_MODE" = true ]]; then
+    preserve_remove_debug_artifacts
+  fi
+
+  rm -rf "$PARROT_CONFIG_DIR"
+  rm -rf "$PARROT_STORAGE"
+  rm -rf "$PARROT_SHARED_DIR"
+  remove_runtime_launcher
+
+  if [[ "$DEBUG_MODE" = true ]]; then
+    DEBUG_STATUS="succeeded"
+    DEBUG_MESSAGE="Remove completed with debug retention enabled."
+    write_debug_report
+    print_debug_summary
+  fi
+
+  echo ""
+  echo "Parrot VM removal completed!"
+}
+
+launch_parrot() {
+  check_launch_dependencies
+  KEEP_ALIVE=false
+  if [[ "${1:-}" = "--keep-alive" ]] || [[ "${1:-}" = "-k" ]]; then
+    KEEP_ALIVE=true
+  fi
+
+  # Check if config exists
+  if [[ ! -f $COMPOSE_FILE ]]; then
+    echo "Parrot VM not configured. Please run: omarchy-parrot-vm install"
+    exit 1
+  fi
+
+  ensure_parrot_runtime_config
+
+  # Check if container is already running
+  CONTAINER_STATUS=$(docker inspect --format='{{.State.Status}}' "$CONTAINER_NAME" 2>/dev/null || true)
+
+  local SPICE_SOCK="$PARROT_STORAGE/spice.sock"
+
+  if [[ $CONTAINER_STATUS != "running" ]]; then
+    echo "Starting Parrot VM..."
+    notify_if_available "Starting Parrot VM" "This can take 15-30 seconds" -t 15000
+
+    # Remove stale socket so we can detect when QEMU creates a fresh one
+    rm -f "$SPICE_SOCK"
+    cleanup_stale_data_disk
+
+    if ! docker compose -f "$COMPOSE_FILE" up -d 2>&1; then
+      echo "Failed to start Parrot VM!"
+      notify_if_available -u critical "Parrot VM" "Failed to start Parrot VM"
+      exit 1
+    fi
+  fi
+
+  # Wait for SPICE Unix socket to appear
+  echo "Waiting for Parrot VM to be ready..."
+  WAIT_COUNT=0
+  until [[ -S "$SPICE_SOCK" ]]; do
+    sleep 2
+    WAIT_COUNT=$((WAIT_COUNT + 1))
+    if (( WAIT_COUNT > 60 )); then
+      echo "Timeout: Parrot VM SPICE not ready within 2 minutes"
+      notify_if_available -u critical "Parrot VM" "SPICE not ready"
+      exit 1
+    fi
+  done
+  # Socket is created by root inside the container; make it connectable by the host user
+  docker exec "$CONTAINER_NAME" chmod 666 /storage/spice.sock
+
+  if [[ -t 1 ]]; then
+    if [[ $KEEP_ALIVE = "true" ]]; then
+      LIFECYCLE="VM will keep running after viewer closes
+To stop: omarchy-parrot-vm stop"
+    else
+      LIFECYCLE="VM will auto-stop when viewer closes"
+    fi
+    gum style \
+      --border normal \
+      --padding "1 2" \
+      --margin "1" \
+      --align center \
+      "Connecting to Parrot VM" \
+      "" \
+      "$LIFECYCLE"
+  fi
+
+  # Connect with SPICE via Unix socket
+  remote-viewer "spice+unix://$SPICE_SOCK" -t "Parrot VM" --auto-resize=always
+
+  # After viewer closes, stop the container unless --keep-alive was specified
+  if [[ $KEEP_ALIVE = "false" ]]; then
+    echo ""
+    echo "SPICE session closed. Stopping Parrot VM..."
+    graceful_shutdown
+    echo "Parrot VM stopped."
+  else
+    echo ""
+    echo "SPICE session closed. Parrot VM is still running."
+    echo "To stop it: omarchy-parrot-vm stop"
+  fi
+}
+
+graceful_shutdown() {
+  # Send ACPI shutdown via QEMU monitor so the guest can shut down cleanly
+  # and flush all writes to the QCOW2 before the container is stopped.
+  if docker inspect --format='{{.State.Status}}' "$CONTAINER_NAME" 2>/dev/null | grep -q running; then
+    echo "Sending ACPI shutdown to guest..."
+    docker exec "$CONTAINER_NAME" bash -c 'echo "system_powerdown" | nc -q1 localhost 7100' 2>/dev/null || true
+    # Wait for the guest to shut down (QEMU exits, container stops)
+    while docker inspect --format='{{.State.Status}}' "$CONTAINER_NAME" 2>/dev/null | grep -q running; do
+      local WAIT=0
+      sleep 2
+      WAIT=$((WAIT + 1))
+      if (( WAIT > 30 )); then
+        echo "Guest did not shut down within 60s, forcing stop..."
+        break
+      fi
+    done
+  fi
+  docker compose -f "$COMPOSE_FILE" down 2>/dev/null || true
+  rm -f "$PARROT_STORAGE/spice.sock"
+}
+
+stop_parrot() {
+  check_common_dependencies
+  if [[ ! -f $COMPOSE_FILE ]]; then
+    echo "Parrot VM not configured."
+    exit 1
+  fi
+
+  echo "Stopping Parrot VM..."
+  graceful_shutdown
+  echo "Parrot VM stopped."
+}
+
+status_parrot() {
+  check_common_dependencies
+  if [[ ! -f $COMPOSE_FILE ]]; then
+    echo "Parrot VM not configured."
+    echo "To set up: omarchy-parrot-vm install"
+    exit 1
+  fi
+
+  CONTAINER_STATUS=$(docker inspect --format='{{.State.Status}}' "$CONTAINER_NAME" 2>/dev/null || true)
+
+  if [[ -z $CONTAINER_STATUS ]]; then
+    echo "Parrot VM container not found."
+    echo "To start: omarchy-parrot-vm launch"
+  elif [[ $CONTAINER_STATUS = "running" ]]; then
+    gum style \
+      --border normal \
+      --padding "1 2" \
+      --margin "1" \
+      --align left \
+      "Parrot VM Status: RUNNING" \
+      "" \
+      "To connect: omarchy-parrot-vm launch" \
+      "To stop:    omarchy-parrot-vm stop"
+  else
+    echo "Parrot VM is stopped (status: $CONTAINER_STATUS)"
+    echo "To start: omarchy-parrot-vm launch"
+  fi
+}
+
+show_usage() {
+  echo "Usage: omarchy-parrot-vm [command] [options]"
+  echo ""
+  echo "Commands:"
+  echo "  install [--debug]    Install and configure Parrot VM (first-time setup only)"
+  echo "  remove [--debug]     Remove Parrot VM and all its data"
+  echo "  launch [options]     Start Parrot VM (if needed) and connect via SPICE"
+  echo "                       Options:"
+  echo "                         --keep-alive, -k   Keep VM running after viewer closes"
+  echo "  stop                 Stop the running Parrot VM"
+  echo "  status               Show current VM status"
+  echo "  help                 Show this help message"
+  echo ""
+  echo "Examples:"
+  echo "  omarchy-parrot-vm install           # Set up Parrot VM for first time"
+  echo "  omarchy-parrot-vm install --debug   # Keep install evidence and write a debug report"
+  echo "  omarchy-parrot-vm launch            # Connect to VM (auto-stop on exit)"
+  echo "  omarchy-parrot-vm launch -k         # Connect to VM (keep running)"
+  echo "  omarchy-parrot-vm remove --debug    # Remove runtime state but preserve archives and image"
+  echo "  omarchy-parrot-vm stop              # Shut down the VM"
+  echo ""
+  echo "Notes:"
+  echo "  install will exit if managed Parrot VM state already exists."
+  echo "  Closing the viewer powers down the VM by default."
+  echo ""
+  echo "Optional Omarchy integration:"
+  echo "  omarchy-parrot-vm-integrate-os"
+  echo "  omarchy-parrot-vm-unintegrate-os"
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  # Main command dispatcher
+  case "${1:-}" in
+    install)
+      shift
+      install_parrot "$@"
+      ;;
+    remove)
+      shift
+      remove_parrot "$@"
+      ;;
+    launch|start)
+      launch_parrot "${2:-}"
+      ;;
+    stop|down)
+      stop_parrot
+      ;;
+    status)
+      status_parrot
+      ;;
+    help|--help|-h|"")
+      show_usage
+      ;;
+    *)
+      echo "Unknown command: $1" >&2
+      echo "" >&2
+      show_usage >&2
+      exit 1
+      ;;
+  esac
+fi
