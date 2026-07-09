@@ -105,15 +105,15 @@ hl.unbind("SUPER + SHIFT + O")
 o.bind("SUPER + SHIFT + O", "Toggle window floating/tiling", hl.dsp.window.float({ action = "toggle" }))
 
 -- Toggle focus between tiled and floating
-hl.unbind("SUPER + T")
-o.bind("SUPER + T", "Toggle focus floating/tiling", function()
-	local active = hl.get_active_window()
-	if active and active.floating then
-		hl.dispatch(hl.dsp.focus({ window = "tiled" }))
-	else
-		hl.dispatch(hl.dsp.focus({ window = "floating" }))
-	end
-end)
+-- hl.unbind("SUPER + T")
+-- o.bind("SUPER + T", "Toggle focus floating/tiling", function()
+-- 	local active = hl.get_active_window()
+-- 	if active and active.floating then
+-- 		hl.dispatch(hl.dsp.focus({ window = "tiled" }))
+-- 	else
+-- 		hl.dispatch(hl.dsp.focus({ window = "floating" }))
+-- 	end
+-- end)
 
 -- ── Lock & workspace ─────────────────────────────────────────────────────
 
