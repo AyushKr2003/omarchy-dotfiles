@@ -2,12 +2,14 @@
 set -euo pipefail
 
 # omarchy-security-vm -- universal menu for all omarchy-*-vm security VMs
-# (Kali, Parrot, and any future ones) plus their Omarchy integrate-os /
-# unintegrate-os companions.
+# (Kali, Parrot, and any future ones), plus the global Omarchy
+# integrate-os / unintegrate-os hooks that merge a shared window-rule and
+# menu-row set covering every supported distro in one shot.
 #
 # This script never reimplements install/download/patch logic itself --
-# it only ever calls the real omarchy-<name>-vm binaries. Single source of
-# truth stays with each distro's own script.
+# it only ever calls the real omarchy-<name>-vm binaries and the
+# omarchy-security-vm-integrate-os/-unintegrate-os hooks. Single source of
+# truth stays with each script.
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -116,41 +118,42 @@ run_action() {
     gum style --foreground 1 "Could not find $name on PATH or next to this script." || true
     return 1
   }
+  "$path" "$action" "$@"
+}
 
-  case "$action" in
-    integrate-os)
-      local hook="${path}-integrate-os"
-      if [[ ! -x "$hook" ]]; then
-        gum style --foreground 3 "$(vm_label "$name") has no -integrate-os script yet." || true
-        return 1
-      fi
-      "$hook" "$@"
-      ;;
-    unintegrate-os)
-      local hook="${path}-unintegrate-os"
-      if [[ ! -x "$hook" ]]; then
-        gum style --foreground 3 "$(vm_label "$name") has no -unintegrate-os script yet." || true
-        return 1
-      fi
-      "$hook" "$@"
-      ;;
-    *)
-      "$path" "$action" "$@"
-      ;;
-  esac
+# omarchy-security-vm-integrate-os / -unintegrate-os are global, not
+# per-VM -- they merge a single shared window-rule/menu-row set covering
+# every supported distro in one shot (see share/hypr/omarchy-security-vm.lua
+# and share/omarchy-menu.jsonc), so they're resolved and invoked directly
+# rather than as a companion to any one omarchy-<name>-vm binary.
+
+resolve_global_hook() {
+  local hook_name="$1"
+  local dir
+  for dir in "$SCRIPT_DIR" $(echo "$PATH" | tr ':' ' '); do
+    [[ -x "$dir/$hook_name" ]] && { echo "$dir/$hook_name"; return 0; }
+  done
+  return 1
+}
+
+run_global_integration() {
+  local action="$1"
+  shift
+  local hook_name="omarchy-security-vm-${action}"
+  local hook
+  hook=$(resolve_global_hook "$hook_name") || {
+    gum style --foreground 3 "$hook_name not found on PATH or next to this script." || true
+    return 1
+  }
+  "$hook" "$@"
 }
 
 action_menu_for() {
   local name="$1"
   local label
   label=$(vm_label "$name")
-  local path
-  path=$(resolve_vm_path "$name")
 
-  local options=("Install" "Launch" "Stop" "Status" "Remove")
-  [[ -x "${path}-integrate-os" ]] && options+=("Integrate into Omarchy menu")
-  [[ -x "${path}-unintegrate-os" ]] && options+=("Remove Omarchy integration")
-  options+=("Back")
+  local options=("Install" "Launch" "Stop" "Status" "Remove" "Back")
 
   local choice
   choice=$(printf '%s\n' "${options[@]}" | gum choose --header="${label^} -- what do you want to do?")
@@ -165,8 +168,6 @@ action_menu_for() {
         run_action "$name" remove
       fi
       ;;
-    "Integrate into Omarchy menu") run_action "$name" integrate-os ;;
-    "Remove Omarchy integration") run_action "$name" unintegrate-os ;;
     "Back"|"") return 0 ;;
   esac
 }
@@ -191,15 +192,25 @@ interactive_menu() {
     for name in "${vms[@]}"; do
       labeled+=("$(vm_label "$name")")
     done
-    labeled+=("Quit")
+    labeled+=("Integrate into Omarchy menu" "Remove Omarchy integration" "Quit")
 
     local pick
-    pick=$(printf '%s\n' "${labeled[@]^}" | gum choose --header="Select a VM:")
+    pick=$(printf '%s\n' "${labeled[@]^}" | gum choose --header="Select a VM, or manage Omarchy integration:")
 
-    [[ "$pick" == "Quit" || -z "$pick" ]] && exit 0
+    case "$pick" in
+      "Quit"|"") exit 0 ;;
+      "Integrate into Omarchy menu")
+        run_global_integration integrate-os
+        continue
+        ;;
+      "Remove Omarchy integration")
+        run_global_integration unintegrate-os
+        continue
+        ;;
+    esac
 
     # Map the capitalized label back to its binary name
-    local i=0 selected_name=""
+    local selected_name=""
     for name in "${vms[@]}"; do
       if [[ "$(vm_label "$name")" == "$(echo "$pick" | tr '[:upper:]' '[:lower:]')" ]]; then
         selected_name="$name"
@@ -224,18 +235,30 @@ if [[ $# -ge 1 ]]; then
       cat <<EOF
 Usage:
   omarchy-security-vm                      Interactive menu
-  omarchy-security-vm <vm> <command> [...] Direct pass-through
+  omarchy-security-vm <vm> <command> [...] Per-VM pass-through
   omarchy-security-vm status               Status overview only
+  omarchy-security-vm integrate-os         Merge Omarchy window rule + menu
+                                            entries (covers all supported
+                                            distros in one shot)
+  omarchy-security-vm unintegrate-os       Remove that Omarchy integration
 
 <vm> is a label (kali, parrot, ...) or full binary name (omarchy-kali-vm).
-<command> is install, remove, launch, stop, status, integrate-os, or
-unintegrate-os -- forwarded as-is to the real omarchy-<vm>-vm script.
+<command> is install, remove, launch, stop, or status -- forwarded as-is
+to the real omarchy-<vm>-vm script.
+
+integrate-os/unintegrate-os are global, not per-VM: they manage a single
+shared window-rule/menu-row set covering every installed distro at once,
+so they don't take a <vm> argument.
 EOF
       exit 0
       ;;
     status)
       show_status_table
       exit 0
+      ;;
+    integrate-os|unintegrate-os)
+      run_global_integration "$1"
+      exit $?
       ;;
     *)
       VM_ARG="$1"
