@@ -4,17 +4,17 @@ set -euo pipefail
 # --- Paths -------------------------------------------------------------
 
 CONFIG_ROOT="${XDG_CONFIG_HOME:-$HOME/.config}"
-DATA_DIR="${OMARCHY_KALI_VM_DATA_DIR:-/usr/share/omarchy-security-vm}"
+DATA_DIR="${OMARCHY_SECURITY_VM_DATA_DIR:-/usr/share/omarchy-security-vm}"
 
-HYPR_TEMPLATE="$DATA_DIR/hypr/omarchy-kali-vm.lua"
+HYPR_TEMPLATE="$DATA_DIR/hypr/omarchy-security-vm.lua"
 MENU_TEMPLATE="$DATA_DIR/omarchy-menu.jsonc"
 OMARCHY_MENU="$CONFIG_ROOT/omarchy/extensions/omarchy-menu.jsonc"
 HYPRLAND_LUA="$CONFIG_ROOT/hypr/hyprland.lua"
 
-HYPR_MARKER_BEGIN="-- >>> omarchy-kali-vm hypr integration >>>"
-HYPR_MARKER_END="-- <<< omarchy-kali-vm hypr integration <<<"
-MENU_MARKER_BEGIN="// >>> omarchy-kali-vm menu integration >>>"
-MENU_MARKER_END="// <<< omarchy-kali-vm menu integration <<<"
+HYPR_MARKER_BEGIN="-- >>> omarchy-security-vm hypr integration >>>"
+HYPR_MARKER_END="-- <<< omarchy-security-vm hypr integration <<<"
+MENU_MARKER_BEGIN="// >>> omarchy-security-vm menu integration >>>"
+MENU_MARKER_END="// <<< omarchy-security-vm menu integration <<<"
 
 # --- Helpers -------------------------------------------------------------
 
