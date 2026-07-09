@@ -1,0 +1,256 @@
+#!/bin/bash
+set -euo pipefail
+
+# omarchy-security-vm -- universal menu for all omarchy-*-vm security VMs
+# (Kali, Parrot, and any future ones) plus their Omarchy integrate-os /
+# unintegrate-os companions.
+#
+# This script never reimplements install/download/patch logic itself --
+# it only ever calls the real omarchy-<name>-vm binaries. Single source of
+# truth stays with each distro's own script.
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
+# --- Discovery ------------------------------------------------------------
+# Find every omarchy-*-vm binary next to this script (or on PATH), skipping
+# its own integrate-os/unintegrate-os companions and this wrapper itself.
+# Adding a new distro later means dropping a new omarchy-<name>-vm binary
+# in -- this wrapper needs no changes.
+
+discover_vms() {
+  local seen=""
+  local dir bin name
+  for dir in "$SCRIPT_DIR" $(echo "$PATH" | tr ':' ' '); do
+    [[ -d "$dir" ]] || continue
+    for bin in "$dir"/omarchy-*-vm; do
+      [[ -f "$bin" && -x "$bin" ]] || continue
+      name=$(basename "$bin")
+      [[ "$name" == "omarchy-security-vm" ]] && continue
+      [[ "$name" == *-integrate-os ]] && continue
+      [[ "$name" == *-unintegrate-os ]] && continue
+      # Dedup by name (PATH may list the same script's dir twice, or a
+      # binary might exist both locally and on PATH -- prefer first found).
+      if [[ ",$seen," != *",$name,"* ]]; then
+        seen="$seen,$name"
+        echo "$name"
+      fi
+    done
+  done
+}
+
+# Extract the distro label from a binary name: omarchy-kali-vm -> kali
+vm_label() {
+  local name="$1"
+  name="${name#omarchy-}"
+  name="${name%-vm}"
+  echo "$name"
+}
+
+resolve_vm_path() {
+  local name="$1"
+  local dir
+  for dir in "$SCRIPT_DIR" $(echo "$PATH" | tr ':' ' '); do
+    [[ -x "$dir/$name" ]] && { echo "$dir/$name"; return 0; }
+  done
+  return 1
+}
+
+# --- Status ----------------------------------------------------------------
+# Installed = the VM's own config dir exists under ~/.config/<label>.
+# Running   = a container matching its default naming convention is up.
+# Both are best-effort/no-fail -- an unreadable Docker state just shows
+# "unknown" rather than crashing the whole overview.
+
+vm_installed() {
+  local label="$1"
+  [[ -d "${XDG_CONFIG_HOME:-$HOME/.config}/$label" ]]
+}
+
+vm_running() {
+  local label="$1"
+  local container="omarchy-${label}-vm"
+  command -v docker >/dev/null 2>&1 || return 1
+  docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$container" || return 1
+}
+
+print_status_overview() {
+  local vms=()
+  while IFS= read -r line; do vms+=("$line"); done < <(discover_vms)
+
+  if [[ ${#vms[@]} -eq 0 ]]; then
+    gum style --foreground 1 "No omarchy-*-vm scripts found next to this one or on PATH." || true
+    return 1
+  fi
+
+  local rows=""
+  local name label state
+  for name in "${vms[@]}"; do
+    label=$(vm_label "$name")
+    if vm_installed "$label"; then
+      if vm_running "$label"; then
+        state="Running"
+      else
+        state="Installed (stopped)"
+      fi
+    else
+      state="Not installed"
+    fi
+    rows="${rows}${label^}\t${state}\n"
+  done
+
+  printf "VM\tStatus\n"
+  printf "%b" "$rows"
+}
+
+show_status_table() {
+  print_status_overview | gum table --separator=$'\t' --print
+}
+
+# --- Action menus -----------------------------------------------------------
+
+run_action() {
+  local name="$1" action="$2"
+  shift 2
+  local path
+  path=$(resolve_vm_path "$name") || {
+    gum style --foreground 1 "Could not find $name on PATH or next to this script." || true
+    return 1
+  }
+
+  case "$action" in
+    integrate-os)
+      local hook="${path}-integrate-os"
+      if [[ ! -x "$hook" ]]; then
+        gum style --foreground 3 "$(vm_label "$name") has no -integrate-os script yet." || true
+        return 1
+      fi
+      "$hook" "$@"
+      ;;
+    unintegrate-os)
+      local hook="${path}-unintegrate-os"
+      if [[ ! -x "$hook" ]]; then
+        gum style --foreground 3 "$(vm_label "$name") has no -unintegrate-os script yet." || true
+        return 1
+      fi
+      "$hook" "$@"
+      ;;
+    *)
+      "$path" "$action" "$@"
+      ;;
+  esac
+}
+
+action_menu_for() {
+  local name="$1"
+  local label
+  label=$(vm_label "$name")
+  local path
+  path=$(resolve_vm_path "$name")
+
+  local options=("Install" "Launch" "Stop" "Status" "Remove")
+  [[ -x "${path}-integrate-os" ]] && options+=("Integrate into Omarchy menu")
+  [[ -x "${path}-unintegrate-os" ]] && options+=("Remove Omarchy integration")
+  options+=("Back")
+
+  local choice
+  choice=$(printf '%s\n' "${options[@]}" | gum choose --header="${label^} -- what do you want to do?")
+
+  case "$choice" in
+    "Install") run_action "$name" install ;;
+    "Launch") run_action "$name" launch ;;
+    "Stop") run_action "$name" stop ;;
+    "Status") run_action "$name" status ;;
+    "Remove")
+      if gum confirm "Remove the ${label^} VM and delete its data?"; then
+        run_action "$name" remove
+      fi
+      ;;
+    "Integrate into Omarchy menu") run_action "$name" integrate-os ;;
+    "Remove Omarchy integration") run_action "$name" unintegrate-os ;;
+    "Back"|"") return 0 ;;
+  esac
+}
+
+interactive_menu() {
+  while true; do
+    echo ""
+    gum style --border normal --padding "0 2" --bold "Omarchy Security VMs" || true
+    echo ""
+    show_status_table || true
+    echo ""
+
+    local vms=()
+    while IFS= read -r line; do vms+=("$line"); done < <(discover_vms)
+
+    if [[ ${#vms[@]} -eq 0 ]]; then
+      exit 1
+    fi
+
+    local labeled=()
+    local name
+    for name in "${vms[@]}"; do
+      labeled+=("$(vm_label "$name")")
+    done
+    labeled+=("Quit")
+
+    local pick
+    pick=$(printf '%s\n' "${labeled[@]^}" | gum choose --header="Select a VM:")
+
+    [[ "$pick" == "Quit" || -z "$pick" ]] && exit 0
+
+    # Map the capitalized label back to its binary name
+    local i=0 selected_name=""
+    for name in "${vms[@]}"; do
+      if [[ "$(vm_label "$name")" == "$(echo "$pick" | tr '[:upper:]' '[:lower:]')" ]]; then
+        selected_name="$name"
+        break
+      fi
+    done
+
+    [[ -n "$selected_name" ]] && action_menu_for "$selected_name"
+  done
+}
+
+# --- Entry point -------------------------------------------------------------
+# Direct pass-through mode: omarchy-security-vm <name> <command> [args...]
+# e.g. omarchy-security-vm kali install
+#      omarchy-security-vm parrot launch
+# "name" can be given either as the full binary name (omarchy-kali-vm) or
+# just its label (kali) for convenience.
+
+if [[ $# -ge 1 ]]; then
+  case "$1" in
+    help|--help|-h)
+      cat <<EOF
+Usage:
+  omarchy-security-vm                      Interactive menu
+  omarchy-security-vm <vm> <command> [...] Direct pass-through
+  omarchy-security-vm status               Status overview only
+
+<vm> is a label (kali, parrot, ...) or full binary name (omarchy-kali-vm).
+<command> is install, remove, launch, stop, status, integrate-os, or
+unintegrate-os -- forwarded as-is to the real omarchy-<vm>-vm script.
+EOF
+      exit 0
+      ;;
+    status)
+      show_status_table
+      exit 0
+      ;;
+    *)
+      VM_ARG="$1"
+      shift
+      if [[ "$VM_ARG" != omarchy-*-vm ]]; then
+        VM_ARG="omarchy-${VM_ARG}-vm"
+      fi
+      if [[ $# -lt 1 ]]; then
+        gum style --foreground 1 "Missing command for $VM_ARG. See --help." || true
+        exit 1
+      fi
+      run_action "$VM_ARG" "$@"
+      exit $?
+      ;;
+  esac
+fi
+
+interactive_menu
