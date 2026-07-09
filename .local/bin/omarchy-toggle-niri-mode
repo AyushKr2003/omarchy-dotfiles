@@ -1,0 +1,122 @@
+#!/bin/bash
+
+# omarchy:summary=Toggle niri-style scrolling layout mode for Hyprland
+# omarchy:group=toggle
+# omarchy:args=[on|off|toggle|status]
+# omarchy:examples=omarchy toggle niri-mode | omarchy-toggle-niri-mode off | omarchy-toggle-niri-mode --status
+#
+# This is the single source of truth for "niri mode" (Hyprland's niri-like
+# scrolling layout). It follows the same shape as every other Omarchy toggle
+# (see bin/omarchy-toggle-idle, bin/omarchy-toggle-nightlight,
+# bin/omarchy-hyprland-toggle):
+#
+#   - state is a flag file, and its mere presence/absence IS the state
+#   - the flag file lives at ~/.local/state/omarchy/toggles/hypr/niri-mode.lua
+#     so it is auto-sourced by default/hypr/toggles.lua on every Hyprland
+#     config load/reload (see require_all in that file) — meaning niri mode
+#     survives `hyprctl reload` and reboots with zero polling/timer hacks
+#   - this script both writes that file AND applies the change immediately
+#     via `hyprctl reload`, exactly like omarchy-hyprland-toggle does
+#
+# ~/.config/hypr/hyprNiri.lua only reads this same flag file to decide how
+# a couple of shared keybinds (overview, workspace nav) should behave, and
+# binds SUPER+ALT+L to this script via o.bind_toggle(). It contains none of
+# the actual state.
+
+set -euo pipefail
+
+STATE_DIR="$HOME/.local/state/omarchy/toggles/hypr"
+STATE_FILE="$STATE_DIR/niri-mode.lua"
+
+# What to restore when niri mode is turned off. Override these in your shell
+# profile (export NIRI_MODE_DEFAULT_LAYOUT=...) if your base Hyprland layout
+# differs from the Omarchy default.
+DEFAULT_LAYOUT="${NIRI_MODE_DEFAULT_LAYOUT:-dwindle}"
+
+usage() {
+  echo "Usage: omarchy-toggle-niri-mode [on|off|toggle|status]" >&2
+}
+
+niri_mode_enabled() {
+  [[ -f $STATE_FILE ]]
+}
+
+notify() {
+  local message=$1
+  notify-send -u low "Niri mode" "$message" >/dev/null 2>&1 || true
+}
+
+refresh_indicators() {
+  omarchy-shell -q omarchy.indicators refresh >/dev/null 2>&1 || true
+}
+
+enable() {
+  mkdir -p "$STATE_DIR"
+
+  # Real Hyprland Lua config — sourced as-is by default/hypr/toggles.lua on
+  # every reload, so this is what makes niri mode persist. Gestures are NOT
+  # set here: they depend on this flag file's own presence/absence, so they
+  # live in hyprNiri.lua instead (which is sourced unconditionally on every
+  # load and can correctly apply/undo them either way — see that file).
+  cat >"$STATE_FILE" <<-'LUA'
+	-- Managed by omarchy-toggle-niri-mode. Regenerated on every toggle;
+	-- don't hand-edit (edits will be lost the next time you toggle off/on).
+	hl.config({
+	  general = { layout = "scrolling" },
+	  scrolling = { column_width = 1.0 },
+	})
+
+	hl.animation({
+	  leaf = "workspaces",
+	  enabled = true,
+	  speed = 3,
+	  bezier = "easeOutQuint",
+	  style = "slidevert",
+	})
+	LUA
+
+  hyprctl reload >/dev/null 2>&1
+  omarchy-bar-position left >/dev/null 2>&1 || true
+  notify "Enabled"
+  refresh_indicators
+}
+
+disable() {
+  rm -f "$STATE_FILE"
+
+  # Explicitly restore the layout rather than assuming some other config
+  # file will set it — matches the original hyprNiri.lua's originalLayout
+  # behavior, just applied immediately instead of waiting on reload.
+  hyprctl keyword general:layout "$DEFAULT_LAYOUT" >/dev/null 2>&1 || true
+  hyprctl reload >/dev/null 2>&1
+  omarchy-bar-position top >/dev/null 2>&1 || true
+  notify "Disabled"
+  refresh_indicators
+}
+
+print_status() {
+  if niri_mode_enabled; then
+    printf '{"enabled":true,"class":"enabled","tooltip":"Niri mode: on"}\n'
+  else
+    printf '{"enabled":false,"class":"disabled","tooltip":"Niri mode: off"}\n'
+  fi
+}
+
+case "${1:-toggle}" in
+  on)
+    enable
+    ;;
+  off)
+    disable
+    ;;
+  toggle)
+    if niri_mode_enabled; then disable; else enable; fi
+    ;;
+  status | --status)
+    print_status
+    ;;
+  *)
+    usage
+    exit 1
+    ;;
+esac
