@@ -114,7 +114,7 @@ end)
 local function enableNiriMode(isInitial)
 	hl.config({
 		general = { layout = "scrolling" },
-		scrolling = { column_width = 0.5 },
+		scrolling = { column_width = 1.0},
 	})
 	hl.animation({
 		leaf = "workspaces",
@@ -126,7 +126,7 @@ local function enableNiriMode(isInitial)
 	-- setGestures(true, isInitial)
 	saveState(true)
 	if not isInitial then
-		hl.dispatch(hl.dsp.exec_cmd("omarchy style bar position left"))
+		hl.dispatch(hl.dsp.exec_cmd("omarchy bar position left"))
 		hl.dispatch(hl.dsp.exec_cmd(o.notify("Niri mode enabled")))
 	end
 end
@@ -139,7 +139,7 @@ local function disableNiriMode(isInitial)
 	-- setGestures(false, isInitial)
 	saveState(false)
 	if not isInitial then
-		hl.dispatch(hl.dsp.exec_cmd("omarchy style bar position top"))
+		hl.dispatch(hl.dsp.exec_cmd("omarchy bar position top"))
 		hl.dispatch(hl.dsp.exec_cmd("notify-send -u low 'Niri mode' 'Disabled'"))
 	end
 end
