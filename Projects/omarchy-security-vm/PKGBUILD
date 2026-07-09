@@ -1,6 +1,6 @@
 # omarchy-kali-vm
 
-pkgname=omarchy-kali-vm
+pkgname=omarchy-security-vm
 pkgver=0.2.4
 pkgrel=3
 pkgdesc="Standalone Kali Linux VM launcher with optional Omarchy integration (local build, quattro branch)"
