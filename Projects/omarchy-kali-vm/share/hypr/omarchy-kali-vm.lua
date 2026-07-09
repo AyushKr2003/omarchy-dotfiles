@@ -1,6 +1,10 @@
--- Kali VM: tell the SPICE/remote-viewer window it's fullscreen while
--- Hyprland keeps it tiled normally, and opt it out of Omarchy's default
--- window opacity so the VM display isn't dimmed.
+-- Kali VM / Parrot VM: tell the SPICE/remote-viewer window it's fullscreen
+-- while Hyprland keeps it tiled normally, and opt it out of Omarchy's
+-- default window opacity so the VM display isn't dimmed. Both VMs launch
+-- remote-viewer with the same `-t` window-title convention (confirmed
+-- directly in bin/omarchy-kali-vm and bin/omarchy-parrot-vm: `-t 'Kali VM'`
+-- / `-t 'Parrot VM'`), and share the same window class since remote-viewer
+-- is a single binary (virt-viewer) regardless of which VM it connects to.
 --
 -- See: https://wiki.hypr.land/Configuring/Basics/Window-Rules/
 --
@@ -12,6 +16,15 @@
 
 o.window(
   { class = "remote-viewer", title = "^Kali VM.*" },
+  {
+    fullscreen_state = "0 2",
+    tag = "-default-opacity",
+    opacity = "1 1",
+  }
+)
+
+o.window(
+  { class = "remote-viewer", title = "^Parrot VM.*" },
   {
     fullscreen_state = "0 2",
     tag = "-default-opacity",
