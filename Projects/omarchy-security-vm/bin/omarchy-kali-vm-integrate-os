@@ -4,7 +4,7 @@ set -euo pipefail
 # --- Paths -------------------------------------------------------------
 
 CONFIG_ROOT="${XDG_CONFIG_HOME:-$HOME/.config}"
-DATA_DIR="${OMARCHY_KALI_VM_DATA_DIR:-/usr/share/omarchy-kali-vm}"
+DATA_DIR="${OMARCHY_KALI_VM_DATA_DIR:-/usr/share/omarchy-security-vm}"
 
 HYPR_TEMPLATE="$DATA_DIR/hypr/omarchy-kali-vm.lua"
 MENU_TEMPLATE="$DATA_DIR/omarchy-menu.jsonc"
