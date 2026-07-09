@@ -125,7 +125,7 @@ end)
 -- o.bind_toggle(keys, description, "niri-mode") shells out to
 -- omarchy-toggle-niri-mode, which flips the flag file and reloads Hyprland.
 hl.unbind("SUPER + ALT + L")
-o.bind("SUPER + ALT + L", "Toggle niri mode", "omarchy-toggle-niri-mode")
+o.bind("SUPER + ALT + L", "Toggle niri mode", "bash $HOME/.local/bin/omarchy-toggle-niri-mode")
 
 -- .config/hypr/hyprland.lua
 hl.config({
