@@ -29,8 +29,11 @@ package() {
   install -Dm755 "bin/omarchy-kali-vm" "${pkgdir}/usr/bin/omarchy-kali-vm"
   install -Dm755 "bin/omarchy-kali-vm-integrate-os" "${pkgdir}/usr/bin/omarchy-kali-vm-integrate-os"
   install -Dm755 "bin/omarchy-kali-vm-unintegrate-os" "${pkgdir}/usr/bin/omarchy-kali-vm-unintegrate-os"
+  install -Dm755 "bin/omarchy-parrot-vm" "${pkgdir}/usr/bin/omarchy-parrot-vm"
+  install -Dm755 "bin/omarchy-security-vm" "${pkgdir}/usr/bin/omarchy-security-vm"
 
   install -Dm644 "assets/icons/kali.png" "${pkgdir}/usr/share/icons/hicolor/512x512/apps/omarchy-kali-vm.png"
+  install -Dm644 "assets/icons/parrot.png" "${pkgdir}/usr/share/icons/hicolor/512x512/apps/omarchy-parrot-vm.png"
 
   install -Dm644 "share/hypr/omarchy-kali-vm.lua" "${pkgdir}/usr/share/omarchy-kali-vm/hypr/omarchy-kali-vm.lua"
   install -Dm644 "share/omarchy-menu.jsonc" "${pkgdir}/usr/share/omarchy-kali-vm/omarchy-menu.jsonc"
