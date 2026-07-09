@@ -58,6 +58,7 @@ pkg/
 !.local/bin/spf-mount
 !.local/bin/typetui
 !.local/bin/omarchy-webp-convert
+!.local/bin/omarchy-toggle-niri-mode
 
 # .local/share — only descend into applications/
 .local/share/*
