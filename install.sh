@@ -63,6 +63,7 @@ PACMAN_PACKAGES=(
   ydotool         # uinput-based input automation (keyboard-driven cursor)
   superfile       # GUI like file manager in termianl
   qt6-imageformats # quickshell webP image support
+  python-curl_cffi # for manga quickshell plugin backend
   # Add more pacman packages here as you grow this repo.
 )
 
