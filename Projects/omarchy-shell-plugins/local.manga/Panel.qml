@@ -31,8 +31,15 @@ Item {
     closingFromHost = false
   }
 
+  function requestClose() {
+    if (shell && typeof shell.hide === "function")
+      shell.hide((manifest && manifest.id) || "local.manga")
+    else
+      window.visible = false
+  }
+
   function toggle(payloadJson) {
-    if (window.visible) close()
+    if (window.visible) requestClose()
     else open(payloadJson || "{}")
   }
 
@@ -61,7 +68,7 @@ Item {
         if (mangaReader.handleKey(event)) {
           event.accepted = true
         } else if (event.key === Qt.Key_Escape) {
-          root.close()
+          root.requestClose()
           event.accepted = true
         }
       }
