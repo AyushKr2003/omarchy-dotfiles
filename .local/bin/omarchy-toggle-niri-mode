@@ -41,10 +41,10 @@ niri_mode_enabled() {
   [[ -f $STATE_FILE ]]
 }
 
-notify() {
+osd() {
   local icon=$1
   local mode=$2
-  omarchy-notification-send -u low -g $icon  "$mode" >/dev/null 2>&1 || true
+  omarchy-osd -i $icon -m "$mode" -d 2000 >/dev/null 2>&1 || true
 }
 
 refresh_indicators() {
@@ -78,7 +78,7 @@ enable() {
 
   hyprctl reload >/dev/null 2>&1
   omarchy-bar-position left >/dev/null 2>&1 || true
-  notify "󰕭" "Scrolling"
+  osd "󱒆 " "Scrolling"
   refresh_indicators
 }
 
@@ -91,7 +91,7 @@ disable() {
   hyprctl keyword general:layout "$DEFAULT_LAYOUT" >/dev/null 2>&1 || true
   hyprctl reload >/dev/null 2>&1
   omarchy-bar-position top >/dev/null 2>&1 || true
-  notify "󰕰" "Dwindle"
+  osd "󰕰 " "Dwindle"
   refresh_indicators
 }
 
