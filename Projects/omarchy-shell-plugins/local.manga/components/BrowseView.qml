@@ -14,8 +14,73 @@ Item {
 
     // Emitted when the user taps a manga card
     signal mangaSelected(string mangaId)
+    signal keyboardFocusRequested()
 
     property string currentTagId: ""
+    property int selectedIndex: 0
+
+    function clamp(value, minValue, maxValue) {
+        return Math.max(minValue, Math.min(maxValue, value))
+    }
+
+    function selectIndex(index) {
+        if (Services.Manga.mangaList.length === 0) return
+        selectedIndex = clamp(index, 0, Services.Manga.mangaList.length - 1)
+        mangaGrid.currentIndex = selectedIndex
+        mangaGrid.positionViewAtIndex(selectedIndex, GridView.Contain)
+    }
+
+    function activateSelected() {
+        if (selectedIndex < 0 || selectedIndex >= Services.Manga.mangaList.length) return
+        const entry = Services.Manga.mangaList[selectedIndex]
+        Services.Manga.fetchMangaDetail(entry.id)
+        browseView.mangaSelected(entry.id)
+    }
+
+    function selectTag(delta) {
+        const tags = ["", "latest", "ja", "ko", "zh"]
+        let next = tags.indexOf(currentTagId)
+        next = clamp((next < 0 ? 0 : next) + delta, 0, tags.length - 1)
+        currentTagId = tags[next]
+        searchField.text = ""
+        searchBar.visible = false
+        Services.Manga.fetchByOrigin(currentTagId, true)
+    }
+
+    function handleKey(event) {
+        if (searchField.activeFocus) {
+            if (event.key === Qt.Key_Escape) {
+                searchField.focus = false
+                searchBar.visible = false
+                keyboardFocusRequested()
+                return true
+            }
+            return false
+        }
+
+        const columns = Math.max(1, Math.floor(mangaGrid.width / mangaGrid.cellWidth))
+        if (event.key === Qt.Key_J || event.key === Qt.Key_Down) { selectIndex(selectedIndex + columns); return true }
+        if (event.key === Qt.Key_K || event.key === Qt.Key_Up) { selectIndex(selectedIndex - columns); return true }
+        if (event.key === Qt.Key_H || event.key === Qt.Key_Left) { selectIndex(selectedIndex - 1); return true }
+        if (event.key === Qt.Key_L || event.key === Qt.Key_Right) { selectIndex(selectedIndex + 1); return true }
+        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { activateSelected(); return true }
+        if (event.key === Qt.Key_G && event.modifiers & Qt.ShiftModifier) { selectIndex(Services.Manga.mangaList.length - 1); return true }
+        if (event.key === Qt.Key_G) { selectIndex(0); return true }
+        if (event.key === Qt.Key_Slash || event.text === "/") {
+            searchBar.visible = !searchBar.visible
+            if (searchBar.visible) {
+                searchField.forceActiveFocus()
+            } else {
+                searchField.text = ""
+                Services.Manga.fetchByOrigin(browseView.currentTagId, true)
+                keyboardFocusRequested()
+            }
+            return true
+        }
+        if (event.key === Qt.Key_BracketLeft) { selectTag(-1); return true }
+        if (event.key === Qt.Key_BracketRight) { selectTag(1); return true }
+        return false
+    }
 
     ColumnLayout {
         anchors.fill: parent
@@ -165,6 +230,7 @@ Item {
                             } else {
                                 searchField.text = ""
                                 Services.Manga.fetchByOrigin(browseView.currentTagId, true)
+                                browseView.keyboardFocusRequested()
                             }
                         }
                     }
@@ -242,6 +308,7 @@ Item {
                             searchField.text = ""
                             searchBar.visible = false
                             Services.Manga.fetchByOrigin(tagId, true)
+                            browseView.keyboardFocusRequested()
                         }
                     }
                 }
@@ -388,6 +455,11 @@ Item {
                 clip: true
                 boundsBehavior: Flickable.StopAtBounds
                 model: Services.Manga.mangaList
+                currentIndex: browseView.selectedIndex
+                maximumFlickVelocity: 8000
+                flickDeceleration: 2600
+
+                onCountChanged: browseView.selectIndex(Math.min(browseView.selectedIndex, count - 1))
 
                 ScrollBar.vertical: ScrollBar {
                     policy: ScrollBar.AsNeeded
@@ -441,27 +513,6 @@ Item {
                                 }
                             }
 
-                            // Type badge
-                            Rectangle {
-                                visible: modelData.type && modelData.type.length > 0
-                                anchors { top: parent.top; right: parent.right; topMargin: 8; rightMargin: 8 }
-                                height: 20
-                                radius: 10
-                                width: typeText.implicitWidth + 14
-                                color: Qt.rgba(0, 0, 0, 0.7)
-
-                                Text {
-                                    id: typeText
-                                    anchors.centerIn: parent
-                                    text: (modelData.type || "").toUpperCase()
-                                    font.family: browseView.fontBody
-                                    font.pixelSize: 8
-                                    font.letterSpacing: 1
-                                    font.bold: true
-                                    color: c.primary_fixed_dim
-                                }
-                            }
-
                             // Gradient vignette at bottom of cover
                             Rectangle {
                                 anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
@@ -507,8 +558,17 @@ Item {
                             color: c.primary
                             opacity: cardArea.pressed
                                 ? 0.16
-                                : (cardArea.containsMouse ? 0.07 : 0)
+                                : (mangaGrid.currentIndex === index ? 0.12 : (cardArea.containsMouse ? 0.07 : 0))
                             Behavior on opacity { NumberAnimation { duration: 130 } }
+                        }
+
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: 12
+                            color: "transparent"
+                            border.width: mangaGrid.currentIndex === index ? 2 : 0
+                            border.color: c.primary
+                            opacity: 0.9
                         }
 
                         // Scale effect on hover
@@ -526,8 +586,10 @@ Item {
                             anchors.fill: parent
                             hoverEnabled: true
                             onClicked: {
+                                browseView.selectIndex(index)
                                 Services.Manga.fetchMangaDetail(modelData.id)
                                 browseView.mangaSelected(modelData.id)
+                                browseView.keyboardFocusRequested()
                             }
                         }
                     }

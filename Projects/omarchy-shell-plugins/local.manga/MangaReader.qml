@@ -16,10 +16,44 @@ Item {
 
   readonly property var c: ColorsModule.Colors
   readonly property string fontBody: Style.font.family
+  signal keyboardFocusRequested()
 
   function refresh() {
     if (tabIndex === 0) Services.Manga.fetchByOrigin("", true)
     else Services.Manga.fetchDownloads()
+  }
+
+  function handleKey(event) {
+    var handled = false
+
+    if (tabIndex === 0) {
+      if (browseStack === 0) handled = browseView.handleKey(event)
+      else if (browseStack === 1) handled = browseDetail.handleKey(event)
+      else if (browseStack === 2) handled = browseReader.handleKey(event)
+    } else {
+      if (libraryStack === 0) handled = libraryView.handleKey(event)
+      else if (libraryStack === 1) handled = libraryDetail.handleKey(event)
+      else if (libraryStack === 2) handled = libraryReader.handleKey(event)
+    }
+
+    if (handled) return true
+
+    if (event.key === Qt.Key_1) {
+      tabIndex = 0
+      requestKeyboardFocus()
+      return true
+    }
+    if (event.key === Qt.Key_2) {
+      tabIndex = 1
+      requestKeyboardFocus()
+      return true
+    }
+
+    return false
+  }
+
+  function requestKeyboardFocus() {
+    keyboardFocusRequested()
   }
 
   Rectangle {
@@ -105,7 +139,10 @@ Item {
               id: tabArea
               anchors.fill: parent
               hoverEnabled: true
-              onClicked: root.tabIndex = index
+              onClicked: {
+                root.tabIndex = index
+                root.requestKeyboardFocus()
+              }
             }
           }
         }
@@ -119,6 +156,7 @@ Item {
 
       Item {
         BrowseView {
+          id: browseView
           anchors.fill: parent
           visible: root.browseStack === 0
           opacity: visible ? 1 : 0
@@ -127,7 +165,9 @@ Item {
           onMangaSelected: function(mangaId) {
             root.selectedMangaId = mangaId
             root.browseStack = 1
+            root.requestKeyboardFocus()
           }
+          onKeyboardFocusRequested: root.requestKeyboardFocus()
         }
 
         DetailView {
@@ -139,6 +179,7 @@ Item {
 
           onBackRequested: root.browseStack = 0
           onChapterSelected: root.browseStack = 2
+          onKeyboardFocusRequested: root.requestKeyboardFocus()
         }
 
         ReaderView {
@@ -151,12 +192,15 @@ Item {
           onBackRequested: {
             root.browseStack = 1
             browseReader.reset()
+            root.requestKeyboardFocus()
           }
+          onKeyboardFocusRequested: root.requestKeyboardFocus()
         }
       }
 
       Item {
         LibraryView {
+          id: libraryView
           anchors.fill: parent
           visible: root.libraryStack === 0
           opacity: visible ? 1 : 0
@@ -165,7 +209,9 @@ Item {
           onMangaSelected: function(mangaId) {
             root.selectedMangaId = mangaId
             root.libraryStack = 1
+            root.requestKeyboardFocus()
           }
+          onKeyboardFocusRequested: root.requestKeyboardFocus()
         }
 
         DetailView {
@@ -177,6 +223,7 @@ Item {
 
           onBackRequested: root.libraryStack = 0
           onChapterSelected: root.libraryStack = 2
+          onKeyboardFocusRequested: root.requestKeyboardFocus()
         }
 
         ReaderView {
@@ -189,7 +236,9 @@ Item {
           onBackRequested: {
             root.libraryStack = 1
             libraryReader.reset()
+            root.requestKeyboardFocus()
           }
+          onKeyboardFocusRequested: root.requestKeyboardFocus()
         }
       }
     }

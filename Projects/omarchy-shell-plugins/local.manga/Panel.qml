@@ -58,14 +58,18 @@ Item {
 
       Keys.priority: Keys.BeforeItem
       Keys.onPressed: function(event) {
-        if (event.key === Qt.Key_Escape) {
+        if (mangaReader.handleKey(event)) {
+          event.accepted = true
+        } else if (event.key === Qt.Key_Escape) {
           root.close()
           event.accepted = true
         }
       }
 
       MangaReader {
+        id: mangaReader
         anchors.fill: parent
+        onKeyboardFocusRequested: keyCatcher.forceActiveFocus()
       }
     }
   }
