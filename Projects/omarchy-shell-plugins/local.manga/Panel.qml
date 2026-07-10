@@ -11,8 +11,8 @@ Item {
   property var manifest: null
   property var settings: ({})
 
-  readonly property int configuredWidth: Math.max(560, Number(setting("windowWidth", 760)) || 760)
-  readonly property int configuredHeight: Math.max(520, Number(setting("windowHeight", 820)) || 820)
+  readonly property int configuredWidth: Math.max(560, Number(setting("windowWidth", 580)) || 580)
+  readonly property int configuredHeight: Math.max(520, Number(setting("windowHeight", 1045)) || 1045)
 
   function setting(name, fallback) {
     var value = settings ? settings[name] : undefined
