@@ -6,8 +6,9 @@
 -- auto-sourced by default/hypr/toggles.lua on every config load, exactly
 -- like Omarchy's own toggles/flags.lua, toggles/window-no-gaps.lua, etc.
 -- That's what gives niri mode automatic, robust persistence across
--- `hyprctl reload` and reboot: no state file re-implementation, no
--- plugin-polling timer required here.
+-- `hyprctl reload` and reboot: no state file re-implementation, and no
+-- plugin-polling timer needed for THIS part — the scrolloverview plugin
+-- config block further down still needs one, see the comment there.
 --
 -- This file only has to do two things:
 --   1. Know whether niri mode is currently on (by checking the same flag
@@ -128,22 +129,46 @@ hl.unbind("SUPER + ALT + L")
 o.bind("SUPER + ALT + L", "Toggle niri mode", "bash $HOME/.local/bin/omarchy-toggle-niri-mode")
 
 -- .config/hypr/hyprland.lua
-hl.config({
-	plugin = {
-		scrolloverview = {
-			gesture_distance = 300, -- how far is the "max" for the gesture
-			scale = 0.5, -- preferred overview scale
-			workspace_gap = 100,
-			layout = "vertical", -- vertical or horizontal
-			wallpaper = 2, -- 0: global only, 1: per-workspace only, 2: both
-			blur = true, -- blur only the main overview wallpaper
+--
+-- hyprpm loads plugins AFTER the rest of the config has already been parsed,
+-- so on a fresh login `hl.plugin.scrolloverview` doesn't exist yet at the
+-- moment this file runs — setting plugin.scrolloverview.* config keys right
+-- now throws "unknown config key" errors that vanish a second later once the
+-- plugin actually finishes loading and a background reload picks it up. On
+-- a plain `hyprctl reload` (plugin already loaded) it works immediately, so
+-- we only need to poll on the fresh-login path.
+local function applyScrolloverviewConfig()
+	hl.config({
+		plugin = {
+			scrolloverview = {
+				gesture_distance = 300, -- how far is the "max" for the gesture
+				scale = 0.5, -- preferred overview scale
+				workspace_gap = 100,
+				layout = "vertical", -- vertical or horizontal
+				wallpaper = 2, -- 0: global only, 1: per-workspace only, 2: both
+				blur = true, -- blur only the main overview wallpaper
 
-			shadow = {
-				enabled = true,
-				range = 50,
-				render_power = 3,
-				color = 0xee1a1a1a,
+				shadow = {
+					enabled = true,
+					range = 50,
+					render_power = 3,
+					color = 0xee1a1a1a,
+				},
 			},
 		},
-	},
-})
+	})
+end
+
+if hl.plugin and hl.plugin.scrolloverview then
+	applyScrolloverviewConfig()
+else
+	hl.on("hyprland.start", function()
+		local pluginCheckTimer
+		pluginCheckTimer = hl.timer(function()
+			if hl.plugin and hl.plugin.scrolloverview then
+				pluginCheckTimer:set_enabled(false)
+				applyScrolloverviewConfig()
+			end
+		end, { timeout = 500, type = "repeat" })
+	end)
+end
