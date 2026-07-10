@@ -13,6 +13,38 @@ Item {
 
     // Emitted when the user taps an entry — parent handles navigation
     signal mangaSelected(string mangaId)
+    signal keyboardFocusRequested()
+    property int selectedIndex: 0
+
+    function clamp(value, minValue, maxValue) {
+        return Math.max(minValue, Math.min(maxValue, value))
+    }
+
+    function selectIndex(index) {
+        if (Services.Manga.libraryList.length === 0) return
+        selectedIndex = clamp(index, 0, Services.Manga.libraryList.length - 1)
+        libGrid.currentIndex = selectedIndex
+        libGrid.positionViewAtIndex(selectedIndex, GridView.Contain)
+    }
+
+    function activateSelected() {
+        if (selectedIndex < 0 || selectedIndex >= Services.Manga.libraryList.length) return
+        const entry = Services.Manga.libraryList[selectedIndex]
+        Services.Manga.fetchMangaDetail(entry.id)
+        libraryView.mangaSelected(entry.id)
+    }
+
+    function handleKey(event) {
+        const columns = Math.max(1, Math.floor(libGrid.width / libGrid.cellWidth))
+        if (event.key === Qt.Key_J || event.key === Qt.Key_Down) { selectIndex(selectedIndex + columns); return true }
+        if (event.key === Qt.Key_K || event.key === Qt.Key_Up) { selectIndex(selectedIndex - columns); return true }
+        if (event.key === Qt.Key_H || event.key === Qt.Key_Left) { selectIndex(selectedIndex - 1); return true }
+        if (event.key === Qt.Key_L || event.key === Qt.Key_Right) { selectIndex(selectedIndex + 1); return true }
+        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { activateSelected(); return true }
+        if (event.key === Qt.Key_G && event.modifiers & Qt.ShiftModifier) { selectIndex(Services.Manga.libraryList.length - 1); return true }
+        if (event.key === Qt.Key_G) { selectIndex(0); return true }
+        return false
+    }
 
     // ── Background ────────────────────────────────────────────────────────────
     Rectangle { anchors.fill: parent; color: c.background }
@@ -96,6 +128,11 @@ Item {
             clip: true
             boundsBehavior: Flickable.StopAtBounds
             model: Services.Manga.libraryList
+            currentIndex: libraryView.selectedIndex
+            maximumFlickVelocity: 8000
+            flickDeceleration: 2600
+
+            onCountChanged: libraryView.selectIndex(Math.min(libraryView.selectedIndex, count - 1))
 
             ScrollBar.vertical: ScrollBar {
                 policy: ScrollBar.AsNeeded
@@ -233,8 +270,17 @@ Item {
                         radius: 12
                         color: c.primary
                         opacity: libCardArea.pressed
-                            ? 0.16 : (libCardArea.containsMouse ? 0.07 : 0)
+                            ? 0.16 : (libGrid.currentIndex === index ? 0.12 : (libCardArea.containsMouse ? 0.07 : 0))
                         Behavior on opacity { NumberAnimation { duration: 130 } }
+                    }
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: 12
+                        color: "transparent"
+                        border.width: libGrid.currentIndex === index ? 2 : 0
+                        border.color: c.primary
+                        opacity: 0.9
                     }
 
                     transform: Scale {
@@ -251,8 +297,10 @@ Item {
                         anchors.fill: parent
                         hoverEnabled: true
                         onClicked: {
+                            libraryView.selectIndex(index)
                             Services.Manga.fetchMangaDetail(libEntry.id)
                             libraryView.mangaSelected(libEntry.id)
+                            libraryView.keyboardFocusRequested()
                         }
                     }
                 }

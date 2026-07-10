@@ -14,6 +14,7 @@ Item {
 
     // Emitted when the user navigates back
     signal backRequested()
+    signal keyboardFocusRequested()
 
     // ── Internal state ───────────────────────────────────────────────────────
     property bool headerVisible: true
@@ -21,6 +22,36 @@ Item {
     // Called by the parent to reset state when re-entering this view
     function reset() {
         headerVisible = true
+    }
+
+    function clamp(value, minValue, maxValue) {
+        return Math.max(minValue, Math.min(maxValue, value))
+    }
+
+    function scrollPagesBy(pixels) {
+        const maxY = Math.max(0, pageListView.contentHeight - pageListView.height)
+        pageListView.contentY = clamp(pageListView.contentY + pixels, 0, maxY)
+    }
+
+    function handleKey(event) {
+        if (event.key === Qt.Key_H || event.key === Qt.Key_Backspace) {
+            Services.Manga.clearChapterPages()
+            readerView.backRequested()
+            return true
+        }
+        if (event.key === Qt.Key_J || event.key === Qt.Key_Down) { scrollPagesBy(240); return true }
+        if (event.key === Qt.Key_K || event.key === Qt.Key_Up) { scrollPagesBy(-240); return true }
+        if (event.key === Qt.Key_D) { scrollPagesBy(pageListView.height * 0.58); return true }
+        if (event.key === Qt.Key_U) { scrollPagesBy(-pageListView.height * 0.58); return true }
+        if (event.key === Qt.Key_F || event.key === Qt.Key_Space) { scrollPagesBy(pageListView.height * 0.92); return true }
+        if (event.key === Qt.Key_B) { scrollPagesBy(-pageListView.height * 0.92); return true }
+        if (event.key === Qt.Key_G && event.modifiers & Qt.ShiftModifier) { pageListView.positionViewAtEnd(); return true }
+        if (event.key === Qt.Key_G) { pageListView.positionViewAtBeginning(); return true }
+        if (event.key === Qt.Key_L || event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+            readerView.headerVisible = !readerView.headerVisible
+            return true
+        }
+        return false
     }
 
     // ── Ink-black background ─────────────────────────────────────────────────
@@ -72,6 +103,7 @@ Item {
                     onClicked: {
                         Services.Manga.clearChapterPages()
                         readerView.backRequested()
+                        readerView.keyboardFocusRequested()
                     }
                 }
             }
@@ -185,7 +217,17 @@ Item {
         boundsBehavior: Flickable.StopAtBounds
         model: Services.Manga.chapterPages
         spacing: 3
+        maximumFlickVelocity: 11000
+        flickDeceleration: 2200
         Behavior on anchors.topMargin { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+
+        WheelHandler {
+            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+            onWheel: function(event) {
+                readerView.scrollPagesBy(-event.angleDelta.y * 3.2)
+                event.accepted = true
+            }
+        }
 
         // Tap anywhere to toggle header
         MouseArea {
@@ -193,6 +235,7 @@ Item {
             propagateComposedEvents: true
             onClicked: {
                 readerView.headerVisible = !readerView.headerVisible
+                readerView.keyboardFocusRequested()
                 mouse.accepted = false
             }
         }

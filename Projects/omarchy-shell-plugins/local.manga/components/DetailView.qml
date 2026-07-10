@@ -13,6 +13,7 @@ Item {
 
     signal backRequested()
     signal chapterSelected(string chapterId)
+    signal keyboardFocusRequested()
 
     // ── Library state ─────────────────────────────────────────────────────────
     readonly property bool _inLibrary:
@@ -25,6 +26,60 @@ Item {
     function reset() {
         _chapterFilter  = ""
         _sortAscending  = false
+    }
+
+    function clamp(value, minValue, maxValue) {
+        return Math.max(minValue, Math.min(maxValue, value))
+    }
+
+    function scrollChaptersBy(pixels) {
+        const maxY = Math.max(0, chapterList.contentHeight - chapterList.height)
+        chapterList.contentY = clamp(chapterList.contentY + pixels, 0, maxY)
+    }
+
+    function selectChapter(index) {
+        if (detailView._processedChapters.length === 0) return
+        chapterList.currentIndex = clamp(index, 0, detailView._processedChapters.length - 1)
+        chapterList.positionViewAtIndex(chapterList.currentIndex, ListView.Contain)
+    }
+
+    function activateSelectedChapter() {
+        if (chapterList.currentIndex < 0 || chapterList.currentIndex >= detailView._processedChapters.length) return
+        const chapter = detailView._processedChapters[chapterList.currentIndex]
+        Services.Manga.fetchChapterPages(chapter.id)
+        detailView.chapterSelected(chapter.id)
+        if (Services.Manga.currentManga && Services.Manga.isInLibrary(Services.Manga.currentManga.id)) {
+            Services.Manga.updateLastRead(Services.Manga.currentManga.id, chapter.id, chapter.chapter)
+        }
+    }
+
+    function handleKey(event) {
+        if (chapterSearch.activeFocus) {
+            if (event.key === Qt.Key_Escape) {
+                chapterSearch.focus = false
+                keyboardFocusRequested()
+                return true
+            }
+            return false
+        }
+
+        if (event.key === Qt.Key_H || event.key === Qt.Key_Backspace) {
+            Services.Manga.clearChapterList()
+            detailView.backRequested()
+            return true
+        }
+        if (event.key === Qt.Key_J || event.key === Qt.Key_Down) { selectChapter(chapterList.currentIndex + 1); return true }
+        if (event.key === Qt.Key_K || event.key === Qt.Key_Up) { selectChapter(chapterList.currentIndex - 1); return true }
+        if (event.key === Qt.Key_D) { scrollChaptersBy(chapterList.height * 0.55); return true }
+        if (event.key === Qt.Key_U) { scrollChaptersBy(-chapterList.height * 0.55); return true }
+        if (event.key === Qt.Key_F || event.key === Qt.Key_Space) { scrollChaptersBy(chapterList.height * 0.9); return true }
+        if (event.key === Qt.Key_B) { scrollChaptersBy(-chapterList.height * 0.9); return true }
+        if (event.key === Qt.Key_L || event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { activateSelectedChapter(); return true }
+        if (event.key === Qt.Key_G && event.modifiers & Qt.ShiftModifier) { selectChapter(detailView._processedChapters.length - 1); return true }
+        if (event.key === Qt.Key_G) { selectChapter(0); return true }
+        if (event.key === Qt.Key_Slash || event.text === "/") { chapterSearch.forceActiveFocus(); return true }
+        if (event.key === Qt.Key_S) { detailView._sortAscending = !detailView._sortAscending; return true }
+        return false
     }
 
     // ── Helper ────────────────────────────────────────────────────────────────
@@ -94,7 +149,11 @@ Item {
                     }
                     MouseArea {
                         id: backArea; anchors.fill: parent; hoverEnabled: true
-                        onClicked: { Services.Manga.clearChapterList(); detailView.backRequested() }
+                        onClicked: {
+                            Services.Manga.clearChapterList()
+                            detailView.backRequested()
+                            detailView.keyboardFocusRequested()
+                        }
                     }
                 }
 
@@ -153,6 +212,7 @@ Item {
                                     title:    Services.Manga.currentManga.title,
                                     coverUrl: Services.Manga.currentManga.coverUrl
                                 })
+                            detailView.keyboardFocusRequested()
                         }
                     }
                 }
@@ -402,7 +462,10 @@ Item {
                     }
                     MouseArea {
                         id: sortArea; anchors.fill: parent; hoverEnabled: true
-                        onClicked: detailView._sortAscending = !detailView._sortAscending
+                        onClicked: {
+                            detailView._sortAscending = !detailView._sortAscending
+                            detailView.keyboardFocusRequested()
+                        }
 
                         ToolTip.visible: containsMouse
                         ToolTip.delay: 600
@@ -455,6 +518,18 @@ Item {
                 anchors.fill: parent; clip: true
                 boundsBehavior: Flickable.StopAtBounds
                 model: detailView._processedChapters   // ← filtered + sorted
+                maximumFlickVelocity: 9000
+                flickDeceleration: 2400
+
+                onCountChanged: detailView.selectChapter(Math.min(Math.max(currentIndex, 0), count - 1))
+
+                WheelHandler {
+                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                    onWheel: function(event) {
+                        detailView.scrollChaptersBy(-event.angleDelta.y * 2.8)
+                        event.accepted = true
+                    }
+                }
 
                 ScrollBar.vertical: ScrollBar {
                     policy: ScrollBar.AsNeeded
@@ -476,7 +551,9 @@ Item {
                         ? Qt.rgba(c.primary.r, c.primary.g, c.primary.b, 0.07)
                         : (chapterRowArea.pressed
                             ? c.surface_container_high
-                            : (chapterRowArea.containsMouse ? c.surface_container : "transparent"))
+                            : (chapterList.currentIndex === index
+                                ? Qt.rgba(c.primary.r, c.primary.g, c.primary.b, 0.1)
+                                : (chapterRowArea.containsMouse ? c.surface_container : "transparent")))
                     Behavior on color { ColorAnimation { duration: 110 } }
 
                     Rectangle {
@@ -536,8 +613,10 @@ Item {
                     MouseArea {
                         id: chapterRowArea; anchors.fill: parent; hoverEnabled: true
                         onClicked: {
+                            detailView.selectChapter(index)
                             Services.Manga.fetchChapterPages(modelData.id)
                             detailView.chapterSelected(modelData.id)
+                            detailView.keyboardFocusRequested()
                             if (Services.Manga.currentManga && Services.Manga.isInLibrary(Services.Manga.currentManga.id)) {
                                 Services.Manga.updateLastRead(
                                     Services.Manga.currentManga.id,
