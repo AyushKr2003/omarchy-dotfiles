@@ -1,0 +1,3 @@
+extension/*.xpi
+__pycache__/
+*.pyc
