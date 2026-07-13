@@ -1,0 +1,352 @@
+#!/usr/bin/env python3
+# firefox-live-theme:summary=Serve the current Omarchy theme colors to Firefox over a local long-poll endpoint
+"""
+firefox-live-theme-server
+
+Purpose
+-------
+Firefox has no "refresh policy now" equivalent to Chromium's
+--refresh-platform-policy, so there's no way to hook Firefox into
+Omarchy's existing chromium.theme + policy-refresh flow directly. This
+project doesn't try to -- it's entirely separate from Omarchy's own
+theme-set pipeline.
+
+Instead, this server watches one small JSON file
+(~/.local/state/omarchy/current/theme/firefox-theme.json) that Omarchy
+already renders for us, via a user template dropped into
+~/.config/omarchy/themed/ (see templates/firefox-theme.json.tpl and
+install.sh in this project) -- that's Omarchy's own supported extension
+point for per-user template overrides, so nothing in Omarchy's install
+is touched. This server and the companion WebExtension are the only
+moving parts this project owns.
+
+This process is a passive, independently-restartable reader of state
+that already exists. If the transport or theme-mapping logic ever needs
+to change, only this file and the extension change.
+
+Design notes
+------------
+- Loopback-only (127.0.0.1), never binds 0.0.0.0.
+- Single-instance: if every candidate port is taken, exit non-zero and
+  let systemd's Restart=/StartLimitBurst= handle backoff instead of
+  silently running a duplicate or looping tightly in-process.
+- Never crashes on a bad/partial theme file: keeps serving the last
+  known-good theme and exposes the failure on /health for debugging.
+- Content-hash based change detection (not mtime), since Omarchy moves
+  its staging theme directory into place atomically, and hash
+  comparison is immune to filesystems with coarse mtime resolution or
+  clock skew.
+- Long-poll with a bounded wait so clients (and this server) never hang
+  forever on a dead connection.
+"""
+
+import argparse
+import hashlib
+import json
+import logging
+import os
+import signal
+import sys
+import threading
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+LOG = logging.getLogger("firefox-live-theme-server")
+
+DEFAULT_THEME_PATH = os.path.expanduser(
+    "~/.local/state/omarchy/current/theme/firefox-theme.json"
+)
+# Keep this list in sync with the host_permissions entries in
+# default/firefox/theme-extension/manifest.json. The extension tries
+# them in order, so reordering here is safe; removing an entry without
+# updating the manifest is not.
+CANDIDATE_PORTS = (47732, 47733, 47734, 47735)
+POLL_INTERVAL_SECONDS = 0.3
+LONG_POLL_TIMEOUT_SECONDS = 25
+MAX_THEME_FILE_BYTES = 1_000_000  # sanity bound; theme files are a few KB
+
+# Minimal fallback so the extension always has *something* valid to
+# apply, even before the very first omarchy-theme-set run on a fresh
+# install, or if the rendered file is ever briefly missing.
+FALLBACK_THEME = {
+    "schema": 1,
+    "colors": {
+        "frame": "#1c2027",
+        "tab_background_text": "#c9d1d9",
+        "tab_selected": "#272c36",
+        "toolbar": "#20242d",
+        "toolbar_text": "#c9d1d9",
+        "toolbar_field": "#282d38",
+        "toolbar_field_text": "#c9d1d9",
+        "popup": "#1c2027",
+        "popup_text": "#c9d1d9",
+    },
+}
+
+
+def _content_hash(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()[:16]
+
+
+class ThemeStore:
+    """Owns the current theme payload and notifies waiters on change.
+
+    Kept deliberately separate from the HTTP layer below: swapping the
+    watch mechanism (e.g. to inotify) later only touches this class.
+    """
+
+    def __init__(self, path: str):
+        self._path = path
+        self._lock = threading.Lock()
+        self._cond = threading.Condition(self._lock)
+        self._raw = json.dumps(FALLBACK_THEME).encode("utf-8")
+        self._etag = _content_hash(self._raw)
+        self._last_good_at = None
+        self._last_error = None
+        self._stop = threading.Event()
+
+    def start(self):
+        self._load(initial=True)
+        self._thread = threading.Thread(target=self._watch_loop, daemon=True)
+        self._thread.start()
+
+    def stop(self):
+        self._stop.set()
+
+    def snapshot(self):
+        with self._lock:
+            return self._raw, self._etag
+
+    def wait_for_change(self, since_etag: str, timeout: float):
+        """Block until the etag differs from since_etag or timeout elapses.
+
+        Returns (raw_bytes, etag, changed: bool).
+        """
+        deadline = time.monotonic() + timeout
+        with self._cond:
+            while self._etag == since_etag:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return self._raw, self._etag, False
+                self._cond.wait(timeout=remaining)
+            return self._raw, self._etag, True
+
+    def health(self):
+        with self._lock:
+            return {
+                "ok": self._last_error is None,
+                "etag": self._etag,
+                "last_good_at": self._last_good_at,
+                "last_error": self._last_error,
+                "source_path": self._path,
+            }
+
+    # -- internal --
+
+    def _watch_loop(self):
+        while not self._stop.is_set():
+            self._load(initial=False)
+            self._stop.wait(POLL_INTERVAL_SECONDS)
+
+    def _load(self, initial: bool):
+        try:
+            size = os.path.getsize(self._path)
+            if size > MAX_THEME_FILE_BYTES:
+                raise ValueError(f"theme file suspiciously large ({size} bytes)")
+
+            with open(self._path, "rb") as fh:
+                raw = fh.read()
+
+            parsed = json.loads(raw)
+            if not isinstance(parsed, dict) or "colors" not in parsed:
+                raise ValueError("theme file missing top-level 'colors' object")
+            if not isinstance(parsed["colors"], dict) or not parsed["colors"]:
+                raise ValueError("theme file 'colors' object is empty or invalid")
+
+            new_etag = _content_hash(raw)
+            with self._cond:
+                changed = new_etag != self._etag
+                self._raw = raw
+                self._etag = new_etag
+                self._last_good_at = time.time()
+                error_cleared = self._last_error is not None
+                self._last_error = None
+                if changed:
+                    self._cond.notify_all()
+            if error_cleared:
+                LOG.info("theme file recovered: %s", self._path)
+            elif changed:
+                LOG.info("theme updated (etag=%s)", new_etag)
+
+        except FileNotFoundError:
+            self._record_error(
+                "theme file not found yet (normal before first "
+                "omarchy-theme-set run)",
+                quiet=initial,
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            # Covers a half-written file caught mid-atomic-replace, a
+            # corrupt template render, or a permissions problem. In all
+            # cases: keep serving the last known-good payload.
+            self._record_error(f"{type(exc).__name__}: {exc}")
+
+    def _record_error(self, message: str, quiet: bool = False):
+        with self._lock:
+            already_reported = self._last_error == message
+            self._last_error = message
+        if not already_reported and not quiet:
+            LOG.warning("keeping last known-good theme: %s", message)
+
+
+class ThemeRequestHandler(BaseHTTPRequestHandler):
+    store: ThemeStore = None  # set by make_server()
+    server_version = "OmarchyFirefoxThemeServer/1"
+
+    def log_message(self, fmt, *args):
+        LOG.debug("%s - %s", self.address_string(), fmt % args)
+
+    def do_OPTIONS(self):
+        # Not currently exercised (plain GET with no custom headers is a
+        # "simple request" and skips preflight), but cheap insurance
+        # against a future client change that would trigger one.
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "*")
+        self.end_headers()
+
+    def _write_json(self, status: int, raw: bytes, etag: str, extra_headers=None):
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(raw)))
+        self.send_header("ETag", etag)
+        self.send_header("Cache-Control", "no-store")
+        # Firefox doesn't extend the CORS bypass it grants content scripts
+        # to fetch() calls made from a background page, even when the
+        # target origin matches a declared host permission -- so the
+        # server has to opt in explicitly. Safe to wildcard: this is
+        # loopback-only, non-sensitive theme color data, nothing else
+        # locally can reach it except by also being on 127.0.0.1.
+        self.send_header("Access-Control-Allow-Origin", "*")
+        # Without this, fetch() on the extension side can complete the
+        # request fine but res.headers.get("ETag"/"X-Theme-Changed")
+        # silently returns null -- those aren't in the default
+        # CORS-safelisted response headers, so they're invisible to JS
+        # unless explicitly exposed here. That silent null was the
+        # actual bug behind "no errors, but nothing ever auto-applies".
+        self.send_header("Access-Control-Expose-Headers", "ETag, X-Theme-Changed")
+        for key, value in (extra_headers or {}).items():
+            self.send_header(key, value)
+        self.end_headers()
+        if self.command != "HEAD":
+            self.wfile.write(raw)
+
+    def do_GET(self):
+        try:
+            if self.path.startswith("/health"):
+                body = json.dumps(self.store.health()).encode("utf-8")
+                self._write_json(200, body, etag="")
+                return
+
+            if self.path.startswith("/theme/wait"):
+                since = self._query_param("since", "")
+                raw, etag, changed = self.store.wait_for_change(
+                    since, LONG_POLL_TIMEOUT_SECONDS
+                )
+                # 200 with the (possibly unchanged, on timeout) payload
+                # rather than a bare 304: keeps the client logic to a
+                # single code path instead of branching on status.
+                self._write_json(200, raw, etag, {"X-Theme-Changed": str(changed).lower()})
+                return
+
+            if self.path.startswith("/theme"):
+                raw, etag = self.store.snapshot()
+                self._write_json(200, raw, etag)
+                return
+
+            self.send_error(404)
+        except (BrokenPipeError, ConnectionResetError):
+            # Client (extension background page) went away mid long-poll,
+            # e.g. Firefox closing. Not an error worth logging loudly.
+            pass
+        except Exception:
+            LOG.exception("unhandled error serving %s", self.path)
+            try:
+                self.send_error(500)
+            except Exception:
+                pass
+
+    def _query_param(self, name: str, default: str) -> str:
+        if "?" not in self.path:
+            return default
+        query = self.path.split("?", 1)[1]
+        for pair in query.split("&"):
+            if "=" in pair:
+                key, _, value = pair.partition("=")
+                if key == name:
+                    return value
+        return default
+
+
+def make_server(store: ThemeStore, ports):
+    last_exc = None
+    for port in ports:
+        try:
+            handler = type("BoundThemeRequestHandler", (ThemeRequestHandler,), {"store": store})
+            server = ThreadingHTTPServer(("127.0.0.1", port), handler)
+            return server, port
+        except OSError as exc:
+            last_exc = exc
+            LOG.debug("port %d unavailable: %s", port, exc)
+    raise SystemExit(
+        f"firefox-live-theme-server: all candidate ports {ports} are in "
+        f"use ({last_exc}). Refusing to start a second instance; check "
+        "`systemctl --user status firefox-live-theme-server` for an "
+        "already-running copy before filing a bug."
+    )
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--theme-path", default=DEFAULT_THEME_PATH)
+    parser.add_argument(
+        "--ports",
+        default=",".join(str(p) for p in CANDIDATE_PORTS),
+        help="comma-separated candidate ports, tried in order",
+    )
+    parser.add_argument("-v", "--verbose", action="store_true")
+    args = parser.parse_args()
+
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+        stream=sys.stderr,
+    )
+
+    ports = [int(p) for p in args.ports.split(",") if p.strip()]
+
+    store = ThemeStore(args.theme_path)
+    store.start()
+
+    server, bound_port = make_server(store, ports)
+    LOG.info(
+        "listening on 127.0.0.1:%d, watching %s", bound_port, args.theme_path
+    )
+
+    def _shutdown(signum, _frame):
+        LOG.info("received signal %d, shutting down", signum)
+        store.stop()
+        threading.Thread(target=server.shutdown, daemon=True).start()
+
+    signal.signal(signal.SIGTERM, _shutdown)
+    signal.signal(signal.SIGINT, _shutdown)
+
+    try:
+        server.serve_forever(poll_interval=0.5)
+    finally:
+        server.server_close()
+        LOG.info("stopped")
+
+
+if __name__ == "__main__":
+    main()
