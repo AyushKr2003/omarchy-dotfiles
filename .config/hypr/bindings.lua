@@ -120,6 +120,9 @@ o.bind("SUPER + SHIFT + O", "Toggle window floating/tiling", hl.dsp.window.float
 hl.unbind("SUPER + L")
 o.bind("SUPER + L", "Lock system", "omarchy-system-lock")
 
+-- hl.unbind("SUPER + ALT + L")
+-- o.bind("SUPER + ALT + L", "Toggle workspace layout", "omarchy-hyprland-workspace-layout-toggle")
+
 o.bind("SUPER + CTRL + RIGHT", "Next workspace", hl.dsp.focus({ workspace = "e+1" }))
 o.bind("SUPER + CTRL + LEFT", "Previous workspace", hl.dsp.focus({ workspace = "e-1" }))
 
@@ -155,8 +158,6 @@ o.bind(
 	o.launch("xdg-terminal-exec --app-id=TUI.float -e fish -c spf")
 )
 
-
-
 -- WhatsApp
 hl.unbind("SUPER + SHIFT + W")
 o.bind("SUPER + SHIFT + W", "WhatsApp", { webapp = "https://web.whatsapp.com/", focus = true })
@@ -176,6 +177,9 @@ o.bind(
 	"Terminal launcher",
 	o.launch("xdg-terminal-exec --app-id=TUI.float -e fish -c 'a -a'")
 )
+
+hl.unbind("SUPER + M")
+o.bind("SUPER + M", "Manga", "omarchy-shell shell toggle local.manga")
 
 -- ── Keybinding menus ──────────────────────────────────────────────────────
 
@@ -241,4 +245,13 @@ end)
 
 -- ── Window rules ─────────────────────────────────────────────────────────
 
-o.window("^(org.quickshell)$", { no_screen_share = true, tag = "+floating-window" })
+-- Omarchy Settings: floating, no screen share
+o.window({ title = "^(Omarchy Settings)$" }, { no_screen_share = true, tag = "+floating-window" })
+
+-- Manga: floating, fixed size/position
+o.window({ title = "^(Manga)$" }, {
+  float = true,
+  size = { 560, 1043 },
+  move = { 5, 31 },
+  tag = "+manga-window",
+})
