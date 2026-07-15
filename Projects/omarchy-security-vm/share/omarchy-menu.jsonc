@@ -1,8 +1,0 @@
-// omarchy-security-vm menu rows (Kali + Parrot).
-// Merged into ~/.config/omarchy/extensions/omarchy-menu.jsonc by
-// omarchy-security-vm-integrate-os (comment lines are stripped on merge;
-// see that script's insert_before_final_brace()).
-"install.kali": {"icon":"","label":"Kali","keywords":"vm hacking pentest kali-linux","action":"omarchy-launch-floating-terminal-with-presentation 'omarchy-kali-vm install'"},
-"remove.kali": {"icon":"","label":"Kali","keywords":"vm uninstall kali-linux","action":"omarchy-launch-floating-terminal-with-presentation 'omarchy-kali-vm remove'"},
-"install.parrot": {"icon":"","label":"Parrot","keywords":"vm hacking pentest parrot-os","action":"omarchy-launch-floating-terminal-with-presentation 'omarchy-parrot-vm install'"},
-"remove.parrot": {"icon":"","label":"Parrot","keywords":"vm uninstall parrot-os","action":"omarchy-launch-floating-terminal-with-presentation 'omarchy-parrot-vm remove'"},

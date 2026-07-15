@@ -1,9 +1,9 @@
 # omarchy-security-vm
 
 pkgname=omarchy-security-vm
-pkgver=0.2.5
+pkgver=0.2.6
 pkgrel=3
-pkgdesc="Multi-distro security VM launcher (Kali, Parrot) with optional Omarchy integration (local build, quattro branch)"
+pkgdesc="Multi-distro security VM launcher with optional Omarchy integration (local build, quattro branch)"
 arch=('x86_64')
 url="https://github.com/Ayushkr2003/omarchy-dotfiles"
 license=('MIT')
@@ -30,6 +30,7 @@ package() {
   install -Dm755 "bin/omarchy-security-vm-integrate-os" "${pkgdir}/usr/bin/omarchy-security-vm-integrate-os"
   install -Dm755 "bin/omarchy-security-vm-unintegrate-os" "${pkgdir}/usr/bin/omarchy-security-vm-unintegrate-os"
   install -Dm755 "bin/omarchy-parrot-vm" "${pkgdir}/usr/bin/omarchy-parrot-vm"
+  install -Dm755 "bin/omarchy-nixos-vm" "${pkgdir}/usr/bin/omarchy-nixos-vm"
   install -Dm755 "bin/omarchy-security-vm" "${pkgdir}/usr/bin/omarchy-security-vm"
 
   install -Dm644 "assets/icons/kali.png" "${pkgdir}/usr/share/icons/hicolor/512x512/apps/omarchy-kali-vm.png"
