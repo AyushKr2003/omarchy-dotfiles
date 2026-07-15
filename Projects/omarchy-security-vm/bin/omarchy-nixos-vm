@@ -930,6 +930,13 @@ finish_nixos_install() {
   echo ""
   echo "Installer ISO removed. Run 'omarchy-nixos-vm launch' to boot your"
   echo "installed NixOS system directly."
+  echo ""
+  echo "TIP: if the guest display doesn't auto-resize to fit the viewer"
+  echo "window, enable SPICE's resize agent inside your installed system:"
+  echo "  sudo nano /etc/nixos/configuration.nix"
+  echo "    (add) services.spice-vdagentd.enable = true;"
+  echo "  sudo nixos-rebuild switch"
+  echo "then restart the VM (omarchy-nixos-vm stop && omarchy-nixos-vm launch)."
 }
 
 
