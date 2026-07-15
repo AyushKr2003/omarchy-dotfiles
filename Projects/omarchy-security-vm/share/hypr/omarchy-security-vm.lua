@@ -15,7 +15,7 @@
 -- rules table has not been independently confirmed for every field here.
 
 o.window(
-  { class = "remote-viewer", title = "^Kali VM.*" },
+  { class = "remote-viewer" },
   {
     fullscreen_state = "0 2",
     tag = "-default-opacity",
@@ -23,11 +23,3 @@ o.window(
   }
 )
 
-o.window(
-  { class = "remote-viewer", title = "^Parrot VM.*" },
-  {
-    fullscreen_state = "0 2",
-    tag = "-default-opacity",
-    opacity = "1 1",
-  }
-)
