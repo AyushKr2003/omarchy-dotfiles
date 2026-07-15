@@ -1,9 +1,9 @@
 # omarchy-security-vm
 
-pkgname=omarchy-security-vm
+pkgname=omarchy-vm
 pkgver=0.2.6
 pkgrel=3
-pkgdesc="Multi-distro security VM launcher with optional Omarchy integration (local build, quattro branch)"
+pkgdesc="Multi-distro VM launcher with optional Omarchy integration (local build, quattro branch)"
 arch=('x86_64')
 url="https://github.com/Ayushkr2003/omarchy-dotfiles"
 license=('MIT')

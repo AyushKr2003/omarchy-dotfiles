@@ -1,14 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 
-# omarchy-security-vm -- universal menu for all omarchy-*-vm security VMs
+# omarchy-vm -- universal menu for all omarchy-*-vm security VMs
 # (Kali, Parrot, and any future ones), plus the global Omarchy
 # integrate-os / unintegrate-os hooks that merge a shared window-rule and
 # menu-row set covering every supported distro in one shot.
 #
 # This script never reimplements install/download/patch logic itself --
 # it only ever calls the real omarchy-<name>-vm binaries and the
-# omarchy-security-vm-integrate-os/-unintegrate-os hooks. Single source of
+# omarchy-vm-integrate-os/-unintegrate-os hooks. Single source of
 # truth stays with each script.
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -27,7 +27,7 @@ discover_vms() {
     for bin in "$dir"/omarchy-*-vm; do
       [[ -f "$bin" && -x "$bin" ]] || continue
       name=$(basename "$bin")
-      [[ "$name" == "omarchy-security-vm" ]] && continue
+      [[ "$name" == "omarchy-vm" ]] && continue
       [[ "$name" == *-integrate-os ]] && continue
       [[ "$name" == *-unintegrate-os ]] && continue
       # Dedup by name (PATH may list the same script's dir twice, or a
@@ -121,9 +121,9 @@ run_action() {
   "$path" "$action" "$@"
 }
 
-# omarchy-security-vm-integrate-os / -unintegrate-os are global, not
+# omarchy-vm-integrate-os / -unintegrate-os are global, not
 # per-VM -- they merge a single shared window-rule/menu-row set covering
-# every supported distro in one shot (see share/hypr/omarchy-security-vm.lua
+# every supported distro in one shot (see share/hypr/omarchy-vm.lua
 # and share/omarchy-menu.jsonc), so they're resolved and invoked directly
 # rather than as a companion to any one omarchy-<name>-vm binary.
 
@@ -139,7 +139,7 @@ resolve_global_hook() {
 run_global_integration() {
   local action="$1"
   shift
-  local hook_name="omarchy-security-vm-${action}"
+  local hook_name="omarchy-vm-${action}"
   local hook
   hook=$(resolve_global_hook "$hook_name") || {
     gum style --foreground 3 "$hook_name not found on PATH or next to this script." || true
@@ -223,9 +223,9 @@ interactive_menu() {
 }
 
 # --- Entry point -------------------------------------------------------------
-# Direct pass-through mode: omarchy-security-vm <name> <command> [args...]
-# e.g. omarchy-security-vm kali install
-#      omarchy-security-vm parrot launch
+# Direct pass-through mode: omarchy-vm <name> <command> [args...]
+# e.g. omarchy-vm kali install
+#      omarchy-vm parrot launch
 # "name" can be given either as the full binary name (omarchy-kali-vm) or
 # just its label (kali) for convenience.
 
@@ -234,13 +234,13 @@ if [[ $# -ge 1 ]]; then
     help|--help|-h)
       cat <<EOF
 Usage:
-  omarchy-security-vm                      Interactive menu
-  omarchy-security-vm <vm> <command> [...] Per-VM pass-through
-  omarchy-security-vm status               Status overview only
-  omarchy-security-vm integrate-os         Merge Omarchy window rule + menu
+  omarchy-vm                      Interactive menu
+  omarchy-vm <vm> <command> [...] Per-VM pass-through
+  omarchy-vm status               Status overview only
+  omarchy-vm integrate-os         Merge Omarchy window rule + menu
                                             entries (covers all supported
                                             distros in one shot)
-  omarchy-security-vm unintegrate-os       Remove that Omarchy integration
+  omarchy-vm unintegrate-os       Remove that Omarchy integration
 
 <vm> is a label (kali, parrot, ...) or full binary name (omarchy-kali-vm).
 <command> is install, remove, launch, stop, or status -- forwarded as-is

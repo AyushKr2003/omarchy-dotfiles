@@ -3,13 +3,10 @@ set -euo pipefail
 
 CONFIG_ROOT="${XDG_CONFIG_HOME:-$HOME/.config}"
 
-OMARCHY_MENU="$CONFIG_ROOT/omarchy/extensions/omarchy-menu.jsonc"
 HYPRLAND_LUA="$CONFIG_ROOT/hypr/hyprland.lua"
 
-HYPR_MARKER_BEGIN="-- >>> omarchy-security-vm hypr integration >>>"
-HYPR_MARKER_END="-- <<< omarchy-security-vm hypr integration <<<"
-MENU_MARKER_BEGIN="// >>> omarchy-security-vm menu integration >>>"
-MENU_MARKER_END="// <<< omarchy-security-vm menu integration <<<"
+HYPR_MARKER_BEGIN="-- >>> omarchy-vm hypr integration >>>"
+HYPR_MARKER_END="-- <<< omarchy-vm hypr integration <<<"
 
 # Remove everything between (and including) a pair of marker lines.
 # Works the same for the Lua file and the JSONC file since both use
@@ -33,7 +30,5 @@ remove_marker_block() {
 }
 
 remove_marker_block "$HYPRLAND_LUA" "$HYPR_MARKER_BEGIN" "$HYPR_MARKER_END"
-remove_marker_block "$OMARCHY_MENU" "$MENU_MARKER_BEGIN" "$MENU_MARKER_END"
 
-printf 'Removed Omarchy quattro integration managed by omarchy-security-vm from %s\n' "$CONFIG_ROOT"
 printf 'Run "hyprctl reload" (or restart Hyprland) to apply.\n'
