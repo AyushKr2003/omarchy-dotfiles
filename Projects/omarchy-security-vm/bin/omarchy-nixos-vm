@@ -1,0 +1,1182 @@
+#!/bin/bash
+set -euo pipefail
+
+CONFIG_ROOT="${XDG_CONFIG_HOME:-$HOME/.config}"
+DATA_ROOT="${XDG_DATA_HOME:-$HOME/.local/share}"
+STATE_ROOT="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy-nixos-vm"
+COMPOSE_FILE="$CONFIG_ROOT/nixos/docker-compose.yml"
+NIXOS_CONFIG_DIR="$CONFIG_ROOT/nixos"
+NIXOS_STORAGE="$HOME/.nixos"
+NIXOS_SHARED_DIR="$HOME/NixOS"
+CONTAINER_NAME="${OMARCHY_NIXOS_VM_CONTAINER_NAME:-omarchy-nixos-vm}"
+USER_APPLICATIONS_DIR="$DATA_ROOT/applications"
+RUNTIME_DESKTOP_FILE="$USER_APPLICATIONS_DIR/omarchy-nixos-vm.desktop"
+
+DEBUG_MODE=false
+DEBUG_SUBCOMMAND=""
+DEBUG_REPORT_DIR=""
+DEBUG_STAGE="setup"
+DEBUG_STATUS="pending"
+DEBUG_MESSAGE=""
+DEBUG_IMAGE_ACTION="not-applicable"
+DEBUG_PRESERVED_ARTIFACTS=()
+DEBUG_URLS=()
+
+record_debug_url() {
+  local url="$1"
+
+  if [[ "$DEBUG_MODE" != true ]] || [[ -z "$url" ]]; then
+    return 0
+  fi
+
+  DEBUG_URLS+=("$url")
+}
+
+record_preserved_artifact() {
+  local artifact_path="$1"
+
+  if [[ "$DEBUG_MODE" != true ]] || [[ -z "$artifact_path" ]]; then
+    return 0
+  fi
+
+  DEBUG_PRESERVED_ARTIFACTS+=("$artifact_path")
+}
+
+ensure_debug_report_dir() {
+  if [[ "$DEBUG_MODE" != true ]] || [[ -n "$DEBUG_REPORT_DIR" ]]; then
+    return 0
+  fi
+
+  local timestamp
+  timestamp=$(date -u +%Y%m%dT%H%M%SZ)
+  DEBUG_REPORT_DIR="$STATE_ROOT/${DEBUG_SUBCOMMAND}-${timestamp}"
+  mkdir -p "$DEBUG_REPORT_DIR"
+}
+
+write_debug_report() {
+  if [[ "$DEBUG_MODE" != true ]]; then
+    return 0
+  fi
+
+  ensure_debug_report_dir
+
+  {
+    printf 'subcommand: %s\n' "$DEBUG_SUBCOMMAND"
+    printf 'debug: true\n'
+    printf 'timestamp: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf 'status: %s\n' "$DEBUG_STATUS"
+    printf 'stage: %s\n' "$DEBUG_STAGE"
+    printf 'message: %s\n' "${DEBUG_MESSAGE:-none}"
+    printf 'report_dir: %s\n' "$DEBUG_REPORT_DIR"
+    printf 'compose_file: %s\n' "$COMPOSE_FILE"
+    printf 'config_dir: %s\n' "$NIXOS_CONFIG_DIR"
+    printf 'storage_dir: %s\n' "$NIXOS_STORAGE"
+    printf 'shared_dir: %s\n' "$NIXOS_SHARED_DIR"
+    printf 'runtime_launcher: %s\n' "$RUNTIME_DESKTOP_FILE"
+    printf 'docker_image_action: %s\n' "$DEBUG_IMAGE_ACTION"
+    printf '\nurls:\n'
+    if (( ${#DEBUG_URLS[@]} == 0 )); then
+      printf '  (none)\n'
+    else
+      printf '  %s\n' "${DEBUG_URLS[@]}"
+    fi
+    printf '\npreserved_artifacts:\n'
+    if (( ${#DEBUG_PRESERVED_ARTIFACTS[@]} == 0 )); then
+      printf '  (none)\n'
+    else
+      printf '  %s\n' "${DEBUG_PRESERVED_ARTIFACTS[@]}"
+    fi
+  } > "$DEBUG_REPORT_DIR/report.txt"
+}
+
+print_debug_summary() {
+  if [[ "$DEBUG_MODE" != true ]]; then
+    return 0
+  fi
+
+  echo "Debug report written to: $DEBUG_REPORT_DIR"
+  if (( ${#DEBUG_PRESERVED_ARTIFACTS[@]} > 0 )); then
+    echo "Preserved artifacts:"
+    printf '  %s\n' "${DEBUG_PRESERVED_ARTIFACTS[@]}"
+  fi
+}
+
+prepare_debug_run() {
+  local subcommand="$1"
+
+  DEBUG_MODE=true
+  DEBUG_SUBCOMMAND="$subcommand"
+  DEBUG_REPORT_DIR=""
+  DEBUG_STAGE="setup"
+  DEBUG_STATUS="running"
+  DEBUG_MESSAGE=""
+  DEBUG_IMAGE_ACTION="not-applicable"
+  DEBUG_PRESERVED_ARTIFACTS=()
+  DEBUG_URLS=()
+
+  ensure_debug_report_dir
+  echo "Debug mode enabled."
+  echo "Reports will be written under: $DEBUG_REPORT_DIR"
+}
+
+capture_debug_sidecar() {
+  local source_path="$1"
+  local dest_name="$2"
+
+  if [[ "$DEBUG_MODE" != true ]] || [[ ! -f "$source_path" ]]; then
+    return 0
+  fi
+
+  ensure_debug_report_dir
+  cp -f "$source_path" "$DEBUG_REPORT_DIR/$dest_name"
+  record_preserved_artifact "$DEBUG_REPORT_DIR/$dest_name"
+}
+
+snapshot_archive_stats() {
+  local archive_glob="$1"
+  local archive_path
+  local archive_paths=()
+
+  if [[ "$DEBUG_MODE" != true ]]; then
+    return 0
+  fi
+
+  ensure_debug_report_dir
+  : > "$DEBUG_REPORT_DIR/archive.stat"
+  mapfile -t archive_paths < <(compgen -G "$archive_glob" || true)
+  for archive_path in "${archive_paths[@]}"; do
+    printf '%s\t%s bytes\n' "$archive_path" "$(stat -c%s "$archive_path" 2>/dev/null || echo unknown)" >> "$DEBUG_REPORT_DIR/archive.stat"
+  done
+
+  if [[ -s "$DEBUG_REPORT_DIR/archive.stat" ]]; then
+    record_preserved_artifact "$DEBUG_REPORT_DIR/archive.stat"
+  else
+    rm -f "$DEBUG_REPORT_DIR/archive.stat"
+  fi
+}
+
+preserve_install_debug_artifacts() {
+  local archive_path
+
+  if [[ "$DEBUG_MODE" != true ]]; then
+    return 0
+  fi
+
+  shopt -s nullglob
+  for archive_path in "$NIXOS_STORAGE"/*.qcow2.xz; do
+    record_preserved_artifact "$archive_path"
+  done
+  shopt -u nullglob
+
+  capture_debug_sidecar "$NIXOS_STORAGE/SHA256SUMS" "SHA256SUMS"
+  capture_debug_sidecar "$NIXOS_STORAGE/SHA256SUMS.gpg" "SHA256SUMS.gpg"
+  snapshot_archive_stats "$NIXOS_STORAGE/*.qcow2.xz"
+}
+
+fail_install() {
+  local stage="$1"
+  local message="$2"
+
+  DEBUG_STAGE="$stage"
+  DEBUG_STATUS="failed"
+  DEBUG_MESSAGE="$message"
+  preserve_install_debug_artifacts
+  write_debug_report
+  echo "ERROR: $message"
+  print_debug_summary
+  exit 1
+}
+
+preserve_remove_debug_artifacts() {
+  local archive_path
+  local archive_name
+
+  if [[ "$DEBUG_MODE" != true ]]; then
+    return 0
+  fi
+
+  shopt -s nullglob
+  for archive_path in "$NIXOS_STORAGE"/*.qcow2.xz; do
+    archive_name=$(basename "$archive_path")
+    mv "$archive_path" "$DEBUG_REPORT_DIR/$archive_name"
+    record_preserved_artifact "$DEBUG_REPORT_DIR/$archive_name"
+  done
+  shopt -u nullglob
+  snapshot_archive_stats "$DEBUG_REPORT_DIR/*.qcow2.xz"
+}
+
+refresh_desktop_database() {
+  if ! command -v update-desktop-database >/dev/null 2>&1; then
+    return 0
+  fi
+
+  update-desktop-database "$USER_APPLICATIONS_DIR" >/dev/null 2>&1 || true
+}
+
+write_runtime_launcher() {
+  mkdir -p "$USER_APPLICATIONS_DIR"
+
+  cat > "$RUNTIME_DESKTOP_FILE" << 'EOF'
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=NixOS
+Comment=Launch the packaged NixOS virtual machine
+Exec=omarchy-nixos-vm launch
+Icon=omarchy-nixos-vm
+Terminal=false
+Categories=System;Security;Utility;
+Keywords=nixos;virtual machine;vm;
+EOF
+
+  refresh_desktop_database
+}
+
+remove_runtime_launcher() {
+  rm -f "$RUNTIME_DESKTOP_FILE"
+  refresh_desktop_database
+}
+
+list_managed_state_paths() {
+  printf '%s\n' \
+    "$NIXOS_CONFIG_DIR" \
+    "$COMPOSE_FILE" \
+    "$NIXOS_STORAGE" \
+    "$NIXOS_SHARED_DIR" \
+    "$RUNTIME_DESKTOP_FILE"
+}
+
+list_existing_managed_state_paths() {
+  local managed_path
+
+  while IFS= read -r managed_path; do
+    if [[ -e "$managed_path" ]]; then
+      printf '%s\n' "$managed_path"
+    fi
+  done < <(list_managed_state_paths)
+}
+
+managed_state_exists() {
+  local existing_state
+
+  while IFS= read -r existing_state; do
+    if [[ -n "$existing_state" ]]; then
+      return 0
+    fi
+  done < <(list_existing_managed_state_paths)
+
+  return 1
+}
+
+print_install_existing_state_error() {
+  local existing_state
+
+  echo "Existing managed NixOS VM state detected."
+  echo "'omarchy-nixos-vm install' only supports first-time setup."
+  echo "Remove the existing VM before reinstalling: omarchy-nixos-vm remove"
+  echo ""
+  echo "Detected managed state:"
+  while IFS= read -r existing_state; do
+    printf '  %s\n' "$existing_state"
+  done < <(list_existing_managed_state_paths)
+}
+
+path_state_label() {
+  local managed_path="$1"
+
+  if [[ -e "$managed_path" ]]; then
+    printf 'present'
+  else
+    printf 'not present'
+  fi
+}
+
+print_remove_preview() {
+  echo "Managed NixOS VM targets scheduled for deletion:"
+  printf '  Config directory: %s (%s)\n' "$NIXOS_CONFIG_DIR" "$(path_state_label "$NIXOS_CONFIG_DIR")"
+  printf '  Compose file:     %s (%s)\n' "$COMPOSE_FILE" "$(path_state_label "$COMPOSE_FILE")"
+  printf '  Storage directory:%s (%s)\n' " $NIXOS_STORAGE" "$(path_state_label "$NIXOS_STORAGE")"
+  printf '  Shared directory: %s (%s)\n' "$NIXOS_SHARED_DIR" "$(path_state_label "$NIXOS_SHARED_DIR")"
+  printf '  Runtime launcher: %s (%s)\n' "$RUNTIME_DESKTOP_FILE" "$(path_state_label "$RUNTIME_DESKTOP_FILE")"
+}
+
+docker_available() {
+  command -v docker >/dev/null 2>&1
+}
+
+docker_compose_available() {
+  docker_available && docker compose version >/dev/null 2>&1
+}
+
+best_effort_remove_docker_artifacts() {
+  if docker_compose_available; then
+    docker compose -f "$COMPOSE_FILE" down 2>/dev/null || echo "Warning: Docker Compose shutdown failed during removal; continuing."
+  elif docker_available; then
+    echo "Skipping Docker Compose shutdown during removal: docker compose is unavailable or Docker is not ready."
+  else
+    echo "Skipping Docker cleanup during removal: docker is unavailable."
+  fi
+
+  if [[ "$DEBUG_MODE" = true ]]; then
+    if docker_available; then
+      DEBUG_IMAGE_ACTION="preserved"
+    else
+      DEBUG_IMAGE_ACTION="preserved-docker-unavailable"
+    fi
+    return 0
+  fi
+
+  if docker_available; then
+    if docker rmi qemux/qemu 2>/dev/null; then
+      DEBUG_IMAGE_ACTION="removed-if-present"
+    else
+      echo "Skipping Docker image removal during removal: image is unavailable or Docker is not ready."
+      DEBUG_IMAGE_ACTION="remove-attempted"
+    fi
+  else
+    DEBUG_IMAGE_ACTION="skipped-docker-unavailable"
+  fi
+}
+
+parse_debug_flag() {
+  local subcommand="$1"
+  shift
+
+  DEBUG_MODE=false
+  if [[ $# -eq 0 ]]; then
+    return 0
+  fi
+
+  case "$1" in
+    --debug)
+      if [[ $# -ne 1 ]]; then
+        echo "Unknown option(s) for $subcommand: ${*:2}" >&2
+        exit 1
+      fi
+      prepare_debug_run "$subcommand"
+      ;;
+    *)
+      echo "Unknown option for $subcommand: $1" >&2
+      exit 1
+      ;;
+  esac
+}
+
+require_command() {
+  local command_name="$1"
+  local package_hint="${2:-$1}"
+
+  if ! command -v "$command_name" >/dev/null 2>&1; then
+    echo "Missing required command: $command_name"
+    echo "Install the package that provides it before continuing: $package_hint"
+    exit 1
+  fi
+}
+
+require_compose() {
+  if ! docker compose version >/dev/null 2>&1; then
+    echo "docker compose is required."
+    echo "Install Docker with the compose plugin and ensure the daemon is running."
+    exit 1
+  fi
+}
+
+notify_if_available() {
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send "$@"
+  fi
+}
+
+check_common_dependencies() {
+  require_command docker docker
+  require_command gum gum
+  require_command sudo sudo
+  require_compose
+}
+
+check_remove_dependencies() {
+  require_command gum gum
+}
+
+check_install_dependencies() {
+  check_common_dependencies
+  require_command curl curl
+  require_command gpg gnupg
+  require_command remote-viewer virt-viewer
+  require_command sha256sum coreutils
+}
+
+check_launch_dependencies() {
+  check_common_dependencies
+  require_command remote-viewer virt-viewer
+}
+
+check_kvm_support() {
+  if [[ ! -e /dev/kvm ]]; then
+    gum style \
+      --border normal \
+      --padding "1 2" \
+      --margin "1" \
+      "KVM virtualization not available!" \
+      "" \
+      "Please enable virtualization in BIOS or run:" \
+      "  sudo modprobe kvm-intel  # for Intel CPUs" \
+      "  sudo modprobe kvm-amd    # for AMD CPUs"
+    exit 1
+  fi
+}
+
+check_disk_space() {
+  local DISK_SIZE_GB="$1"
+  local OVERHEAD_GB=${OMARCHY_NIXOS_VM_DISK_OVERHEAD_GB:-10}
+  local REQUIRED_SPACE=$((DISK_SIZE_GB + OVERHEAD_GB))
+
+  AVAILABLE_SPACE=$(df "$HOME" | awk 'NR==2 {print int($4/1024/1024)}')
+  if (( AVAILABLE_SPACE < REQUIRED_SPACE )); then
+    echo "Insufficient disk space!"
+    echo "   Available: ${AVAILABLE_SPACE}GB"
+    echo "   Required: ${REQUIRED_SPACE}GB (${DISK_SIZE_GB}GB disk + ${OVERHEAD_GB}GB overhead)"
+    exit 1
+  fi
+}
+
+check_prerequisites() {
+  local DISK_SIZE_GB="${1:-}"
+
+  check_kvm_support
+
+  # Only check disk space once an actual disk size is known -- called
+  # without an argument, this just does the KVM check (e.g. as an early
+  # sanity check before the user has picked a disk size yet).
+  if [[ -n "$DISK_SIZE_GB" ]]; then
+    check_disk_space "$DISK_SIZE_GB"
+  fi
+}
+
+nixos_qemu_arguments() {
+  echo "-spice unix=on,addr=/storage/spice.sock,disable-ticketing=on -device qemu-xhci -device usb-tablet -device virtio-serial-pci -chardev spicevmc,id=vdagent,name=vdagent -device virtserialport,chardev=vdagent,name=com.redhat.spice.0"
+}
+
+write_nixos_start_hook() {
+  mkdir -p "$NIXOS_CONFIG_DIR"
+
+  cat << 'EOF' | tee "$NIXOS_CONFIG_DIR/start.sh" > /dev/null
+#!/bin/bash
+set -e
+
+if qemu-system-x86_64 -spice help >/dev/null 2>&1; then
+  exit 0
+fi
+
+echo "Installing QEMU SPICE module..."
+DEBIAN_FRONTEND=noninteractive apt-get -qq update
+DEBIAN_FRONTEND=noninteractive apt-get -qq --no-install-recommends -y install qemu-system-modules-spice > /dev/null
+EOF
+
+  chmod +x "$NIXOS_CONFIG_DIR/start.sh"
+}
+
+ensure_nixos_runtime_config() {
+  write_nixos_start_hook
+
+  if [[ -f "$COMPOSE_FILE" ]]; then
+    local QEMU_ARGUMENTS
+    QEMU_ARGUMENTS=$(nixos_qemu_arguments)
+    sed -i "s|^\([[:space:]]*ARGUMENTS:\).*|\1 \"$QEMU_ARGUMENTS\"|" "$COMPOSE_FILE"
+  fi
+}
+
+
+# Option A: download the official NixOS graphical installer ISO and let
+# qemux/qemu auto-create a blank disk; the user completes NixOS's own
+# real installer once via the SPICE viewer -- same as installing NixOS in
+# VirtualBox/on real hardware. (Reverted here from an Option-B attempt
+# building via nixos-generators/nixos-rebuild build-image, which hit four
+# separate environment-only blockers in a row on a non-NixOS host with a
+# fresh Nix install -- daemon disabled, no channel, no NIXOS_CONFIG, and
+# still no confirmed --image-variant name. Not worth the churn today;
+# Option A works reliably and doesn't need Nix on the host at all.)
+#
+# Confirmed real URL pattern (channels.nixos.org):
+#   https://channels.nixos.org/nixos-<version>/latest-nixos-graphical-x86_64-linux.iso
+#   https://channels.nixos.org/nixos-<version>/latest-nixos-graphical-x86_64-linux.iso.sha256
+#
+# channels.nixos.org's own index page is JAVASCRIPT-RENDERED client-side --
+# confirmed directly, a plain curl against it returns an essentially empty
+# shell with no real directory listing, so scraping it (the Parrot-style
+# approach) does not work here. Instead: NixOS ships stable channels on a
+# well-documented, predictable cadence -- May (.05) and November (.11)
+# each year. Compute the expected current channel from today's date, then
+# verify it against the real ISO file URL directly with a HEAD request (a
+# plain static file, not the JS-rendered index page, so curl handles it
+# fine) -- falling back to the previous period if the newest hasn't been
+# cut yet. Verified against real date boundaries (Jan, Apr/May cusp,
+# Oct/Nov cusp, Dec) before relying on this.
+#
+# CRITICAL: the downloaded ISO is saved as literally "boot.iso" in the
+# storage directory, NOT passed via the BOOT env var. qemux/qemu
+# auto-detects a file with that exact name and uses it without needing
+# BOOT set at all (confirmed in their own docs: "you can supply either a
+# /boot.iso, /boot.img or a /boot.qcow2 file"). This matters: a real,
+# currently open bug (qemus/qemu#461) shows a persistently-set BOOT env
+# var pointing at an ISO can make the container always fall back to
+# booting the installer instead of the newly-installed disk, even after a
+# successful install. Using the file-presence method instead means we can
+# sidestep that whole bug class simply by deleting boot.iso once install
+# is confirmed done (see finish_nixos_install() below) -- no BOOT env var
+# ever gets set, so there's nothing to fall back to.
+resolve_current_nixos_channel() {
+  local year month candidates=()
+  year=$(date +%y)
+  month=$(date +%-m)
+
+  if (( month >= 11 )); then
+    candidates+=("${year}.11" "${year}.05")
+  elif (( month >= 5 )); then
+    local prev_year
+    prev_year=$(printf '%02d' $((10#$year - 1)))
+    candidates+=("${year}.05" "${prev_year}.11")
+  else
+    local prev_year
+    prev_year=$(printf '%02d' $((10#$year - 1)))
+    candidates+=("${prev_year}.11" "${prev_year}.05")
+  fi
+
+  local candidate
+  for candidate in "${candidates[@]}"; do
+    if curl -fsSL --head "https://channels.nixos.org/nixos-${candidate}/latest-nixos-graphical-x86_64-linux.iso" >/dev/null 2>&1; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+download_nixos_iso() {
+  local ISO="$NIXOS_STORAGE/boot.iso"
+
+  if [[ -f "$ISO" ]]; then
+    echo "NixOS ISO already downloaded, skipping."
+    return 0
+  fi
+
+  local NIXOS_CHANNEL NIXOS_URL DOWNLOAD_FILE
+  NIXOS_CHANNEL=$(resolve_current_nixos_channel)
+  if [[ -z "$NIXOS_CHANNEL" ]]; then
+    if [[ "$DEBUG_MODE" = true ]]; then
+      fail_install "download" "Could not determine the current NixOS stable channel."
+    fi
+    echo "ERROR: Could not determine the current NixOS stable channel."
+    echo "Run: curl -fsSL --head https://channels.nixos.org/nixos-XX.YY/latest-nixos-graphical-x86_64-linux.iso"
+    echo "with a plausible XX.YY to check manually."
+    return 1
+  fi
+
+  NIXOS_URL="https://channels.nixos.org/nixos-${NIXOS_CHANNEL}/latest-nixos-graphical-x86_64-linux.iso"
+  DOWNLOAD_FILE="$NIXOS_STORAGE/nixos-installer.iso"
+  record_debug_url "$NIXOS_URL"
+
+  echo "Downloading NixOS graphical installer ISO (channel ${NIXOS_CHANNEL})..."
+  echo "URL: $NIXOS_URL"
+
+  DEBUG_STAGE="download"
+  curl -fL --retry 2 --retry-delay 5 -C - -o "$DOWNLOAD_FILE" "$NIXOS_URL" || {
+    if [[ "$DEBUG_MODE" = true ]]; then
+      fail_install "download" "Failed to download NixOS installer ISO."
+    fi
+    echo "ERROR: Failed to download NixOS installer ISO."
+    rm -f "$DOWNLOAD_FILE"
+    return 1
+  }
+
+  echo "Verifying download integrity..."
+  local EXPECTED_SHA256 ACTUAL_SHA256
+  EXPECTED_SHA256=$(curl -fsSL "$NIXOS_URL.sha256" | awk '{print $1}')
+  if [[ -z "$EXPECTED_SHA256" ]]; then
+    if [[ "$DEBUG_MODE" = true ]]; then
+      fail_install "download" "Failed to fetch SHA256 checksum for NixOS installer ISO."
+    fi
+    echo "ERROR: Failed to fetch SHA256 checksum from $NIXOS_URL.sha256"
+    rm -f "$DOWNLOAD_FILE"
+    return 1
+  fi
+
+  ACTUAL_SHA256=$(sha256sum "$DOWNLOAD_FILE" | awk '{print $1}')
+  echo "Expected SHA256: $EXPECTED_SHA256"
+  echo "Actual SHA256:   $ACTUAL_SHA256"
+
+  if [[ "$EXPECTED_SHA256" != "$ACTUAL_SHA256" ]]; then
+    if [[ "$DEBUG_MODE" = true ]]; then
+      fail_install "download" "SHA256 checksum mismatch for NixOS installer ISO."
+    fi
+    echo "ERROR: SHA256 checksum mismatch!"
+    echo "The downloaded ISO does not match the published checksum."
+    rm -f "$DOWNLOAD_FILE"
+    return 1
+  fi
+  echo "SHA256 checksum verified."
+
+  mv "$DOWNLOAD_FILE" "$ISO"
+
+  if [[ ! -f "$ISO" ]]; then
+    if [[ "$DEBUG_MODE" = true ]]; then
+      fail_install "download" "boot.iso missing after download."
+    fi
+    echo "ERROR: boot.iso missing after download"
+    return 1
+  fi
+
+  # Disable CoW on the new file before any writes (btrfs)
+  chattr +C "$ISO" 2>/dev/null || true
+
+  echo "Download complete."
+  echo "Installer ISO saved: $ISO"
+}
+
+
+cleanup_stale_data_disk() {
+  if [[ -f "$NIXOS_STORAGE/data.qcow2" ]] && [[ -f "$NIXOS_STORAGE/data.img" ]]; then
+    echo "Removing stale qemux data disk from earlier failed boot attempt..."
+    rm -f "$NIXOS_STORAGE/data.img"
+  fi
+}
+
+install_nixos() {
+  parse_debug_flag install "$@"
+
+  # Set up trap to handle Ctrl+C
+  trap "echo ''; echo 'Installation cancelled by user'; exit 1" INT
+
+  if managed_state_exists; then
+    print_install_existing_state_error
+    echo ""
+    if gum confirm --default=false "Existing NixOS VM installation detected. Remove it now and continue installing?"; then
+      remove_nixos
+    else
+      echo "Installation cancelled. Remove the existing VM before reinstalling: omarchy-nixos-vm remove"
+      exit 1
+    fi
+  fi
+
+  check_install_dependencies
+  check_prerequisites
+
+  mkdir -p "$NIXOS_STORAGE"
+  # Disable copy-on-write for QCOW2 storage (critical for btrfs performance)
+  chattr +C "$NIXOS_STORAGE" 2>/dev/null || true
+  mkdir -p "$NIXOS_CONFIG_DIR"
+
+  # Get system resources
+  TOTAL_RAM=$(free -h | awk 'NR==2 {print $2}')
+  TOTAL_RAM_GB=$(awk 'NR==1 {printf "%d", $2/1024/1024}' /proc/meminfo)
+  TOTAL_CORES=$(nproc)
+
+  echo ""
+  echo "System Resources Detected:"
+  echo "  Total RAM: $TOTAL_RAM"
+  echo "  Total CPU Cores: $TOTAL_CORES"
+  echo ""
+
+  # RAM selection
+  RAM_OPTIONS=""
+  for size in 2 4 8 16 32 64; do
+    if (( size <= TOTAL_RAM_GB )); then
+      RAM_OPTIONS="$RAM_OPTIONS ${size}G"
+    fi
+  done
+
+  SELECTED_RAM=$(echo $RAM_OPTIONS | tr ' ' '\n' | gum choose --selected="4G" --header="How much RAM would you like to allocate to the NixOS VM?")
+
+  if [[ -z $SELECTED_RAM ]]; then
+    echo "Installation cancelled by user"
+    exit 1
+  fi
+
+  # CPU cores
+  SELECTED_CORES=$(gum input --placeholder="Number of CPU cores (1-$TOTAL_CORES)" --value="2" --header="How many CPU cores would you like to allocate to the NixOS VM?" --char-limit=2)
+
+  if [[ -z $SELECTED_CORES ]]; then
+    echo "Installation cancelled by user"
+    exit 1
+  fi
+
+  if ! [[ $SELECTED_CORES =~ ^[0-9]+$ ]] || (( SELECTED_CORES < 1 )) || (( SELECTED_CORES > TOTAL_CORES )); then
+    echo "Invalid input. Using default: 2 cores"
+    SELECTED_CORES=2
+  fi
+
+  # Disk size: unlike Kali/Parrot/Arch, there's no native size to inherit
+  # here -- we're letting qemux/qemu auto-create a blank disk once it sees
+  # boot.iso with no existing data disk present, sized by DISK_SIZE below.
+  MIN_DISK_GB=8
+  DEFAULT_DISK_GB=20
+
+  while true; do
+    DISK_SIZE_INPUT=$(gum input --placeholder="Disk size in GB (Press enter to use default: ${DEFAULT_DISK_GB}GB, minimum: ${MIN_DISK_GB}GB)" --header="Disk size for the NixOS VM?")
+
+    if [[ -z "$DISK_SIZE_INPUT" ]]; then
+      DISK_SIZE_NUM=$DEFAULT_DISK_GB
+    else
+      DISK_SIZE_NUM=$(echo "$DISK_SIZE_INPUT" | sed -E 's/[Gg][Bb]?$//' | tr -d '[:space:]')
+    fi
+
+    if ! [[ "$DISK_SIZE_NUM" =~ ^[0-9]+$ ]]; then
+      echo "Invalid input. Enter a whole number of GB (e.g. 20), or press enter for the default."
+      continue
+    fi
+
+    if (( DISK_SIZE_NUM < MIN_DISK_GB )); then
+      echo "Disk size must be at least ${MIN_DISK_GB}GB. You entered ${DISK_SIZE_NUM}GB."
+      continue
+    fi
+
+    break
+  done
+
+  SELECTED_DISK="${DISK_SIZE_NUM}G"
+
+  check_prerequisites "$DISK_SIZE_NUM"
+
+  # No username/password prompts here -- NixOS's own graphical installer
+  # handles account creation interactively, unlike Kali/Parrot/Arch where
+  # we patch credentials into a pre-built image ourselves.
+
+  # Display configuration summary
+  gum style \
+    --border normal \
+    --padding "1 2" \
+    --margin "1" \
+    --align left \
+    --bold \
+    "NixOS VM Configuration" \
+    "" \
+    "RAM:       $SELECTED_RAM" \
+    "CPU:       $SELECTED_CORES cores" \
+    "Disk:      $SELECTED_DISK (blank, you'll partition + install NixOS yourself)" \
+    "" \
+    "This boots the official NixOS graphical installer. Complete the" \
+    "install as you would on real hardware, then run:" \
+    "  omarchy-nixos-vm finish-install" \
+    "once done, so future launches boot your system directly."
+
+  # Ask for confirmation
+  echo ""
+  if ! gum confirm "Proceed with this configuration?"; then
+    echo "Installation cancelled by user"
+    exit 1
+  fi
+
+  mkdir -p "$NIXOS_SHARED_DIR"
+
+  write_nixos_start_hook
+
+  # Create docker-compose.yml in user config directory
+  cat << EOF | tee "$COMPOSE_FILE" > /dev/null
+services:
+  nixos:
+    image: qemux/qemu
+    container_name: ${CONTAINER_NAME}
+    environment:
+      RAM_SIZE: "$SELECTED_RAM"
+      CPU_CORES: "$SELECTED_CORES"
+      DISK_SIZE: "$SELECTED_DISK"
+      # uefi -- a genuine independent choice for NixOS specifically, not
+      # copied from either Arch (legacy) or Parrot (uefi). NixOS's
+      # installer ISO is documented as hybrid BIOS+UEFI bootable, but its
+      # modern default bootloader is systemd-boot (UEFI-only), so this is
+      # the more representative choice for what a fresh install actually
+      # defaults to today. Worth confirming on first real install rather
+      # than fully verified.
+      BOOT_MODE: "uefi"
+      VGA: "virtio"
+      DISPLAY: "disabled"
+      WEB: "N"
+      SHUTDOWN: "N"
+      ARGUMENTS: "$(nixos_qemu_arguments)"
+    devices:
+      - /dev/kvm
+      - /dev/net/tun
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - $HOME/.nixos:/storage
+      - $NIXOS_SHARED_DIR:/shared
+      - $NIXOS_CONFIG_DIR/start.sh:/run/start.sh:ro
+    restart: "no"
+    stop_grace_period: 2m
+EOF
+
+  ensure_nixos_runtime_config
+
+  echo ""
+  echo "Starting NixOS VM installation..."
+  echo "This will download the official NixOS graphical installer ISO."
+  echo "You will need to complete the NixOS installation yourself, the"
+  echo "same as installing on real hardware -- this just gets the VM"
+  echo "booted with the installer ready to go."
+  echo ""
+
+  # Step 1: Download and verify the installer ISO on the host
+  DEBUG_STAGE="download"
+  if ! download_nixos_iso; then
+    echo "Failed to download NixOS installer ISO!"
+    exit 1
+  fi
+
+  # Step 2: Start the VM
+  echo ""
+  echo "Starting NixOS VM..."
+  cleanup_stale_data_disk
+  DEBUG_STAGE="startup"
+  if ! docker compose -f "$COMPOSE_FILE" up -d 2>&1; then
+    if [[ "$DEBUG_MODE" = true ]]; then
+      fail_install "startup" "Failed to start NixOS VM."
+    fi
+    echo "Failed to start NixOS VM!"
+    echo "   Common issues:"
+    echo "   - Docker daemon not running: sudo systemctl start docker"
+    echo "   - KVM not available: check /dev/kvm"
+    exit 1
+  fi
+
+  # Wait for SPICE socket and launch viewer detached so the install terminal can close
+  local SPICE_SOCK="$NIXOS_STORAGE/spice.sock"
+  echo "Waiting for VM to be ready..."
+  local WAIT_COUNT=0
+  until [[ -S "$SPICE_SOCK" ]]; do
+    sleep 2
+    WAIT_COUNT=$((WAIT_COUNT + 1))
+    if (( WAIT_COUNT > 60 )); then
+      if [[ "$DEBUG_MODE" = true ]]; then
+        fail_install "startup" "Timeout waiting for NixOS VM SPICE to become ready."
+      fi
+      echo "Timeout: NixOS VM SPICE not ready within 2 minutes"
+      exit 1
+    fi
+  done
+  docker exec "$CONTAINER_NAME" chmod 666 /storage/spice.sock
+  write_runtime_launcher
+
+  if [[ "$DEBUG_MODE" = true ]]; then
+    DEBUG_STATUS="succeeded"
+    DEBUG_MESSAGE="Install completed successfully."
+    write_debug_report
+    print_debug_summary
+  fi
+
+  echo ""
+  echo "NixOS installer VM started! Launching..."
+  echo "Complete the NixOS installation as you would on real hardware."
+  echo "Once done and you've shut the guest down cleanly, run:"
+  echo "  omarchy-nixos-vm finish-install"
+  echo "so future launches boot your installed system instead of the"
+  echo "installer again."
+  echo ""
+  echo "NOTE: the ~/NixOS shared-folder mount that Kali/Parrot/Arch set up"
+  echo "automatically is NOT wired up here yet -- there's no offline patch"
+  echo "step for NixOS to inject that fstab entry into. Set it up yourself"
+  echo "inside your NixOS configuration.nix if you want it (9p mount,"
+  echo "same convention as the others: /dev/root_9p at /shared)."
+  # Launch viewer detached so the install terminal can close immediately.
+  # Uses a wrapper subshell (not bare setsid) so that when the viewer window
+  # is closed, the container is stopped — matching launch_nixos's default behavior.
+  setsid bash -c "
+    remote-viewer 'spice+unix://$SPICE_SOCK' -t 'NixOS VM' --auto-resize=always &>/dev/null
+    # Graceful ACPI shutdown so guest can flush writes to QCOW2
+    docker exec '$CONTAINER_NAME' bash -c 'echo system_powerdown | nc -q1 localhost 7100' 2>/dev/null || true
+    WAIT=0
+    while docker inspect --format='{{.State.Status}}' '$CONTAINER_NAME' 2>/dev/null | grep -q running; do
+      sleep 2
+      WAIT=\$((WAIT + 1))
+      (( WAIT > 30 )) && break
+    done
+    docker compose -f '$COMPOSE_FILE' down 2>/dev/null || true
+    rm -f '$SPICE_SOCK'
+  " &>/dev/null &
+}
+
+finish_nixos_install() {
+  parse_debug_flag finish-install "$@"
+
+  local ISO="$NIXOS_STORAGE/boot.iso"
+
+  if [[ ! -f "$ISO" ]]; then
+    echo "No installer ISO found -- either you've already run finish-install,"
+    echo "or omarchy-nixos-vm install hasn't been run yet."
+    exit 0
+  fi
+
+  echo "This removes the installer ISO so future launches boot your"
+  echo "installed NixOS system directly instead of the installer again."
+  echo ""
+  echo "Only do this once you've completed the NixOS installation and"
+  echo "shut the guest down cleanly from inside the installer -- if you"
+  echo "haven't finished installing yet, removing this now just means"
+  echo "you'd need to run 'omarchy-nixos-vm install' again to get the"
+  echo "installer back."
+  echo ""
+
+  if ! gum confirm "Have you finished installing NixOS and shut the VM down?"; then
+    echo "Cancelled. Run this again once the install is actually complete."
+    exit 1
+  fi
+
+  if docker inspect --format='{{.State.Status}}' "$CONTAINER_NAME" 2>/dev/null | grep -q running; then
+    echo "Stopping the running VM first..."
+    docker compose -f "$COMPOSE_FILE" down 2>/dev/null || true
+  fi
+
+  rm -f "$ISO"
+  echo ""
+  echo "Installer ISO removed. Run 'omarchy-nixos-vm launch' to boot your"
+  echo "installed NixOS system directly."
+}
+
+
+remove_nixos() {
+  parse_debug_flag remove "$@"
+  check_remove_dependencies
+
+  print_remove_preview
+
+  if ! gum confirm --default=false "Remove NixOS VM and delete all associated data?"; then
+    echo "Removal cancelled by user"
+    exit 1
+  fi
+
+  echo "Removing NixOS VM..."
+  DEBUG_STAGE="remove"
+
+  best_effort_remove_docker_artifacts
+
+  if [[ "$DEBUG_MODE" = true ]]; then
+    preserve_remove_debug_artifacts
+  fi
+
+  rm -rf "$NIXOS_CONFIG_DIR"
+  rm -rf "$NIXOS_STORAGE"
+  rm -rf "$NIXOS_SHARED_DIR"
+  remove_runtime_launcher
+
+  if [[ "$DEBUG_MODE" = true ]]; then
+    DEBUG_STATUS="succeeded"
+    DEBUG_MESSAGE="Remove completed with debug retention enabled."
+    write_debug_report
+    print_debug_summary
+  fi
+
+  echo ""
+  echo "NixOS VM removal completed!"
+}
+
+launch_nixos() {
+  check_launch_dependencies
+  KEEP_ALIVE=false
+  if [[ "${1:-}" = "--keep-alive" ]] || [[ "${1:-}" = "-k" ]]; then
+    KEEP_ALIVE=true
+  fi
+
+  # Check if config exists
+  if [[ ! -f $COMPOSE_FILE ]]; then
+    echo "NixOS VM not configured. Please run: omarchy-nixos-vm install"
+    exit 1
+  fi
+
+  ensure_nixos_runtime_config
+
+  # Check if container is already running
+  CONTAINER_STATUS=$(docker inspect --format='{{.State.Status}}' "$CONTAINER_NAME" 2>/dev/null || true)
+
+  local SPICE_SOCK="$NIXOS_STORAGE/spice.sock"
+
+  if [[ $CONTAINER_STATUS != "running" ]]; then
+    echo "Starting NixOS VM..."
+    notify_if_available "Starting NixOS VM" "This can take 15-30 seconds" -t 15000
+
+    # Remove stale socket so we can detect when QEMU creates a fresh one
+    rm -f "$SPICE_SOCK"
+    cleanup_stale_data_disk
+
+    if ! docker compose -f "$COMPOSE_FILE" up -d 2>&1; then
+      echo "Failed to start NixOS VM!"
+      notify_if_available -u critical "NixOS VM" "Failed to start NixOS VM"
+      exit 1
+    fi
+  fi
+
+  # Wait for SPICE Unix socket to appear
+  echo "Waiting for NixOS VM to be ready..."
+  WAIT_COUNT=0
+  until [[ -S "$SPICE_SOCK" ]]; do
+    sleep 2
+    WAIT_COUNT=$((WAIT_COUNT + 1))
+    if (( WAIT_COUNT > 60 )); then
+      echo "Timeout: NixOS VM SPICE not ready within 2 minutes"
+      notify_if_available -u critical "NixOS VM" "SPICE not ready"
+      exit 1
+    fi
+  done
+  # Socket is created by root inside the container; make it connectable by the host user
+  docker exec "$CONTAINER_NAME" chmod 666 /storage/spice.sock
+
+  if [[ -t 1 ]]; then
+    if [[ $KEEP_ALIVE = "true" ]]; then
+      LIFECYCLE="VM will keep running after viewer closes
+To stop: omarchy-nixos-vm stop"
+    else
+      LIFECYCLE="VM will auto-stop when viewer closes"
+    fi
+    gum style \
+      --border normal \
+      --padding "1 2" \
+      --margin "1" \
+      --align center \
+      "Connecting to NixOS VM" \
+      "" \
+      "$LIFECYCLE"
+  fi
+
+  # Connect with SPICE via Unix socket
+  remote-viewer "spice+unix://$SPICE_SOCK" -t "NixOS VM" --auto-resize=always
+
+  # After viewer closes, stop the container unless --keep-alive was specified
+  if [[ $KEEP_ALIVE = "false" ]]; then
+    echo ""
+    echo "SPICE session closed. Stopping NixOS VM..."
+    graceful_shutdown
+    echo "NixOS VM stopped."
+  else
+    echo ""
+    echo "SPICE session closed. NixOS VM is still running."
+    echo "To stop it: omarchy-nixos-vm stop"
+  fi
+}
+
+graceful_shutdown() {
+  # Send ACPI shutdown via QEMU monitor so the guest can shut down cleanly
+  # and flush all writes to the QCOW2 before the container is stopped.
+  if docker inspect --format='{{.State.Status}}' "$CONTAINER_NAME" 2>/dev/null | grep -q running; then
+    echo "Sending ACPI shutdown to guest..."
+    docker exec "$CONTAINER_NAME" bash -c 'echo "system_powerdown" | nc -q1 localhost 7100' 2>/dev/null || true
+    # Wait for the guest to shut down (QEMU exits, container stops)
+    while docker inspect --format='{{.State.Status}}' "$CONTAINER_NAME" 2>/dev/null | grep -q running; do
+      local WAIT=0
+      sleep 2
+      WAIT=$((WAIT + 1))
+      if (( WAIT > 30 )); then
+        echo "Guest did not shut down within 60s, forcing stop..."
+        break
+      fi
+    done
+  fi
+  docker compose -f "$COMPOSE_FILE" down 2>/dev/null || true
+  rm -f "$NIXOS_STORAGE/spice.sock"
+}
+
+stop_nixos() {
+  check_common_dependencies
+  if [[ ! -f $COMPOSE_FILE ]]; then
+    echo "NixOS VM not configured."
+    exit 1
+  fi
+
+  echo "Stopping NixOS VM..."
+  graceful_shutdown
+  echo "NixOS VM stopped."
+}
+
+status_nixos() {
+  check_common_dependencies
+  if [[ ! -f $COMPOSE_FILE ]]; then
+    echo "NixOS VM not configured."
+    echo "To set up: omarchy-nixos-vm install"
+    exit 1
+  fi
+
+  CONTAINER_STATUS=$(docker inspect --format='{{.State.Status}}' "$CONTAINER_NAME" 2>/dev/null || true)
+
+  if [[ -z $CONTAINER_STATUS ]]; then
+    echo "NixOS VM container not found."
+    echo "To start: omarchy-nixos-vm launch"
+  elif [[ $CONTAINER_STATUS = "running" ]]; then
+    gum style \
+      --border normal \
+      --padding "1 2" \
+      --margin "1" \
+      --align left \
+      "NixOS VM Status: RUNNING" \
+      "" \
+      "To connect: omarchy-nixos-vm launch" \
+      "To stop:    omarchy-nixos-vm stop"
+  else
+    echo "NixOS VM is stopped (status: $CONTAINER_STATUS)"
+    echo "To start: omarchy-nixos-vm launch"
+  fi
+}
+
+show_usage() {
+  echo "Usage: omarchy-nixos-vm [command] [options]"
+  echo ""
+  echo "Commands:"
+  echo "  install [--debug]    Download the NixOS installer and boot it (first-time setup)"
+  echo "  finish-install        Remove the installer ISO once NixOS is installed,"
+  echo "                        so future launches boot your system directly"
+  echo "  remove [--debug]     Remove NixOS VM and all its data"
+  echo "  launch [options]     Start NixOS VM (if needed) and connect via SPICE"
+  echo "                       Options:"
+  echo "                         --keep-alive, -k   Keep VM running after viewer closes"
+  echo "  stop                 Stop the running NixOS VM"
+  echo "  status               Show current VM status"
+  echo "  help                 Show this help message"
+  echo ""
+  echo "Examples:"
+  echo "  omarchy-nixos-vm install           # Download installer ISO and boot it"
+  echo "  omarchy-nixos-vm finish-install    # Remove installer after NixOS is installed"
+  echo "  omarchy-nixos-vm launch            # Connect to VM (auto-stop on exit)"
+  echo "  omarchy-nixos-vm launch -k         # Connect to VM (keep running)"
+  echo "  omarchy-nixos-vm remove --debug    # Remove runtime state but preserve archives"
+  echo "  omarchy-nixos-vm stop              # Shut down the VM"
+  echo ""
+  echo "Notes:"
+  echo "  install will exit if managed NixOS VM state already exists."
+  echo "  Closing the viewer powers down the VM by default."
+  echo "  Unlike Kali/Parrot/Arch, this boots the official NixOS installer --"
+  echo "  you complete the actual OS install yourself, same as on real"
+  echo "  hardware, then run finish-install once."
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  # Main command dispatcher
+  case "${1:-}" in
+    install)
+      shift
+      install_nixos "$@"
+      ;;
+    finish-install)
+      shift
+      finish_nixos_install "$@"
+      ;;
+    remove)
+      shift
+      remove_nixos "$@"
+      ;;
+    launch|start)
+      launch_nixos "${2:-}"
+      ;;
+    stop|down)
+      stop_nixos
+      ;;
+    status)
+      status_nixos
+      ;;
+    help|--help|-h|"")
+      show_usage
+      ;;
+    *)
+      echo "Unknown command: $1" >&2
+      echo "" >&2
+      show_usage >&2
+      exit 1
+      ;;
+  esac
+fi
