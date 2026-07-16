@@ -60,9 +60,10 @@ pkg/
 !.local/bin/omarchy-webp-convert
 !.local/bin/omarchy-toggle-niri-mode
 
-# .local/share — only descend into applications/
+# .local/share — only descend into applications and icons/
 .local/share/*
 !.local/share/applications/
+!.local/share/icons/
 
 # .local/share/applications — keep only these 3 desktop files + icons/
 .local/share/applications/*
@@ -77,3 +78,8 @@ pkg/
 !.local/share/applications/icons/Instagram.png
 !.local/share/applications/icons/Reddit.png
 !.local/share/applications/icons/Superfile.png
+
+# .local/share/icons - keep only this two files
+.local/share/icons/*
+!.local/share/icons/Dracula/
+!.local/share/icons/volantes_cursors/
