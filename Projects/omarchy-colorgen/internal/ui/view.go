@@ -55,7 +55,12 @@ func (m Model) pickerView(w, h int) string {
 	b.WriteString(paneTitleStyle.Render(fmt.Sprintf("Wallpapers (%d)", len(m.filtered))))
 	b.WriteString("\n\n")
 
-	rows := h - 3
+	cur, hasCurrent := m.current()
+	groupOverhead := 0
+	if hasCurrent {
+		groupOverhead = 2
+	}
+	rows := h - 3 - groupOverhead
 	if rows < 1 {
 		rows = 1
 	}
@@ -86,7 +91,7 @@ func (m Model) pickerView(w, h int) string {
 		b.WriteString(line)
 		b.WriteString("\n")
 	}
-	if cur, ok := m.current(); ok {
+	if hasCurrent {
 		b.WriteString("\n")
 		b.WriteString(itemGroupStyle.Render(truncate(cur.Group+"/", inner)))
 	}
