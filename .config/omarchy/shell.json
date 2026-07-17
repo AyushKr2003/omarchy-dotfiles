@@ -28,9 +28,7 @@
           "verticalFormat": "hh\n—\nmm\nAP"
         },
         {
-          "id": "local.weather",
-          "unit": "metric",
-          "location": "Patna"
+          "id": "omarchy.weather",
         },
         {
           "id": "omarchy.system-update"
