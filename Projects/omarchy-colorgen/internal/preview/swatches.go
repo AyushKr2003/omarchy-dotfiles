@@ -62,7 +62,7 @@ func Swatches(p palette.Palette, width int) string {
 	for _, row := range rows {
 		var cells []string
 		for _, s := range row {
-			cells = append(cells, swatchCell(s.name, s.hex, cellW))
+			cells = append(cells, swatchCell(s.name, s.hex, cellW, use4))
 		}
 		// Pad short rows to match column count for consistent alignment.
 		for len(cells) < nCol {
@@ -73,13 +73,17 @@ func Swatches(p palette.Palette, width int) string {
 	return strings.Join(lines, "\n")
 }
 
-func swatchCell(name, hex string, w int) string {
+func swatchCell(name, hex string, w int, tall bool) string {
 	fg := readableOn(hex)
+	vPad := 0
+	if tall {
+		vPad = 1
+	}
 	block := lipgloss.NewStyle().
 		Background(lipgloss.Color(hex)).
 		Foreground(lipgloss.Color(fg)).
 		Width(w).
-		Padding(1, 1).
+		Padding(vPad, 1).
 		Render(fmt.Sprintf("%-7s %s", name, hex))
 	return block
 }

@@ -149,8 +149,8 @@ func TestSwatches_WidthConstrained(t *testing.T) {
 	// Narrow should have more lines (8 vs 4 rows).
 	nLines := len(strings.Split(strings.TrimSuffix(narrow, "\n"), "\n"))
 	wLines := len(strings.Split(strings.TrimSuffix(wide, "\n"), "\n"))
-	if nLines <= wLines {
-		t.Errorf("narrow layout (%d lines) should have more lines than wide (%d)", nLines, wLines)
+	if nLines >= wLines {
+		t.Errorf("narrow layout (%d lines) should have fewer lines than wide (%d)", nLines, wLines)
 	}
 }
 
