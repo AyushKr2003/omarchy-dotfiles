@@ -27,17 +27,19 @@ package() {
   cd "${startdir}"
 
   install -Dm755 "bin/omarchy-kali-vm" "${pkgdir}/usr/bin/omarchy-kali-vm"
-  install -Dm755 "bin/omarchy-security-vm-integrate-os" "${pkgdir}/usr/bin/omarchy-security-vm-integrate-os"
-  install -Dm755 "bin/omarchy-security-vm-unintegrate-os" "${pkgdir}/usr/bin/omarchy-security-vm-unintegrate-os"
+  install -Dm755 "bin/omarchy-vm-integrate-os" "${pkgdir}/usr/bin/omarchy-vm-integrate-os"
+  install -Dm755 "bin/omarchy-vm-unintegrate-os" "${pkgdir}/usr/bin/omarchy-vm-unintegrate-os"
   install -Dm755 "bin/omarchy-parrot-vm" "${pkgdir}/usr/bin/omarchy-parrot-vm"
+  install -Dm755 "bin/omarchy-arch-vm" "${pkgdir}/usr/bin/omarchy-arch-vm"
   install -Dm755 "bin/omarchy-nixos-vm" "${pkgdir}/usr/bin/omarchy-nixos-vm"
-  install -Dm755 "bin/omarchy-security-vm" "${pkgdir}/usr/bin/omarchy-security-vm"
+  install -Dm755 "bin/omarchy-vm" "${pkgdir}/usr/bin/omarchy-vm"
 
   install -Dm644 "assets/icons/kali.png" "${pkgdir}/usr/share/icons/hicolor/512x512/apps/omarchy-kali-vm.png"
   install -Dm644 "assets/icons/parrot.png" "${pkgdir}/usr/share/icons/hicolor/512x512/apps/omarchy-parrot-vm.png"
+  install -Dm644 "assets/icons/arch.png" "${pkgdir}/usr/share/icons/hicolor/512x512/apps/omarchy-arch-vm.png"
+  install -Dm644 "assets/icons/nixos.png" "${pkgdir}/usr/share/icons/hicolor/512x512/apps/omarchy-nixos-vm.png"
 
   install -Dm644 "share/hypr/omarchy-security-vm.lua" "${pkgdir}/usr/share/omarchy-security-vm/hypr/omarchy-security-vm.lua"
-  install -Dm644 "share/omarchy-menu.jsonc" "${pkgdir}/usr/share/omarchy-security-vm/omarchy-menu.jsonc"
 
   install -Dm644 "README.md" "${pkgdir}/usr/share/doc/${pkgname}/README.md"
   install -Dm644 "docs/cleanup.md" "${pkgdir}/usr/share/doc/${pkgname}/cleanup.md"
