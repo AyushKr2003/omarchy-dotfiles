@@ -25,6 +25,7 @@ const (
 	inputFilter
 	inputSave
 	inputExport
+	inputPath
 )
 
 // Model is the root Bubble Tea model.
@@ -64,11 +65,12 @@ type Model struct {
 	statusErr bool
 	showHelp  bool
 
-	kitty     bool
-	omarchyOK bool
-	width     int
-	height    int
-	ready     bool
+	showHidden bool
+	kitty      bool
+	omarchyOK  bool
+	width      int
+	height     int
+	ready      bool
 }
 
 // New builds the initial model. The UI opens on the folder picker so the user
@@ -172,12 +174,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		if m.screen == screenFolder {
+			if m.inputMode == inputPath {
+				return m.updateInput(msg)
+			}
 			return m.updateFolder(msg)
 		}
 		if m.inputMode != inputNone {
 			return m.updateInput(msg)
 		}
 		return m.updateNormal(msg)
+	}
+
+	// Forward unhandled messages to the active textinput so its cursor blink
+	// and other internal state stays alive.
+	if m.inputMode != inputNone {
+		var cmd tea.Cmd
+		m.input, cmd = m.input.Update(msg)
+		return m, cmd
 	}
 	return m, nil
 }
@@ -239,8 +252,7 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case key.Matches(msg, m.keys.Filter):
-		m.beginInput(inputFilter, "filter: ", "")
-		return m, nil
+		return m, m.beginInput(inputFilter, "filter: ", "")
 
 	case key.Matches(msg, m.keys.Open):
 		// Reopen the folder picker to switch wallpaper directories.
@@ -263,8 +275,7 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.setStatus("nothing to export yet", true)
 			return m, nil
 		}
-		m.beginInput(inputExport, "export theme folder: ", defaultExportPath(m))
-		return m, nil
+		return m, m.beginInput(inputExport, "export theme folder: ", defaultExportPath(m))
 	}
 	return m, nil
 }
@@ -315,6 +326,19 @@ func (m Model) confirmInput(mode inputMode, val string) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m.saveTheme(val, m.applyAfter)
+
+	case inputPath:
+		if val == "" {
+			return m, nil
+		}
+		val = expand(val)
+		info, err := os.Stat(val)
+		if err != nil || !info.IsDir() {
+			m.setStatus("not a directory: "+val, true)
+			return m, nil
+		}
+		m.initFolder(val)
+		return m, nil
 	}
 	return m, nil
 }
@@ -360,16 +384,15 @@ func (m *Model) beginSave(apply bool) (tea.Model, tea.Cmd) {
 	if apply {
 		label = "apply as: "
 	}
-	m.beginInput(inputSave, label, def)
-	return m, nil
+	return m, m.beginInput(inputSave, label, def)
 }
 
-func (m *Model) beginInput(mode inputMode, prompt, value string) {
+func (m *Model) beginInput(mode inputMode, prompt, value string) tea.Cmd {
 	m.inputMode = mode
 	m.input.Prompt = prompt
 	m.input.SetValue(value)
 	m.input.CursorEnd()
-	m.input.Focus()
+	return m.input.Focus()
 }
 
 func (m *Model) endInput() {

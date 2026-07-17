@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -20,25 +21,16 @@ const (
 	screenMain
 )
 
-// defaultStartDir picks a sensible directory to open the folder browser in.
+// defaultStartDir opens the folder browser at $HOME.
 func defaultStartDir() string {
-	home := os.Getenv("HOME")
-	for _, c := range []string{
-		filepath.Join(home, ".config", "omarchy", "backgrounds"),
-		filepath.Join(home, "Pictures", "Wallpapers"),
-		filepath.Join(home, "Pictures"),
-	} {
-		if info, err := os.Stat(c); err == nil && info.IsDir() {
-			return c
-		}
-	}
-	if home != "" {
+	if home := os.Getenv("HOME"); home != "" {
 		return home
 	}
 	return "."
 }
 
 // initFolder loads the browser at dir, listing its immediate subdirectories.
+// Hidden directories are included only when m.showHidden is true.
 func (m *Model) initFolder(dir string) {
 	abs, err := filepath.Abs(dir)
 	if err != nil {
@@ -55,9 +47,13 @@ func (m *Model) initFolder(dir string) {
 	}
 	var dirs []string
 	for _, e := range entries {
-		if e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
-			dirs = append(dirs, e.Name())
+		if !e.IsDir() {
+			continue
 		}
+		if !m.showHidden && strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		dirs = append(dirs, e.Name())
 	}
 	sort.Strings(dirs)
 	m.fpDirs = dirs
@@ -121,6 +117,18 @@ func (m Model) updateFolder(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.initFolder(filepath.Join(m.fpDir, row.name))
 			return m, nil
 		}
+
+	case key.Matches(msg, m.keys.ToggleHidden):
+		m.showHidden = !m.showHidden
+		m.initFolder(m.fpDir)
+		return m, nil
+
+	case key.Matches(msg, m.keys.WritePath):
+		m.inputMode = inputPath
+		m.input.Prompt = "path: "
+		m.input.SetValue(m.fpDir)
+		m.input.CursorEnd()
+		return m, m.input.Focus()
 	}
 	return m, nil
 }
@@ -149,8 +157,6 @@ func (m Model) folderView() string {
 	title := titleStyle.Render("omarchy-colorgen") + "  " +
 		mutedStyle.Render("choose your wallpaper folder")
 
-	path := paneTitleStyle.Render("📁 " + m.fpDir)
-
 	rows := m.folderRows()
 	visible := m.height - 10
 	if visible < 3 {
@@ -163,6 +169,14 @@ func (m Model) folderView() string {
 	end := start + visible
 	if end > len(rows) {
 		end = len(rows)
+	}
+
+	hiddenLabel := fmt.Sprintf("  [hidden:%s]", map[bool]string{true: "on", false: "off"}[m.showHidden])
+	path := paneTitleStyle.Render("📁 " + m.fpDir) + mutedStyle.Render(hiddenLabel)
+
+	var inputLine string
+	if m.inputMode == inputPath {
+		inputLine = "\n" + m.input.View()
 	}
 
 	var lines []string
@@ -184,11 +198,10 @@ func (m Model) folderView() string {
 	}
 	list := strings.Join(lines, "\n")
 
-	box := paneStyle.Width(min2(m.width-4, 70)).Render(
-		path + "\n\n" + list,
-	)
+	boxInner := path + "\n\n" + inputLine + list
+	box := paneStyle.Width(min2(m.width-4, 70)).Render(boxInner)
 
-	hint := mutedStyle.Render("↑/↓ move · enter/→ open · ← up · enter on “Use this folder” to pick · q quit")
+	hint := mutedStyle.Render("  ↑/↓ · ← up · enter/→ open · ctrl+./. hidden · ctrl+p/p path · q quit")
 	var status string
 	if m.status != "" && m.statusErr {
 		status = errStyle.Render("✗ " + m.status)

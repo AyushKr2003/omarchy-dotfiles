@@ -1,7 +1,7 @@
 # Maintainer: AyushKr2003
 
 pkgname=omarchy-colorgen
-pkgver=0.1.0
+pkgver=0.1.2
 pkgrel=1
 pkgdesc="Interactive and headless wallpaper-to-Omarchy-theme generator using iris"
 arch=('x86_64')
