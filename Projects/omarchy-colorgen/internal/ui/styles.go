@@ -47,4 +47,7 @@ var (
 	// sectionLabelStyle heads each preview section (palette, editor).
 	sectionLabelStyle = lipgloss.NewStyle().
 				Foreground(colMuted).Bold(true)
+
+	// spacerStyle renders a visual gap between sections in a horizontal layout.
+	spacerStyle = lipgloss.NewStyle().Width(2)
 )

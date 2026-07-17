@@ -117,12 +117,10 @@ func (m Model) previewView(w, h int) string {
 	var sections []string
 
 	// Wallpaper thumbnail — half-block ANSI art inside a subtle frame.
-	// When running under Kitty the thumbnail lives alongside the ANSI art;
-	// Kitty inline images are placed by updateKittyThumbnail, not here,
-	// because Bubble Tea's VT engine strips APC sequences.
-	thumbRows := h/2 - 3
-	if thumbRows > 14 {
-		thumbRows = 14
+	// The thumbnail fills most of the upper pane so the wallpaper is the hero.
+	thumbRows := h/2 - 2
+	if thumbRows > 16 {
+		thumbRows = 16
 	}
 	if thumbRows >= 3 {
 		if cur, ok := m.current(); ok {
@@ -138,12 +136,29 @@ func (m Model) previewView(w, h int) string {
 		}
 	}
 
-	sections = append(sections, lipgloss.JoinVertical(lipgloss.Left,
-		sectionLabelStyle.Render("PALETTE"), preview.Swatches(m.pal)))
-
+	// Palette and editor — side by side when the pane is wide enough
+	// (half ≥ ~31 cols for 2‑column swatches + narrow MockUI), stacked
+	// vertically otherwise. Editor is hidden on short terminals (<30 rows).
+	paletteSection := lipgloss.JoinVertical(lipgloss.Left,
+		sectionLabelStyle.Render("PALETTE"), preview.Swatches(m.pal, 0))
 	if h > 24 {
-		sections = append(sections, lipgloss.JoinVertical(lipgloss.Left,
-			sectionLabelStyle.Render("EDITOR"), preview.MockUI(m.pal)))
+		editorSection := lipgloss.JoinVertical(lipgloss.Left,
+			sectionLabelStyle.Render("EDITOR"), preview.MockUI(m.pal, 0))
+		if inner >= 66 {
+			half := (inner - 2) / 2
+			paletteSection = lipgloss.JoinVertical(lipgloss.Left,
+				sectionLabelStyle.Render("PALETTE"), preview.Swatches(m.pal, half))
+			editorSection = lipgloss.JoinVertical(lipgloss.Left,
+				sectionLabelStyle.Render("EDITOR"), preview.MockUI(m.pal, half))
+			sections = append(sections,
+				lipgloss.JoinHorizontal(lipgloss.Top,
+					paletteSection, spacerStyle.Render(""), editorSection))
+		} else {
+			sections = append(sections, paletteSection)
+			sections = append(sections, editorSection)
+		}
+	} else {
+		sections = append(sections, paletteSection)
 	}
 
 	// A blank line between each section gives the pane breathing room.
