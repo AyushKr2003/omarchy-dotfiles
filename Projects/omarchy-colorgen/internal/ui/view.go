@@ -1,0 +1,207 @@
+package ui
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/charmbracelet/lipgloss"
+
+	"omarchy-colorgen/internal/preview"
+)
+
+func (m Model) View() string {
+	if !m.ready {
+		return "loading…"
+	}
+	if m.screen == screenFolder {
+		return m.folderView()
+	}
+	if m.width < 60 || m.height < 20 {
+		return "terminal too small — resize to at least 60x20"
+	}
+
+	title := titleStyle.Render("omarchy-colorgen") + "  " +
+		mutedStyle.Render("wallpaper → Omarchy theme")
+
+	modeBadge := badgeDark.Render(" DARK ")
+	if m.mode.Label() == "LIGHT" {
+		modeBadge = badgeLight.Render(" LIGHT ")
+	}
+	header := lipgloss.JoinHorizontal(lipgloss.Center,
+		title, strings.Repeat(" ", max0(m.width-lipgloss.Width(title)-lipgloss.Width(modeBadge)-2)), modeBadge)
+
+	bodyH := m.height - 4 // title + footer(2) + spacing
+	if bodyH < 6 {
+		bodyH = 6
+	}
+
+	leftW := 34
+	if leftW > m.width/2 {
+		leftW = m.width / 2
+	}
+	rightW := m.width - leftW - 4
+
+	left := paneStyle.Width(leftW).Height(bodyH).Render(m.pickerView(leftW, bodyH))
+	right := paneStyle.Width(rightW).Height(bodyH).Render(m.previewView(rightW, bodyH))
+	body := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
+
+	return lipgloss.JoinVertical(lipgloss.Left, header, body, m.footerView())
+}
+
+func (m Model) pickerView(w, h int) string {
+	var b strings.Builder
+	b.WriteString(paneTitleStyle.Render(fmt.Sprintf("Wallpapers (%d)", len(m.filtered))))
+	b.WriteString("\n\n")
+
+	rows := h - 3
+	if rows < 1 {
+		rows = 1
+	}
+	start := 0
+	if m.cursor >= rows {
+		start = m.cursor - rows + 1
+	}
+	end := start + rows
+	if end > len(m.filtered) {
+		end = len(m.filtered)
+	}
+
+	inner := w - 2
+	if len(m.filtered) == 0 {
+		b.WriteString(mutedStyle.Render("no wallpapers found\npress 'o' to open a path"))
+		return b.String()
+	}
+
+	for i := start; i < end; i++ {
+		wp := m.filtered[i]
+		label := truncate(wp.Name, inner-2)
+		line := "  " + label
+		if i == m.cursor {
+			line = selectedItemStyle.Width(inner).Render("▸ " + label)
+		} else {
+			line = itemStyle.Render("  " + label)
+		}
+		b.WriteString(line)
+		b.WriteString("\n")
+	}
+	if cur, ok := m.current(); ok {
+		b.WriteString("\n")
+		b.WriteString(itemGroupStyle.Render(truncate(cur.Group+"/", inner)))
+	}
+	return b.String()
+}
+
+func (m Model) previewView(w, h int) string {
+	if m.generating {
+		return m.spinner.View() + " generating palette…"
+	}
+	if !m.haveTheme {
+		if m.status != "" {
+			return errStyle.Render(m.status)
+		}
+		return mutedStyle.Render("select a wallpaper to preview")
+	}
+
+	inner := w - 4 // account for pane border + horizontal padding
+	if inner < 1 {
+		inner = 1
+	}
+
+	var sections []string
+
+	// Wallpaper thumbnail, left-aligned and labeled like the other sections,
+	// keeping the source aspect ratio inside a subtle frame.
+	thumbRows := h/2 - 3
+	if thumbRows > 14 {
+		thumbRows = 14
+	}
+	if thumbRows >= 3 {
+		if cur, ok := m.current(); ok {
+			thumbCols := inner - 2 // leave room for the frame border
+			if thumbCols > 8 {
+				art := preview.Thumbnail(cur.Path, thumbCols, thumbRows)
+				framed := thumbFrameStyle.Render(art)
+				name := mutedStyle.Render(truncate(cur.Name, inner))
+				sections = append(sections, lipgloss.JoinVertical(lipgloss.Left,
+					sectionLabelStyle.Render("WALLPAPER"), framed, name))
+			}
+		}
+	}
+
+	sections = append(sections, lipgloss.JoinVertical(lipgloss.Left,
+		sectionLabelStyle.Render("PALETTE"), preview.Swatches(m.pal)))
+
+	if h > 24 {
+		sections = append(sections, lipgloss.JoinVertical(lipgloss.Left,
+			sectionLabelStyle.Render("EDITOR"), preview.MockUI(m.pal)))
+	}
+
+	// A blank line between each section gives the pane breathing room.
+	return strings.Join(sections, "\n\n")
+}
+
+func (m Model) footerView() string {
+	if m.inputMode != inputNone {
+		return m.input.View()
+	}
+
+	var status string
+	if m.status != "" {
+		if m.statusErr {
+			status = errStyle.Render("✗ " + m.status)
+		} else {
+			status = okStyle.Render("✓ " + m.status)
+		}
+	}
+
+	var help string
+	if m.showHelp {
+		help = m.fullHelp()
+	} else {
+		var parts []string
+		for _, k := range m.keys.shortHelp() {
+			h := k.Help()
+			parts = append(parts, mutedStyle.Render(h.Key)+" "+h.Desc)
+		}
+		help = strings.Join(parts, mutedStyle.Render(" · "))
+	}
+
+	if status != "" {
+		return status + "\n" + help
+	}
+	return help + "\n" + mutedStyle.Render("press ? for all keys")
+}
+
+func (m Model) fullHelp() string {
+	lines := []string{
+		"↑/k, ↓/j  navigate wallpapers",
+		"d         toggle dark / light (default dark)",
+		"/         filter list      o  change wallpaper folder",
+		"g         regenerate       r  reload wallpaper list",
+		"w         peek full image (kitty)",
+		"s         save theme       a  save + apply (omarchy-theme-set)",
+		"e         export full theme folder",
+		"?         toggle help      q  quit",
+	}
+	return mutedStyle.Render(strings.Join(lines, "\n"))
+}
+
+func truncate(s string, n int) string {
+	if n < 1 {
+		return ""
+	}
+	if lipgloss.Width(s) <= n {
+		return s
+	}
+	if n <= 1 {
+		return "…"
+	}
+	return s[:n-1] + "…"
+}
+
+func max0(n int) int {
+	if n < 0 {
+		return 0
+	}
+	return n
+}

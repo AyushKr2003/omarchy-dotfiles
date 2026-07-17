@@ -1,0 +1,13 @@
+# Binaries
+/omarchy-colorgen
+/dist/
+
+# Go
+*.test
+*.out
+coverage.*
+
+# Editor
+.idea/
+.vscode/
+*.swp
