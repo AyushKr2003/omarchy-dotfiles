@@ -46,14 +46,19 @@ func swatchCell(name, hex string) string {
 // the syntax colors, and a status line) painted with the palette so the user
 // can judge the theme in context.
 func MockUI(p palette.Palette) string {
+	bg := p.Bg
+
 	card := lipgloss.NewStyle().
-		Background(lipgloss.Color(p.Bg)).
+		Background(lipgloss.Color(bg)).
 		Foreground(lipgloss.Color(p.Fg)).
 		Padding(1, 2).
 		Width(46)
 
+	// Every inline piece must set its own background so ANSI resets from inner
+	// style render calls don't clear the card's background for surrounding text.
 	title := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(p.Accent)).
+		Background(lipgloss.Color(bg)).
 		Bold(true).
 		Render("● ● ●  ~/project — nvim")
 
@@ -63,20 +68,26 @@ func MockUI(p palette.Palette) string {
 	com := colorOr(p.SyntaxComment, p.Muted)
 	typ := colorOr(p.SyntaxType, p.Yellow)
 
+	on := func(fg, text string) string {
+		return lipgloss.NewStyle().
+			Background(lipgloss.Color(bg)).
+			Foreground(lipgloss.Color(fg)).
+			Render(text)
+	}
 	line := func(parts ...string) string { return strings.Join(parts, "") }
 	code := strings.Join([]string{
-		style(com, "// build the greeting"),
-		line(style(kw, "func "), style(fn, "greet"), style(p.Fg, "("), style(typ, "name string"), style(p.Fg, ") {")),
-		line("  ", style(fn, "print"), style(p.Fg, "("), style(str, "\"hi, \""), style(p.Fg, " + name)")),
-		style(p.Fg, "}"),
+		on(com, "// build the greeting"),
+		line(on(kw, "func "), on(fn, "greet"), on(p.Fg, "("), on(typ, "name string"), on(p.Fg, ") {")),
+		line("  ", on(fn, "print"), on(p.Fg, "("), on(str, "\"hi, \""), on(p.Fg, " + name)")),
+		on(p.Fg, "}"),
 	}, "\n")
 
 	prompt := line(
-		style(p.Green, "user"),
-		style(p.Muted, "@"),
-		style(p.Blue, "omarchy"),
-		style(p.Fg, " $ "),
-		style(p.Accent, "omarchy theme set"),
+		on(p.Green, "user"),
+		on(p.Muted, "@"),
+		on(p.Blue, "omarchy"),
+		on(p.Fg, " $ "),
+		on(p.Accent, "omarchy theme set"),
 	)
 
 	sel := lipgloss.NewStyle().
@@ -86,10 +97,6 @@ func MockUI(p palette.Palette) string {
 
 	body := strings.Join([]string{title, "", code, "", prompt, "", sel}, "\n")
 	return card.Render(body)
-}
-
-func style(hex, text string) string {
-	return lipgloss.NewStyle().Foreground(lipgloss.Color(hex)).Render(text)
 }
 
 func colorOr(primary, fallback string) string {
