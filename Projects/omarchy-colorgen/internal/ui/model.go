@@ -48,6 +48,10 @@ type Model struct {
 	mode  iris.Mode
 	cache map[string]iris.Theme
 
+	// thumbCache memoizes rendered wallpaper thumbnails by "path|colsxrows" so
+	// View never re-decodes an image on a keystroke or spinner tick.
+	thumbCache map[string]string
+
 	theme      iris.Theme
 	pal        palette.Palette
 	haveTheme  bool

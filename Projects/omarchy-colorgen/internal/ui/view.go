@@ -119,7 +119,7 @@ func (m Model) previewView(w, h int) string {
 		if cur, ok := m.current(); ok {
 			thumbCols := inner - 2 // leave room for the frame border
 			if thumbCols > 8 {
-				art := preview.Thumbnail(cur.Path, thumbCols, thumbRows)
+				art := m.thumbnail(cur.Path, thumbCols, thumbRows)
 				framed := thumbFrameStyle.Render(art)
 				name := mutedStyle.Render(truncate(cur.Name, inner))
 				sections = append(sections, lipgloss.JoinVertical(lipgloss.Left,
@@ -138,6 +138,20 @@ func (m Model) previewView(w, h int) string {
 
 	// A blank line between each section gives the pane breathing room.
 	return strings.Join(sections, "\n\n")
+}
+
+// thumbnail returns the half-block render for path at the given cell size,
+// memoized so View does not re-decode the image on every keystroke. The cache
+// map is shared across model copies (maps are reference types), so writing here
+// from a value receiver persists between renders.
+func (m Model) thumbnail(path string, cols, rows int) string {
+	key := fmt.Sprintf("%s|%dx%d", path, cols, rows)
+	if s, ok := m.thumbCache[key]; ok {
+		return s
+	}
+	s := preview.Thumbnail(path, cols, rows)
+	m.thumbCache[key] = s
+	return s
 }
 
 func (m Model) footerView() string {
