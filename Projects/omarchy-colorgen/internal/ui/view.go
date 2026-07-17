@@ -116,21 +116,24 @@ func (m Model) previewView(w, h int) string {
 
 	var sections []string
 
-	// Wallpaper thumbnail, left-aligned and labeled like the other sections,
-	// keeping the source aspect ratio inside a subtle frame.
+	// Wallpaper thumbnail — half-block ANSI art inside a subtle frame.
+	// When running under Kitty the thumbnail lives alongside the ANSI art;
+	// Kitty inline images are placed by updateKittyThumbnail, not here,
+	// because Bubble Tea's VT engine strips APC sequences.
 	thumbRows := h/2 - 3
 	if thumbRows > 14 {
 		thumbRows = 14
 	}
 	if thumbRows >= 3 {
 		if cur, ok := m.current(); ok {
-			thumbCols := inner - 2 // leave room for the frame border
+			thumbCols := inner - 2
 			if thumbCols > 8 {
 				art := m.thumbnail(cur.Path, thumbCols, thumbRows)
-				framed := thumbFrameStyle.Render(art)
 				name := mutedStyle.Render(truncate(cur.Name, inner))
-				sections = append(sections, lipgloss.JoinVertical(lipgloss.Left,
-					sectionLabelStyle.Render("WALLPAPER"), framed, name))
+				framed := thumbFrameStyle.Render(art)
+				thumbPiece := lipgloss.JoinVertical(lipgloss.Left,
+					sectionLabelStyle.Render("WALLPAPER"), framed, name)
+				sections = append(sections, thumbPiece)
 			}
 		}
 	}
@@ -147,10 +150,10 @@ func (m Model) previewView(w, h int) string {
 	return strings.Join(sections, "\n\n")
 }
 
-// thumbnail returns the half-block render for path at the given cell size,
-// memoized so View does not re-decode the image on every keystroke. The cache
-// map is shared across model copies (maps are reference types), so writing here
-// from a value receiver persists between renders.
+// thumbnail returns a half-block ANSI wallpaper preview at the given cell
+// size, memoized so View does not re-decode the image on every keystroke. The
+// cache map is shared across model copies (maps are reference types), so
+// writing here from a value receiver persists between renders.
 func (m Model) thumbnail(path string, cols, rows int) string {
 	key := fmt.Sprintf("%s|%dx%d", path, cols, rows)
 	if s, ok := m.thumbCache[key]; ok {
