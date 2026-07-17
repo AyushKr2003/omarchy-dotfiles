@@ -1,0 +1,26 @@
+# Maintainer: AyushKr2003
+
+pkgname=omarchy-colorgen
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Interactive and headless wallpaper-to-Omarchy-theme generator using iris"
+arch=('x86_64')
+url="https://github.com/Ayushkr2003/omarchy-dotfiles"
+license=('MIT')
+depends=('iris-colors')
+makedepends=('go')
+source=()
+sha256sums=()
+
+build() {
+  cd "${startdir}"
+  go build -o "${pkgname}" .
+}
+
+package() {
+  cd "${startdir}"
+
+  install -Dm755 "${pkgname}" "${pkgdir}/usr/bin/${pkgname}"
+  install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -Dm644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+}

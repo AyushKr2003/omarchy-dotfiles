@@ -109,60 +109,55 @@ func (m Model) previewView(w, h int) string {
 		return mutedStyle.Render("select a wallpaper to preview")
 	}
 
-	inner := w - 4 // account for pane border + horizontal padding
+	inner := w - 4
 	if inner < 1 {
 		inner = 1
 	}
+	contentH := h - 2
 
-	var sections []string
-
-	// Wallpaper thumbnail — half-block ANSI art inside a subtle frame.
-	// The thumbnail fills most of the upper pane so the wallpaper is the hero.
-	thumbRows := h/2 - 2
-	if thumbRows > 16 {
-		thumbRows = 16
-	}
-	if thumbRows >= 3 {
-		if cur, ok := m.current(); ok {
-			thumbCols := inner - 2
-			if thumbCols > 8 {
-				art := m.thumbnail(cur.Path, thumbCols, thumbRows)
-				name := mutedStyle.Render(truncate(cur.Name, inner))
-				framed := thumbFrameStyle.Render(art)
-				thumbPiece := lipgloss.JoinVertical(lipgloss.Left,
-					sectionLabelStyle.Render("WALLPAPER"), framed, name)
-				sections = append(sections, thumbPiece)
-			}
-		}
-	}
-
-	// Palette and editor — side by side when the pane is wide enough
-	// (half ≥ ~31 cols for 2‑column swatches + narrow MockUI), stacked
-	// vertically otherwise. Editor is hidden on short terminals (<30 rows).
-	paletteSection := lipgloss.JoinVertical(lipgloss.Left,
-		sectionLabelStyle.Render("PALETTE"), preview.Swatches(m.pal, 0))
-	if h > 24 {
-		editorSection := lipgloss.JoinVertical(lipgloss.Left,
+	var bottomSection string
+	if h > 24 && inner >= 66 {
+		half := (inner - 2) / 2
+		paletteHalf := lipgloss.JoinVertical(lipgloss.Left,
+			sectionLabelStyle.Render("PALETTE"), preview.Swatches(m.pal, half))
+		editorHalf := lipgloss.JoinVertical(lipgloss.Left,
+			sectionLabelStyle.Render("EDITOR"), preview.MockUI(m.pal, half))
+		bottomSection = lipgloss.JoinHorizontal(lipgloss.Top,
+			paletteHalf, spacerStyle.Render(""), editorHalf)
+	} else if h > 24 {
+		paletteFull := lipgloss.JoinVertical(lipgloss.Left,
+			sectionLabelStyle.Render("PALETTE"), preview.Swatches(m.pal, 0))
+		editorFull := lipgloss.JoinVertical(lipgloss.Left,
 			sectionLabelStyle.Render("EDITOR"), preview.MockUI(m.pal, 0))
-		if inner >= 66 {
-			half := (inner - 2) / 2
-			paletteSection = lipgloss.JoinVertical(lipgloss.Left,
-				sectionLabelStyle.Render("PALETTE"), preview.Swatches(m.pal, half))
-			editorSection = lipgloss.JoinVertical(lipgloss.Left,
-				sectionLabelStyle.Render("EDITOR"), preview.MockUI(m.pal, half))
-			sections = append(sections,
-				lipgloss.JoinHorizontal(lipgloss.Top,
-					paletteSection, spacerStyle.Render(""), editorSection))
-		} else {
-			sections = append(sections, paletteSection)
-			sections = append(sections, editorSection)
-		}
+		bottomSection = lipgloss.JoinVertical(lipgloss.Left,
+			paletteFull, "", editorFull)
 	} else {
-		sections = append(sections, paletteSection)
+		bottomSection = lipgloss.JoinVertical(lipgloss.Left,
+			sectionLabelStyle.Render("PALETTE"), preview.Swatches(m.pal, 0))
+	}
+	bottomH := lipgloss.Height(bottomSection)
+
+	// Background: wallpaper art fills remaining space above palette/editor.
+	// Layout: label + art → 2 spacer rows → bottom → 2 bottom margin (padded by pane).
+	bgArtRows := contentH - 5 - bottomH
+	if bgArtRows < 1 {
+		bgArtRows = 1
 	}
 
-	// A blank line between each section gives the pane breathing room.
-	return strings.Join(sections, "\n\n")
+	var bgSection string
+	if cur, ok := m.current(); ok {
+		bgCols := inner
+		if bgCols > 8 {
+			art := m.thumbnail(cur.Path, bgCols, bgArtRows)
+			bgSection = lipgloss.JoinVertical(lipgloss.Left,
+				sectionLabelStyle.Render("BACKGROUND"), art)
+		}
+	}
+	if bgSection == "" {
+		return bottomSection
+	}
+
+	return strings.Join([]string{bgSection, bottomSection}, "\n\n\n")
 }
 
 // thumbnail returns a half-block ANSI wallpaper preview at the given cell
