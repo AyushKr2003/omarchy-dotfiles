@@ -83,21 +83,25 @@ func New(mode iris.Mode) Model {
 	ti.CharLimit = 256
 
 	m := Model{
-		keys:      defaultKeys(),
-		spinner:   sp,
-		input:     ti,
-		screen:    screenFolder,
-		mode:      mode,
-		cache:     make(map[string]iris.Theme),
-		kitty:     kittyAvailable(),
-		omarchyOK: omarchy.SetAvailable(),
+		keys:       defaultKeys(),
+		spinner:    sp,
+		input:      ti,
+		screen:     screenFolder,
+		mode:       mode,
+		cache:      make(map[string]iris.Theme),
+		thumbCache: make(map[string]string),
+		kitty:      kittyAvailable(),
+		omarchyOK:  omarchy.SetAvailable(),
 	}
 	m.initFolder(defaultStartDir())
 	return m
 }
 
 func (m Model) Init() tea.Cmd {
-	return m.spinner.Tick
+	if m.generating {
+		return m.spinner.Tick
+	}
+	return nil
 }
 
 // current returns the selected wallpaper, if any.
@@ -123,7 +127,7 @@ func (m *Model) regenerate() tea.Cmd {
 		return nil
 	}
 	m.generating = true
-	return generateCmd(w.Path, m.mode)
+	return tea.Batch(generateCmd(w.Path, m.mode), m.spinner.Tick)
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -136,7 +140,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
-		return m, cmd
+		if m.generating {
+			return m, cmd
+		}
+		return m, nil
 
 	case generatedMsg:
 		// Ignore stale results if the selection/mode changed meanwhile.

@@ -46,7 +46,7 @@ func Thumbnail(path string, cols, rows int) string {
 	dstH := max(1, int(float64(srcH)*scale))
 
 	dst := image.NewRGBA(image.Rect(0, 0, dstW, dstH))
-	draw.CatmullRom.Scale(dst, dst.Bounds(), img, bounds, draw.Over, nil)
+	draw.ApproxBiLinear.Scale(dst, dst.Bounds(), img, bounds, draw.Over, nil)
 
 	var b strings.Builder
 	for y := 0; y < dstH; y += 2 {

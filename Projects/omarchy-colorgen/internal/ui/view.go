@@ -30,11 +30,15 @@ func (m Model) View() string {
 	header := lipgloss.JoinHorizontal(lipgloss.Center,
 		title, strings.Repeat(" ", max0(m.width-lipgloss.Width(title)-lipgloss.Width(modeBadge)-2)), modeBadge)
 
-	bodyH := m.height - 4 // title + footer(2) + spacing
+	body := m.renderBody()
+	return lipgloss.JoinVertical(lipgloss.Left, header, body, m.footerView())
+}
+
+func (m Model) renderBody() string {
+	bodyH := m.height - 4
 	if bodyH < 6 {
 		bodyH = 6
 	}
-
 	leftW := 34
 	if leftW > m.width/2 {
 		leftW = m.width / 2
@@ -43,9 +47,7 @@ func (m Model) View() string {
 
 	left := paneStyle.Width(leftW).Height(bodyH).Render(m.pickerView(leftW, bodyH))
 	right := paneStyle.Width(rightW).Height(bodyH).Render(m.previewView(rightW, bodyH))
-	body := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
-
-	return lipgloss.JoinVertical(lipgloss.Left, header, body, m.footerView())
+	return lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 }
 
 func (m Model) pickerView(w, h int) string {
