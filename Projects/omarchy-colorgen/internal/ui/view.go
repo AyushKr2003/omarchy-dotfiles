@@ -30,11 +30,15 @@ func (m Model) View() string {
 	header := lipgloss.JoinHorizontal(lipgloss.Center,
 		title, strings.Repeat(" ", max0(m.width-lipgloss.Width(title)-lipgloss.Width(modeBadge)-2)), modeBadge)
 
-	bodyH := m.height - 4 // title + footer(2) + spacing
+	body := m.renderBody()
+	return lipgloss.JoinVertical(lipgloss.Left, header, body, m.footerView())
+}
+
+func (m Model) renderBody() string {
+	bodyH := m.height - 4
 	if bodyH < 6 {
 		bodyH = 6
 	}
-
 	leftW := 34
 	if leftW > m.width/2 {
 		leftW = m.width / 2
@@ -43,9 +47,7 @@ func (m Model) View() string {
 
 	left := paneStyle.Width(leftW).Height(bodyH).Render(m.pickerView(leftW, bodyH))
 	right := paneStyle.Width(rightW).Height(bodyH).Render(m.previewView(rightW, bodyH))
-	body := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
-
-	return lipgloss.JoinVertical(lipgloss.Left, header, body, m.footerView())
+	return lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 }
 
 func (m Model) pickerView(w, h int) string {
@@ -53,7 +55,12 @@ func (m Model) pickerView(w, h int) string {
 	b.WriteString(paneTitleStyle.Render(fmt.Sprintf("Wallpapers (%d)", len(m.filtered))))
 	b.WriteString("\n\n")
 
-	rows := h - 3
+	cur, hasCurrent := m.current()
+	groupOverhead := 0
+	if hasCurrent {
+		groupOverhead = 2
+	}
+	rows := h - 3 - groupOverhead
 	if rows < 1 {
 		rows = 1
 	}
@@ -84,7 +91,7 @@ func (m Model) pickerView(w, h int) string {
 		b.WriteString(line)
 		b.WriteString("\n")
 	}
-	if cur, ok := m.current(); ok {
+	if hasCurrent {
 		b.WriteString("\n")
 		b.WriteString(itemGroupStyle.Render(truncate(cur.Group+"/", inner)))
 	}
@@ -102,42 +109,69 @@ func (m Model) previewView(w, h int) string {
 		return mutedStyle.Render("select a wallpaper to preview")
 	}
 
-	inner := w - 4 // account for pane border + horizontal padding
+	inner := w - 4
 	if inner < 1 {
 		inner = 1
 	}
+	contentH := h - 2
 
-	var sections []string
-
-	// Wallpaper thumbnail, left-aligned and labeled like the other sections,
-	// keeping the source aspect ratio inside a subtle frame.
-	thumbRows := h/2 - 3
-	if thumbRows > 14 {
-		thumbRows = 14
+	var bottomSection string
+	if h > 24 && inner >= 66 {
+		half := (inner - 2) / 2
+		paletteHalf := lipgloss.JoinVertical(lipgloss.Left,
+			sectionLabelStyle.Render("PALETTE"), preview.Swatches(m.pal, half))
+		editorHalf := lipgloss.JoinVertical(lipgloss.Left,
+			sectionLabelStyle.Render("EDITOR"), preview.MockUI(m.pal, half))
+		bottomSection = lipgloss.JoinHorizontal(lipgloss.Top,
+			paletteHalf, spacerStyle.Render(""), editorHalf)
+	} else if h > 24 {
+		paletteFull := lipgloss.JoinVertical(lipgloss.Left,
+			sectionLabelStyle.Render("PALETTE"), preview.Swatches(m.pal, 0))
+		editorFull := lipgloss.JoinVertical(lipgloss.Left,
+			sectionLabelStyle.Render("EDITOR"), preview.MockUI(m.pal, 0))
+		bottomSection = lipgloss.JoinVertical(lipgloss.Left,
+			paletteFull, "", editorFull)
+	} else {
+		bottomSection = lipgloss.JoinVertical(lipgloss.Left,
+			sectionLabelStyle.Render("PALETTE"), preview.Swatches(m.pal, 0))
 	}
-	if thumbRows >= 3 {
-		if cur, ok := m.current(); ok {
-			thumbCols := inner - 2 // leave room for the frame border
-			if thumbCols > 8 {
-				art := preview.Thumbnail(cur.Path, thumbCols, thumbRows)
-				framed := thumbFrameStyle.Render(art)
-				name := mutedStyle.Render(truncate(cur.Name, inner))
-				sections = append(sections, lipgloss.JoinVertical(lipgloss.Left,
-					sectionLabelStyle.Render("WALLPAPER"), framed, name))
-			}
+	bottomH := lipgloss.Height(bottomSection)
+
+	// Background: wallpaper art fills remaining space above palette/editor.
+	// Layout: label + art → 2 spacer rows → bottom → 2 bottom margin (padded by pane).
+	bgArtRows := contentH - 5 - bottomH
+	if bgArtRows < 1 {
+		bgArtRows = 1
+	}
+
+	var bgSection string
+	if cur, ok := m.current(); ok {
+		bgCols := inner
+		if bgCols > 8 {
+			art := m.thumbnail(cur.Path, bgCols, bgArtRows)
+			bgSection = lipgloss.JoinVertical(lipgloss.Left,
+				sectionLabelStyle.Render("BACKGROUND"), art)
 		}
 	}
-
-	sections = append(sections, lipgloss.JoinVertical(lipgloss.Left,
-		sectionLabelStyle.Render("PALETTE"), preview.Swatches(m.pal)))
-
-	if h > 24 {
-		sections = append(sections, lipgloss.JoinVertical(lipgloss.Left,
-			sectionLabelStyle.Render("EDITOR"), preview.MockUI(m.pal)))
+	if bgSection == "" {
+		return bottomSection
 	}
 
-	// A blank line between each section gives the pane breathing room.
-	return strings.Join(sections, "\n\n")
+	return strings.Join([]string{bgSection, bottomSection}, "\n\n\n")
+}
+
+// thumbnail returns a half-block ANSI wallpaper preview at the given cell
+// size, memoized so View does not re-decode the image on every keystroke. The
+// cache map is shared across model copies (maps are reference types), so
+// writing here from a value receiver persists between renders.
+func (m Model) thumbnail(path string, cols, rows int) string {
+	key := fmt.Sprintf("%s|%dx%d", path, cols, rows)
+	if s, ok := m.thumbCache[key]; ok {
+		return s
+	}
+	s := preview.Thumbnail(path, cols, rows)
+	m.thumbCache[key] = s
+	return s
 }
 
 func (m Model) footerView() string {
