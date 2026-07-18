@@ -79,7 +79,9 @@ pkg/
 !.local/share/applications/icons/Reddit.png
 !.local/share/applications/icons/Superfile.png
 
-# .local/share/icons - keep only this two files
+# .local/share/icons - keep only this below files
 .local/share/icons/*
 !.local/share/icons/Dracula/
 !.local/share/icons/volantes_cursors/
+!.local/share/icons/RosePine/
+!.local/share/icons/YAMIS/
