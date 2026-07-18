@@ -59,6 +59,19 @@ tab_selected_bg=$(mix_hex "$bg" "$fg" 20)
 # distinct highlight even when a theme's accent is fairly desaturated.
 tab_line=$(mix_hex "$accent" "$fg" 35)
 
+# Calculate if background is dark or light to set correct color-scheme
+bg_color="${bg#\#}"
+bg_r=$((16#${bg_color:0:2}))
+bg_g=$((16#${bg_color:2:2}))
+bg_b=$((16#${bg_color:4:2}))
+bg_y=$(((bg_r * 299 + bg_g * 587 + bg_b * 114) / 1000))
+if ((bg_y < 128)); then
+  scheme="dark"
+else
+  scheme="light"
+fi
+
+
 # --- find a browser's default profile, given candidate base dirs ------------
 # Firefox, LibreWolf, and Zen all share Gecko's toolkit/profile code, so
 # they all lay out profiles.ini the same way -- only the base directory
@@ -126,6 +139,10 @@ apply_theme_to_profile() {
   --arrowpanel-border-color: $muted !important;
   --tab-line-color: $tab_line !important;
   --focus-outline-color: $tab_line !important;
+  --toolbar-field-focus-background-color: $dark_bg !important;
+  --toolbar-field-focus-color: $fg !important;
+  --urlbar-results-bgcolor: $dark_bg !important;
+  --toolbar-field-focus-border-color: $muted !important;
 }
 
 #TabsToolbar, #nav-bar, #titlebar {
@@ -161,6 +178,173 @@ apply_theme_to_profile() {
   border: 1px solid $tab_line !important;
   border-radius: 8px !important;
   box-shadow: inset 0 1px 0 0 $tab_line !important;
+}
+
+/* Color theme overrides for all menus, popups, context menus, and panels */
+menupopup,
+panel,
+panelmultiview,
+panelview,
+.panel-subview,
+.panel-subview-body,
+.panel-arrowcontent,
+.panel-header,
+.panel-footer,
+.panel-subview-header,
+.panel-subview-footer,
+.panel-subview-footer-button,
+panel-header,
+panel-footer,
+#profile-bubble,
+#profile-bubble > *,
+#profile-bubble-header,
+#profile-bubble-footer,
+.profile-bubble-header,
+.profile-bubble-footer,
+#fxa-bubble,
+#fxa-bubble > *,
+#fxa-menu,
+#fxa-menu-footer,
+.fxa-menu-footer,
+#appMenu-fxa-container,
+#appMenu-fxa-status,
+#appMenu-fxa-label,
+:is(#appMenu-popup, #downloadsPanel, #identity-popup, #BMB_bookmarksPopup) {
+  --panel-background: $bg !important;
+  --panel-color: $fg !important;
+  --panel-border-color: $muted !important;
+  --panel-separator-color: $muted !important;
+  --menuitem-hover-background-color: $tab_selected_bg !important;
+  --menuitem-hover-color: $fg !important;
+  --menu-hover-background-color: $tab_selected_bg !important;
+  --menu-hover-color: $fg !important;
+  --arrowpanel-background: $bg !important;
+  --arrowpanel-color: $fg !important;
+  --arrowpanel-border-color: $muted !important;
+  --arrowpanel-dimmed-border-color: $muted !important;
+  background-color: $bg !important;
+  background: $bg !important;
+  color: $fg !important;
+  color-scheme: $scheme !important;
+}
+
+/* Hover effects for standard menu items */
+menuitem:hover,
+menu:hover,
+menuitem[_moz-menuactive="true"],
+menu[_moz-menuactive="true"] {
+  background-color: $tab_selected_bg !important;
+  color: $fg !important;
+}
+
+/* Color theme overrides for URL bar dropdown suggestions container and background */
+#urlbar-background,
+.urlbar-background,
+#urlbar[focused="true"] > #urlbar-background,
+#urlbar[open] > #urlbar-background {
+  --urlbar-results-bgcolor: $dark_bg !important;
+  --toolbar-field-focus-background-color: $dark_bg !important;
+  --toolbar-field-focus-color: $fg !important;
+  --toolbar-field-focus-border-color: $muted !important;
+  background-color: $dark_bg !important;
+  border: 1px solid $muted !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Remove all borders and background overrides from the inner view to prevent double borders */
+#urlbar-results,
+.urlbarView {
+  background-color: transparent !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.urlbarView-row {
+  color: $fg !important;
+}
+
+.urlbarView-row:hover,
+.urlbarView-row[selected="true"] {
+  background-color: $tab_selected_bg !important;
+  color: $fg !important;
+}
+
+.urlbarView-url {
+  color: $accent !important;
+}
+
+.urlbarView-title {
+  color: $fg !important;
+}
+
+.urlbarView-title-strong {
+  color: $accent !important;
+}
+
+/* Override background for Manage Bookmarks, Manage History, Manage Profiles, and other footer subview buttons */
+.panel-subview-footer,
+.panel-subview-footer button,
+.panel-subview-footer a,
+.panel-subview-footer .subviewbutton,
+#appMenu-library-bookmarks-showall,
+#appMenu-library-history-showall,
+#appMenu-fxa-container,
+#appMenu-fxa-status,
+#appMenu-fxa-label,
+#profile-bubble-footer button,
+.profile-bubble-footer button,
+#fxa-menu-footer button,
+.fxa-menu-footer button,
+#fxa-manage-account-button,
+#fxa-menu-footer {
+  background-color: $bg !important;
+  background: $bg !important;
+  color: $fg !important;
+  border-top: 1px solid var(--panel-separator-color) !important;
+}
+
+/* Color theme overrides for menu/toolbar separators */
+menupopup menuseparator,
+panel menuseparator,
+menupopup toolbarseparator,
+panel toolbarseparator,
+.subviewheader-separator {
+  appearance: none !important;
+  -moz-appearance: none !important;
+  border-top: 1px solid $muted !important;
+  border-bottom: none !important;
+  margin: 4px 0 !important;
+  padding: 0 !important;
+  height: 0 !important;
+}
+
+/* Style browser modal prompt alerts */
+.tabmodalprompt-container,
+.tab-modal-box,
+tabmodalprompt {
+  background-color: $bg !important;
+  color: $fg !important;
+  border: 1px solid $muted !important;
+  border-radius: 8px !important;
+}
+
+/* Buttons in modal prompt alerts */
+.tabmodalprompt-buttonContainer button,
+.tab-modal-box button {
+  background-color: $tab_selected_bg !important;
+  color: $fg !important;
+  border: 1px solid $tab_line !important;
+  border-radius: 4px !important;
+  padding: 4px 12px !important;
+}
+
+.tabmodalprompt-buttonContainer button:hover,
+.tab-modal-box button:hover {
+  background-color: $tab_line !important;
+  color: $fg !important;
 }
 CSSEOF
 
