@@ -60,3 +60,11 @@ sudo snapper -c root create -d "x"  # take one
 sudo snapper -c root delete N     # remove one
 sudo snapper -c root du N         # check size of one
 ```
+
+<!-- 
+to compress a file command 
+```
+‘tar -czf icon_pack.tar.gz -C .local/share/icons . 
+```
+-->
+
