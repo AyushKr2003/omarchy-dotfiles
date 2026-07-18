@@ -3,11 +3,13 @@
 package preview
 
 import (
+	"bytes"
+	"encoding/base64"
 	"fmt"
 	"image"
 	_ "image/gif"
 	_ "image/jpeg"
-	_ "image/png"
+	"image/png"
 	"os"
 	"strings"
 
@@ -63,6 +65,47 @@ func Thumbnail(path string, cols, rows int) string {
 		b.WriteString("\x1b[0m\n")
 	}
 	return strings.TrimRight(b.String(), "\n")
+}
+
+// KittyThumbnail encodes the wallpaper as a Kitty terminal inline image sized
+// to fit cols x rows cells. The escape sequence embeds a resized PNG so the
+// terminal renders the actual wallpaper instead of a half-block approximation.
+//
+// The output wraps the image in save/restore-cursor sequences
+// (ESC[s / ESC[u) so the image is placed at the correct cursor position,
+// then emits rows placeholder newlines so Bubble Tea's layout engine
+// reserves the correct visual height.
+func KittyThumbnail(path string, cols, rows int) string {
+	if cols < 1 || rows < 1 {
+		return ""
+	}
+	img, err := decode(path)
+	if err != nil {
+		return dim(fmt.Sprintf("(preview unavailable: %v)", err))
+	}
+
+	bounds := img.Bounds()
+	srcW, srcH := bounds.Dx(), bounds.Dy()
+	if srcW == 0 || srcH == 0 {
+		return ""
+	}
+	scale := min(float64(cols)/float64(srcW), float64(rows*2)/float64(srcH))
+	dstW := max(1, int(float64(srcW)*scale))
+	dstH := max(1, int(float64(srcH)*scale))
+
+	dst := image.NewRGBA(image.Rect(0, 0, dstW, dstH))
+	draw.CatmullRom.Scale(dst, dst.Bounds(), img, bounds, draw.Over, nil)
+
+	var pngBuf bytes.Buffer
+	if err := png.Encode(&pngBuf, dst); err != nil {
+		return dim(fmt.Sprintf("(preview encode failed: %v)", err))
+	}
+	b64 := base64.StdEncoding.EncodeToString(pngBuf.Bytes())
+
+	// Kitty escape, wrapped in save/restore cursor so the image is placed
+	// at the current position and placeholder newlines reserve visual height.
+	escape := fmt.Sprintf("\x1b_Ga=T,f=100,c=%d,r=%d;%s\x1b\\", cols, rows, b64)
+	return fmt.Sprintf("\x1b[s%s\x1b[u%s", escape, strings.Repeat("\n", rows))
 }
 
 func decode(path string) (image.Image, error) {
