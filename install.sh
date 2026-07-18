@@ -188,7 +188,7 @@ fi
 
 gum style --foreground 2 "==> Copying .config/"
 
-SRC_CONFIG="$DOTFILES_ROOT/.config"
+SRC_CONFIG="$DOTFILES_ROOT/config"
 DEST_CONFIG="$HOME/.config"
 
 if [[ ! -d $SRC_CONFIG ]]; then
@@ -228,7 +228,7 @@ fi
 
 gum style --foreground 2 "==> Copying .local/"
 
-SRC_LOCAL="$DOTFILES_ROOT/.local"
+SRC_LOCAL="$DOTFILES_ROOT/local"
 DEST_LOCAL="$HOME/.local"
 
 if [[ ! -d $SRC_LOCAL ]]; then
