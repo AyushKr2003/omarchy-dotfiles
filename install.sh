@@ -166,6 +166,23 @@ else
 fi
 
 # ════════════════════════════════════════════════════════════════════════
+# SECTION: icon install
+# ════════════════════════════════════════════════════════════════════════
+
+gum style --foreground 2 "==> Installing icon pack"
+
+ICON_TAR="$DOTFILES_ROOT/icon_pack.tar.gz"
+DEST_ICONS="$HOME/.local/share/icons"
+
+if [[ -f "$ICON_TAR" ]]; then
+  mkdir -p "$DEST_ICONS"
+  tar -xzf "$ICON_TAR" -C "$DEST_ICONS"
+  echo "    Extracted icon pack to $DEST_ICONS"
+else
+  echo "    icon_pack.tar.gz not found, skipping icon install."
+fi
+
+# ════════════════════════════════════════════════════════════════════════
 # SECTION: copy .config/ (interactive checklist, pre-checked)
 # ════════════════════════════════════════════════════════════════════════
 
