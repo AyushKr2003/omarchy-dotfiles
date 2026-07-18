@@ -26,7 +26,10 @@
     const el = document.getElementById("clock");
     if (!el) return;
     const now = new Date();
-    el.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const rawHours = now.getHours();
+    const hours = rawHours % 12 || 12;
+    const ampm = rawHours >= 12 ? "PM" : "AM";
+    el.innerHTML = `${hours}:${pad(now.getMinutes())}<span class="clock__ampm">${ampm}</span>`;
   }
 
   function updateDate() {
@@ -531,6 +534,26 @@
     });
   }
 
+  function renderThemeName() {
+    const el = document.querySelector(".meta__theme");
+    if (!el) return;
+    let rawName = getComputedStyle(document.documentElement).getPropertyValue("--theme-name");
+    rawName = rawName.trim().replace(/^["']|["']$/g, "");
+    if (!rawName) return;
+
+    let cleaned = rawName.replace(/-/g, " ");
+    cleaned = cleaned.replace(/omarchy/gi, "");
+    cleaned = cleaned.replace(/theme/gi, "");
+    cleaned = cleaned.trim();
+
+    const formatted = cleaned.split(/\s+/).map(word => {
+      if (!word) return "";
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    }).join(" ");
+
+    el.textContent = formatted;
+  }
+
   function initQuicklinks() {
     renderQuicklinks();
   }
@@ -542,6 +565,7 @@
     initQuicklinks();
     initSearchSuggestions();
     focusSearchInput();
+    renderThemeName();
   });
 
   window.addEventListener("load", focusSearchInput);

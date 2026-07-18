@@ -94,6 +94,16 @@ body {
   line-height: 1;
 }
 
+.clock__ampm {
+  font-size: 0.3em;
+  font-weight: 500;
+  color: var(--fg-dim);
+  margin-left: 0.4rem;
+  text-transform: uppercase;
+  vertical-align: baseline;
+  letter-spacing: 0.05em;
+}
+
 .greeting {
   color: var(--fg);
   font-size: clamp(0.95rem, 2vw, 1.1rem);
@@ -353,10 +363,7 @@ body {
   padding: var(--space-3);
 }
 
-.meta__theme::after {
-  content: var(--theme-name);
-  text-transform: capitalize;
-}
+
 
 .meta__dot {
   opacity: 0.6;
