@@ -175,7 +175,7 @@ CSSEOF
 
 APPLIED_ANY=0
 
-if profile=$(find_profile "$HOME/.mozilla/firefox"); then
+if profile=$(find_profile "$HOME/.mozilla/firefox" "$HOME/.config/mozilla/firefox"); then
   apply_theme_to_profile "Firefox" "$profile"
   APPLIED_ANY=1
 fi
