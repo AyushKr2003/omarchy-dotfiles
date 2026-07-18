@@ -15,6 +15,7 @@ pkg/
 *.csv
 
 # Personal / machine-specificconfigs
+config/browser-default/colors.css
 config/fastfetchconfig.jsonc
 config/hypr/scripts/
 config/hypr/envs.conf
