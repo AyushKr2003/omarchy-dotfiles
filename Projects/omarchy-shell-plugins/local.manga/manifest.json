@@ -15,7 +15,8 @@
   "settings": {
     "defaults": {
       "windowWidth": 580,
-      "windowHeight": 1045
+      "windowHeight": 1045,
+      "enableServer": true
     },
     "schema": [
       {
@@ -33,6 +34,12 @@
         "defaultValue": 1045,
         "min": 520,
         "max": 1100
+      },
+      {
+        "key": "enableServer",
+        "type": "boolean",
+        "label": "Enable manga backend server",
+        "defaultValue": true
       }
     ]
   }
