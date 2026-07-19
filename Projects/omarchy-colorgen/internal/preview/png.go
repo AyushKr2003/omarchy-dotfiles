@@ -19,7 +19,7 @@ import (
 func RenderPNG(p palette.Palette, path string) error {
 	type sw struct{ name, hex string }
 	rows := [][]sw{
-		{{"bg", p.Bg}, {"fg", p.Fg}, {"accent", p.Accent}, {"selection", p.Selection}},
+		{{"background", p.Background}, {"foreground", p.Foreground}, {"accent", p.Accent}, {"selection", p.Selection}},
 		{{"red", p.Red}, {"green", p.Green}, {"yellow", p.Yellow}, {"orange", p.Orange}},
 		{{"blue", p.Blue}, {"magenta", p.Magenta}, {"cyan", p.Cyan}, {"brown", p.Brown}},
 		{{"br_red", p.BrightRed}, {"br_green", p.BrightGreen}, {"br_blue", p.BrightBlue}, {"br_magenta", p.BrightMagenta}},
@@ -37,7 +37,7 @@ func RenderPNG(p palette.Palette, path string) error {
 	h := pad*2 + rowsN*cellH + (rowsN-1)*gap
 
 	img := image.NewRGBA(image.Rect(0, 0, w, h))
-	fill(img, img.Bounds(), mustColor(p.Bg))
+	fill(img, img.Bounds(), mustColor(p.Background))
 
 	for r, row := range rows {
 		for c, s := range row {

@@ -39,15 +39,15 @@ func testPNG(t *testing.T) string {
 // testPalette returns a minimal palette for swatch/MockUI tests.
 func testPalette() palette.Palette {
 	return palette.Palette{
-		Bg:      "#1a1b26",
-		Fg:      "#c0caf5",
-		Accent:  "#7aa2f7",
-		Red:     "#f7768e",
-		Green:   "#9ece6a",
-		Yellow:  "#e0af68",
-		Blue:    "#7aa2f7",
-		Magenta: "#bb9af7",
-		Cyan:    "#7dcfff",
+		Background: "#1a1b26",
+		Foreground: "#c0caf5",
+		Accent:     "#7aa2f7",
+		Red:        "#f7768e",
+		Green:      "#9ece6a",
+		Yellow:     "#e0af68",
+		Blue:       "#7aa2f7",
+		Magenta:    "#bb9af7",
+		Cyan:       "#7dcfff",
 	}
 }
 
@@ -259,7 +259,7 @@ func TestMockUI_BackgroundConsistency(t *testing.T) {
 	// Verify that MockUI content uses the bg color from the palette.
 	pal := testPalette()
 	out := MockUI(pal, 40)
-	if !strings.Contains(out, pal.Bg) {
+	if !strings.Contains(out, pal.Background) {
 		t.Log("MockUI may not explicitly mention its background hex")
 	}
 }
@@ -281,7 +281,7 @@ func TestSwatches_AllHexesPresent(t *testing.T) {
 	pal := testPalette()
 	out := Swatches(pal, 0)
 	// Check all named colors appear.
-	for _, hex := range []string{pal.Bg, pal.Fg, pal.Accent, pal.Red, pal.Green, pal.Yellow, pal.Blue, pal.Magenta, pal.Cyan} {
+	for _, hex := range []string{pal.Background, pal.Foreground, pal.Accent, pal.Red, pal.Green, pal.Yellow, pal.Blue, pal.Magenta, pal.Cyan} {
 		if !strings.Contains(out, hex) {
 			t.Errorf("Swatches missing hex %q", hex)
 		}

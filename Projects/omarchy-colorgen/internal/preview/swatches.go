@@ -16,13 +16,13 @@ import (
 func Swatches(p palette.Palette, width int) string {
 	type sw struct{ name, hex string }
 	fourCol := [][]sw{
-		{{"bg", p.Bg}, {"fg", p.Fg}, {"accent", p.Accent}, {"select", p.Selection}},
+		{{"background", p.Background}, {"foreground", p.Foreground}, {"accent", p.Accent}, {"select", p.Selection}},
 		{{"red", p.Red}, {"green", p.Green}, {"yellow", p.Yellow}, {"orange", p.Orange}},
 		{{"blue", p.Blue}, {"magenta", p.Magenta}, {"cyan", p.Cyan}, {"brown", p.Brown}},
 		{{"br.red", p.BrightRed}, {"br.grn", p.BrightGreen}, {"br.blu", p.BrightBlue}, {"br.mag", p.BrightMagenta}},
 	}
 	twoCol := [][]sw{
-		{{"bg", p.Bg}, {"fg", p.Fg}},
+		{{"background", p.Background}, {"foreground", p.Foreground}},
 		{{"accent", p.Accent}, {"select", p.Selection}},
 		{{"red", p.Red}, {"green", p.Green}},
 		{{"yellow", p.Yellow}, {"orange", p.Orange}},
@@ -93,7 +93,7 @@ func swatchCell(name, hex string, w int, tall bool) string {
 // can judge the theme in context. When width > 0 the card is sized to that
 // many columns (including padding).
 func MockUI(p palette.Palette, width int) string {
-	bg := p.Bg
+	bg := p.Background
 
 	cw := 46
 	if width > 0 {
@@ -102,7 +102,7 @@ func MockUI(p palette.Palette, width int) string {
 
 	card := lipgloss.NewStyle().
 		Background(lipgloss.Color(bg)).
-		Foreground(lipgloss.Color(p.Fg)).
+		Foreground(lipgloss.Color(p.Foreground)).
 		Padding(1, 2).
 		Width(cw)
 
@@ -129,22 +129,22 @@ func MockUI(p palette.Palette, width int) string {
 	line := func(parts ...string) string { return strings.Join(parts, "") }
 	code := strings.Join([]string{
 		on(com, "// build the greeting"),
-		line(on(kw, "func "), on(fn, "greet"), on(p.Fg, "("), on(typ, "name string"), on(p.Fg, ") {")),
-		line("  ", on(fn, "print"), on(p.Fg, "("), on(str, "\"hi, \""), on(p.Fg, " + name)")),
-		on(p.Fg, "}"),
+		line(on(kw, "func "), on(fn, "greet"), on(p.Foreground, "("), on(typ, "name string"), on(p.Foreground, ") {")),
+		line("  ", on(fn, "print"), on(p.Foreground, "("), on(str, "\"hi, \""), on(p.Foreground, " + name)")),
+		on(p.Foreground, "}"),
 	}, "\n")
 
 	prompt := line(
 		on(p.Green, "user"),
 		on(p.Muted, "@"),
 		on(p.Blue, "omarchy"),
-		on(p.Fg, " $ "),
+		on(p.Foreground, " $ "),
 		on(p.Accent, "omarchy theme set"),
 	)
 
 	sel := lipgloss.NewStyle().
 		Background(lipgloss.Color(p.Selection)).
-		Foreground(lipgloss.Color(p.BrightFg)).
+		Foreground(lipgloss.Color(p.BrightForeground)).
 		Render(" selected text ")
 
 	body := strings.Join([]string{title, "", code, "", prompt, "", sel}, "\n")
