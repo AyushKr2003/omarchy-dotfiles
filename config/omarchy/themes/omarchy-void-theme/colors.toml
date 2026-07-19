@@ -2,15 +2,15 @@ mode = "dark"
 
 accent = "#BB9AF7"
 
-darker_bg  = "#05010C"   # was your old top-level `background`
-dark_bg    = "#0F0C23"   # was walker/hyprlock overlay bg
-bg         = "#181824"   # was waybar background — new default surface
-lighter_bg = "#251F45"   # was mako notification background
+darker_background  = "#05010C"   # was your old top-level `background`
+dark_background    = "#0F0C23"   # was walker/hyprlock overlay bg
+background         = "#181824"   # was waybar background — new default surface
+lighter_background = "#251F45"   # was mako notification background
 
-dark_fg    = "#D1C7F0"   # was walker `text`
-fg         = "#DECCFF"   # was color7 / alacritty normal white
-light_fg   = "#E8E2FF"   # was walker `foreground`
-bright_fg  = "#FFFFFF"   # was your old top-level `foreground`
+dark_foreground    = "#D1C7F0"   # was walker `text`
+foreground         = "#DECCFF"   # was color7 / alacritty normal white
+light_foreground   = "#E8E2FF"   # was walker `foreground`
+bright_foreground  = "#FFFFFF"   # was your old top-level `foreground`
 
 selection = "#6E3EBB"    # was walker's `selected-text` accent
 
