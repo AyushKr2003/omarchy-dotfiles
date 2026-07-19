@@ -219,8 +219,7 @@ panel-footer,
 .fxa-menu-footer,
 #appMenu-fxa-container,
 #appMenu-fxa-status,
-#appMenu-fxa-label,
-:is(#appMenu-popup, #downloadsPanel, #identity-popup, #BMB_bookmarksPopup) {
+#appMenu-fxa-label {
   --panel-background: $bg !important;
   --panel-color: $fg !important;
   --panel-border-color: $muted !important;
@@ -235,6 +234,25 @@ panel-footer,
   --arrowpanel-dimmed-border-color: $muted !important;
   background-color: $bg !important;
   background: $bg !important;
+  color: $fg !important;
+  color-scheme: $scheme !important;
+}
+
+:is(#appMenu-popup, #downloadsPanel, #identity-popup, #BMB_bookmarksPopup) {
+  --panel-background: $bg !important;
+  --panel-color: $fg !important;
+  --panel-border-color: $muted !important;
+  --panel-separator-color: $muted !important;
+  --menuitem-hover-background-color: $tab_selected_bg !important;
+  --menuitem-hover-color: $fg !important;
+  --menu-hover-background-color: $tab_selected_bg !important;
+  --menu-hover-color: $fg !important;
+  --arrowpanel-background: $bg !important;
+  --arrowpanel-color: $fg !important;
+  --arrowpanel-border-color: $muted !important;
+  --arrowpanel-dimmed-border-color: $muted !important;
+  background-color: transparent !important;
+  background: transparent !important;
   color: $fg !important;
   color-scheme: $scheme !important;
 }
@@ -357,6 +375,11 @@ tabmodalprompt {
 .tab-modal-box button:hover {
   background-color: $tab_line !important;
   color: $fg !important;
+}
+
+/* Hide window controls close button */
+.titlebar-close {
+  display: none !important;
 }
 CSSEOF
 
