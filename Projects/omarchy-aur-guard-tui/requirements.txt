@@ -1,5 +1,0 @@
-# aur-guard -- AUR Security Scanner TUI
-# Runtime dependencies. For standalone installation, prefer: pip install .
-
-textual>=0.50.0
-rich>=13.0
