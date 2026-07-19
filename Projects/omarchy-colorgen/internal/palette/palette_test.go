@@ -28,7 +28,7 @@ func TestFromIrisMapping(t *testing.T) {
 	if p.Mode != "dark" {
 		t.Errorf("mode = %q want dark", p.Mode)
 	}
-	if p.Bg != "#181825" || p.Fg != "#daabf0" || p.Accent != "#d9a8f0" {
+	if p.Background != "#181825" || p.Foreground != "#daabf0" || p.Accent != "#d9a8f0" {
 		t.Errorf("base passthrough wrong: %+v", p)
 	}
 	// blue <- accent, magenta <- syntax_keyword, cyan <- syntax_func
@@ -42,22 +42,22 @@ func TestFromIrisMapping(t *testing.T) {
 		t.Errorf("cyan = %q want syntax_func", p.Cyan)
 	}
 	// surface -> selection/lighter_bg, dim -> muted/dark_fg
-	if p.Selection != "#26263b" || p.LighterBg != "#26263b" {
-		t.Errorf("surface mapping wrong: sel=%q lighter=%q", p.Selection, p.LighterBg)
+	if p.Selection != "#26263b" || p.LighterBackground != "#26263b" {
+		t.Errorf("surface mapping wrong: sel=%q lighter=%q", p.Selection, p.LighterBackground)
 	}
-	if p.Muted != "#54546e" || p.DarkFg != "#54546e" {
-		t.Errorf("dim mapping wrong: muted=%q dark_fg=%q", p.Muted, p.DarkFg)
+	if p.Muted != "#54546e" || p.DarkForeground != "#54546e" {
+		t.Errorf("dim mapping wrong: muted=%q dark_fg=%q", p.Muted, p.DarkForeground)
 	}
 }
 
 func TestFromIrisDerived(t *testing.T) {
 	p := FromIris(sampleTheme())
 	// dark_bg = mix(#181825, #000, 25%); darker = 50%
-	if p.DarkBg != Darken(MustHex("#181825"), 0.25).Hex() {
-		t.Errorf("dark_bg = %q", p.DarkBg)
+	if p.DarkBackground != Darken(MustHex("#181825"), 0.25).Hex() {
+		t.Errorf("dark_background = %q", p.DarkBackground)
 	}
-	if p.DarkerBg != Darken(MustHex("#181825"), 0.50).Hex() {
-		t.Errorf("darker_bg = %q", p.DarkerBg)
+	if p.DarkerBackground != Darken(MustHex("#181825"), 0.50).Hex() {
+		t.Errorf("darker_background = %q", p.DarkerBackground)
 	}
 	if p.BrightRed != Lighten(MustHex("#eea0d9"), 0.20).Hex() {
 		t.Errorf("bright_red = %q", p.BrightRed)

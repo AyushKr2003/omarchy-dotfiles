@@ -12,9 +12,9 @@ import (
 func samplePalette() palette.Palette {
 	return palette.Palette{
 		Mode: "dark", Accent: "#d9a8f0",
-		Bg: "#181825", DarkBg: "#111119", DarkerBg: "#0c0c12",
-		LighterBg: "#26263b", Selection: "#26263b", Muted: "#54546e",
-		DarkFg: "#54546e", Fg: "#daabf0", LightFg: "#daabf0", BrightFg: "#daabf0",
+		Background: "#181825", DarkBackground: "#111119", DarkerBackground: "#0c0c12",
+		LighterBackground: "#26263b", Selection: "#26263b", Muted: "#54546e",
+		DarkForeground: "#54546e", Foreground: "#daabf0", LightForeground: "#daabf0", BrightForeground: "#daabf0",
 		Red: "#eea0d9", Yellow: "#eea0d9", Orange: "#eea0d9", Green: "#54a2b6",
 		Cyan: "#c1d095", Blue: "#d9a8f0", Magenta: "#95d0c1", Brown: "#77506c",
 		BrightRed: "#f1b3e1", BrightYellow: "#f1b3e1", BrightGreen: "#76b5c5",
@@ -28,8 +28,8 @@ func TestColorsTOMLShape(t *testing.T) {
 	for _, want := range []string{
 		"mode = \"dark\"",
 		"accent = \"#d9a8f0\"",
-		"bg = \"#181825\"",
-		"dark_bg = \"#111119\"",
+		"background = \"#181825\"",
+		"dark_background = \"#111119\"",
 		"selection = \"#26263b\"",
 		"bright_magenta = \"#aad9cd\"",
 		"# Source wallpaper: /path/to/wall.png",
@@ -65,7 +65,7 @@ func TestExport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
-	if !strings.Contains(string(data), "bg = \"#181825\"") {
+	if !strings.Contains(string(data), "background = \"#181825\"") {
 		t.Error("exported file missing expected content")
 	}
 }

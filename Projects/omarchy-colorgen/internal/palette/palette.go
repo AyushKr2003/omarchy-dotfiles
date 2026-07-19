@@ -8,16 +8,16 @@ type Palette struct {
 	Mode   string // "dark" or "light"
 	Accent string
 
-	Bg        string
-	DarkBg    string
-	DarkerBg  string
-	LighterBg string
-	Selection string
-	Muted     string
-	DarkFg    string
-	Fg        string
-	LightFg   string
-	BrightFg  string
+	Background        string
+	DarkBackground    string
+	DarkerBackground  string
+	LighterBackground string
+	Selection         string
+	Muted             string
+	DarkForeground    string
+	Foreground        string
+	LightForeground   string
+	BrightForeground  string
 
 	Red     string
 	Yellow  string
@@ -79,16 +79,16 @@ func FromIris(t iris.Theme) Palette {
 		Mode:   mode,
 		Accent: t.Accent,
 
-		Bg:        bg.Hex(),
-		DarkBg:    Darken(bg, 0.25).Hex(),
-		DarkerBg:  Darken(bg, 0.50).Hex(),
-		LighterBg: surface.Hex(),
-		Selection: surface.Hex(),
-		Muted:     dim.Hex(),
-		DarkFg:    dim.Hex(),
-		Fg:        fg.Hex(),
-		LightFg:   fg.Hex(),
-		BrightFg:  fg.Hex(),
+		Background:        bg.Hex(),
+		DarkBackground:    Darken(bg, 0.25).Hex(),
+		DarkerBackground:  Darken(bg, 0.50).Hex(),
+		LighterBackground: surface.Hex(),
+		Selection:         surface.Hex(),
+		Muted:             dim.Hex(),
+		DarkForeground:    dim.Hex(),
+		Foreground:        fg.Hex(),
+		LightForeground:   fg.Hex(),
+		BrightForeground:  fg.Hex(),
 
 		Red:     red.Hex(),
 		Yellow:  yellow.Hex(),
