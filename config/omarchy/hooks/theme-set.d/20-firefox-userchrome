@@ -43,6 +43,7 @@ accent=$(get accent "#7aa2f7")
 dark_bg=$(get dark_bg "$bg")
 lighter_bg=$(get lighter_bg "$bg")
 muted=$(get muted "#565f89")
+selection=$(get selection "$accent")
 
 # --- guaranteed-contrast color mixing ---------------------------------------
 # A theme's own lighter_bg is chosen by its author for general UI tone,
@@ -380,6 +381,25 @@ tabmodalprompt {
 /* Hide window controls close button */
 .titlebar-close {
   display: none !important;
+}
+
+/* Style text selection inside inputs (like the URL bar) to match theme selection */
+#urlbar-input::selection,
+.searchbar-textbox::selection,
+input::selection,
+textarea::selection {
+  background-color: $selection !important;
+  color: $fg !important;
+}
+
+/* Zen Browser Sidebar and Navbar styling to match Omarchy theme */
+#zen-appcontent-navbar-container,
+#zen-sidebar-top-buttons,
+#zen-sidebar-top-buttons-separator,
+#zen-sidebar-web-views-wrapper,
+#zen-sidebar-web-views {
+  background-color: $bg !important;
+  background: $bg !important;
 }
 CSSEOF
 
