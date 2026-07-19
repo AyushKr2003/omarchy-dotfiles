@@ -278,6 +278,7 @@ menu[_moz-menuactive="true"] {
 }
 
 .urlbarView-row:hover,
+.urlbarView-row[selected],
 .urlbarView-row[selected="true"] {
   background-color: $tab_selected_bg !important;
   color: $fg !important;
