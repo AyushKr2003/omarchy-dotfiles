@@ -55,7 +55,7 @@ Item {
 
   function open(payloadJson) {
     if (!root.setting("enableServer", true)) {
-      Quickshell.execDetached(["omarchy-notification-send", "Manga server is off"])
+      Quickshell.execDetached(["omarchy-notification-send", "-g", "󰒏", "Manga", "Manga server is off"])
       return
     }
     closingFromHost = false
