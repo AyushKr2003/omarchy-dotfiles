@@ -19,6 +19,17 @@ get() {
   local key=$1 default=${2:-}
   local val
   val=$(sed -n "s/^$key = \"//p" "$COLORS" | sed 's/"$//' | head -1)
+  if [[ -z $val ]]; then
+    local alt_key="$key"
+    if [[ $key == *background* || $key == *foreground* ]]; then
+      alt_key="${key/background/bg}"
+      alt_key="${alt_key/foreground/fg}"
+    else
+      alt_key="${key/bg/background}"
+      alt_key="${alt_key/fg/foreground}"
+    fi
+    val=$(sed -n "s/^$alt_key = \"//p" "$COLORS" | sed 's/"$//' | head -1)
+  fi
   if [[ -n $val ]]; then
     echo "$val"
   else

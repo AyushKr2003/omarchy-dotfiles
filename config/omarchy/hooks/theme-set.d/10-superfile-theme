@@ -10,9 +10,26 @@ SUPERFILE_CONFIG="$HOME/.config/superfile/config.toml"
 
 get() {
   local key=$1 default=${2:-}
-  sed -n "s/^$key = \"//p" "$COLORS" | sed 's/"$//' | head -1
-  [[ $(sed -n "s/^$key = \"//p" "$COLORS" | head -1) ]] || echo "$default"
+  local val
+  val=$(sed -n "s/^$key = \"//p" "$COLORS" | sed 's/"$//' | head -1)
+  if [[ -z $val ]]; then
+    local alt_key="$key"
+    if [[ $key == *background* || $key == *foreground* ]]; then
+      alt_key="${key/background/bg}"
+      alt_key="${alt_key/foreground/fg}"
+    else
+      alt_key="${key/bg/background}"
+      alt_key="${alt_key/fg/foreground}"
+    fi
+    val=$(sed -n "s/^$alt_key = \"//p" "$COLORS" | sed 's/"$//' | head -1)
+  fi
+  if [[ -n $val ]]; then
+    echo "$val"
+  else
+    echo "$default"
+  fi
 }
+
 
 bg=$(get bg "#1e1e2e")
 fg=$(get fg "#cdd6f4")
