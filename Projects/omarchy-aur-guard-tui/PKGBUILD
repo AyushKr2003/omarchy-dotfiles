@@ -1,0 +1,53 @@
+# Maintainer: AyushKr2003 <ayushkr2003@github>
+# aur-guard — AUR Package Security Scanner TUI
+
+pkgname=aur-guard
+pkgver=3.0.0
+pkgrel=1
+pkgdesc="Security scanner TUI for Arch Linux AUR packages — detects malicious PKGBUILDs, compromised dependencies, and supply-chain attacks"
+arch=('any')
+url="https://github.com/AyushKr2003/omarchy-dotfiles"
+license=('MIT')
+depends=(
+  'python>=3.10'
+  'python-textual>=0.50.0'
+  'python-rich>=13.0'
+  'pacman'
+  'curl'
+)
+makedepends=(
+  'python-build'
+  'python-installer'
+  'python-setuptools'
+  'python-wheel'
+)
+optdepends=(
+  'bpftool: eBPF rootkit detection in IoC checks'
+)
+source=()
+sha256sums=()
+
+build() {
+  cd "${startdir}"
+  python -m build --wheel --no-isolation
+}
+
+package() {
+  cd "${startdir}"
+
+  python -m installer --destdir="${pkgdir}" dist/*.whl
+
+  # Install the CLI entry-point wrapper for users who run via 'aur-guard'
+  # (setuptools already creates it inside the wheel, but ensure /usr/bin is correct)
+  install -d "${pkgdir}/usr/bin"
+
+  # Documentation
+  install -Dm644 "README.md" "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+  install -d "${pkgdir}/usr/share/doc/${pkgname}/docs"
+  for doc in docs/*.md; do
+    [ -f "$doc" ] && install -Dm644 "$doc" "${pkgdir}/usr/share/doc/${pkgname}/$doc"
+  done
+
+  # License
+  install -Dm644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}

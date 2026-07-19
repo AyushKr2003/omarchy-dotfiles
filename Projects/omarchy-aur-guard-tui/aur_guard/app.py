@@ -32,7 +32,7 @@ from .css import CSS
 from .scanner import (
     CACHE_DIR,
     get_installed_aur, full_scan, is_valid_pkg_name,
-    load_session, save_session,
+    load_session, save_session, reload_compromised_names,
 )
 from .ioc import IocChecker
 from .threats import refresh_threat_list, threat_list_sources_for
@@ -546,6 +546,7 @@ class AurGuardApp(App):
 
         def done() -> None:
             if ok:
+                reload_compromised_names()    # invalidate cached compromised set
                 self.notify(f"Threat list refreshed: {count} packages -> {message}", severity="information", timeout=6)
             else:
                 self.notify(f"Threat list refresh failed: {message}", severity="error", timeout=7)

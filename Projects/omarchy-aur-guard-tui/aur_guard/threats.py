@@ -58,6 +58,8 @@ def threat_package_candidates() -> list[Path]:
         CONFIG_DIR / "package_list.txt",
         workspace_root() / "aur-malware-check" / "package_list.txt",
         Path(__file__).resolve().parents[1] / "package_list.txt",
+        # Bundled compromised AUR list shipped with aur-guard
+        Path(__file__).resolve().parent / "compromised_aurs.list",
     ])
     return candidates
 
