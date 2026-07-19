@@ -1,0 +1,19 @@
+pkgbase = aur-guard
+	pkgdesc = Security scanner TUI for Arch Linux AUR packages — detects malicious PKGBUILDs, compromised dependencies, and supply-chain attacks
+	pkgver = 3.0.0
+	pkgrel = 1
+	url = https://github.com/AyushKr2003/omarchy-dotfiles
+	arch = any
+	license = MIT
+	makedepends = python-build
+	makedepends = python-installer
+	makedepends = python-setuptools
+	makedepends = python-wheel
+	depends = python>=3.10
+	depends = python-textual>=0.50.0
+	depends = python-rich>=13.0
+	depends = pacman
+	depends = curl
+	optdepends = bpftool: eBPF rootkit detection in IoC checks
+
+pkgname = aur-guard

@@ -29,7 +29,7 @@ from typing import Callable
 from urllib import request as _urllib_req
 
 from .icons import OK, FAIL, WARN, INFO
-from .threats import threat_list_sources_for
+from .threats import threat_list_sources_for, load_threat_package_names
 
 # ─────────────────────────────────────────────────────────────────────────────
 # DETECTION RULES  (pattern, severity, AG-ID, description)
@@ -133,6 +133,90 @@ AT_RISK_ACCS: set[str] = {
 }
 
 SEV_ORD: dict[str, int] = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
+
+# ── Compromised-list singleton (loaded once, reused across scans) ────────────
+_compromised_names: set[str] | None = None
+
+def _get_compromised_names() -> set[str]:
+    """Lazy-load the full compromised package name set (includes compromised_aurs.list)."""
+    global _compromised_names
+    if _compromised_names is None:
+        _compromised_names = load_threat_package_names()
+    return _compromised_names
+
+def reload_compromised_names() -> None:
+    """Force reload after a threat list refresh."""
+    global _compromised_names
+    _compromised_names = None
+
+
+# ── Dependency extraction ────────────────────────────────────────────────────
+def _extract_deps_from_info(info: dict) -> list[str]:
+    """Extract dependency names from AUR RPC info dict."""
+    deps: list[str] = []
+    for key in ("Depends", "MakeDepends", "OptDepends"):
+        for raw in (info.get(key) or []):
+            # Strip version constraints and optdepends description
+            name = re.split(r'[><=:| ]', raw)[0].strip()
+            if name:
+                deps.append(name)
+    return deps
+
+
+def _extract_deps_from_pkgbuild(content: str) -> list[str]:
+    """Extract dependency names from PKGBUILD source text."""
+    deps: list[str] = []
+    for m in re.finditer(
+        r'(?:depends|makedepends|optdepends)\s*\+?=\s*\(([^)]+)\)',
+        content, re.IGNORECASE | re.DOTALL
+    ):
+        block = m.group(1)
+        for token in re.findall(r"['\"]([^'\"]+)['\"]", block):
+            name = re.split(r'[><=:| ]', token)[0].strip()
+            if name:
+                deps.append(name)
+    return deps
+
+
+def check_compromised_deps(
+    pkgname: str,
+    info: dict | None,
+    pkgbuild: str | None,
+) -> list[dict]:
+    """
+    Check whether any dependency of *pkgname* appears in the compromised
+    package list (including compromised_aurs.list).  Returns findings for
+    each compromised dependency.
+    """
+    compromised = _get_compromised_names()
+    if not compromised:
+        return []
+
+    # Collect unique dep names from both sources
+    dep_names: set[str] = set()
+    if info:
+        dep_names.update(_extract_deps_from_info(info))
+    if pkgbuild:
+        dep_names.update(_extract_deps_from_pkgbuild(pkgbuild))
+
+    # Don't flag self-dependency
+    dep_names.discard(pkgname)
+
+    findings: list[dict] = []
+    for dep in sorted(dep_names):
+        if dep in compromised:
+            findings.append({
+                "severity":    "CRITICAL",
+                "ag_id":       "AG-601",
+                "description": (
+                    f"Dependency '{dep}' is a known COMPROMISED package "
+                    f"— this package is dangerous by association"
+                ),
+                "file":        "dependency tree",
+                "line":        None,
+                "content":     f"{pkgname} → {dep} (compromised)",
+            })
+    return findings
 
 CACHE_DIR = Path.home() / ".cache" / "aur-guard"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -523,6 +607,16 @@ def full_scan(pkgname: str, prog: Callable[[str], None] | None = None) -> dict:
     if pb:
         p("Analyzing PKGBUILD…")
         result["findings"].extend(analyze(pb, "PKGBUILD"))
+
+        p("Checking dependencies against compromised list…")
+        dep_findings = check_compromised_deps(pkgname, info, pb)
+        if dep_findings:
+            result["findings"].extend(dep_findings)
+            # Escalate score: any compromised dependency is maximum danger
+            result["score"] = max(result["score"], 100)
+            result["score_reasons"].append(
+                f"Has {len(dep_findings)} dependency/ies in the compromised AUR list"
+            )
 
         p("Fetching .install file…")
         inst = fetch_install_file(pkgname)
