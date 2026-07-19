@@ -1,4 +1,4 @@
-# omarchy-security-vm
+# omarchy-vm
 
 pkgname=omarchy-vm
 pkgver=0.2.6
@@ -39,7 +39,7 @@ package() {
   install -Dm644 "assets/icons/arch.png" "${pkgdir}/usr/share/icons/hicolor/512x512/apps/omarchy-arch-vm.png"
   install -Dm644 "assets/icons/nixos.png" "${pkgdir}/usr/share/icons/hicolor/512x512/apps/omarchy-nixos-vm.png"
 
-  install -Dm644 "share/hypr/omarchy-security-vm.lua" "${pkgdir}/usr/share/omarchy-security-vm/hypr/omarchy-security-vm.lua"
+  install -Dm644 "share/hypr/omarchy-vm.lua" "${pkgdir}/usr/share/omarchy-vm/hypr/omarchy-vm.lua"
 
   install -Dm644 "README.md" "${pkgdir}/usr/share/doc/${pkgname}/README.md"
   install -Dm644 "docs/cleanup.md" "${pkgdir}/usr/share/doc/${pkgname}/cleanup.md"
