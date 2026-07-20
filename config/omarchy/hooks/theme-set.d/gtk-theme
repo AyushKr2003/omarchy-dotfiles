@@ -70,6 +70,13 @@ cat > "$dir3/gtk.css" <<EOF
 @define-color sidebar_border_color $muted;
 @define-color sidebar_shade_color $dark_bg;
 
+@define-color osd_bg_color $dark_bg;
+@define-color osd_fg_color $fg;
+@define-color shade_color rgba(0, 0, 0, 0.36);
+@define-color scrollbar_outline_color $muted;
+@define-color thumbnail_bg_color $dark_bg;
+@define-color thumbnail_fg_color $fg;
+
 /* Dynamic corner radius matching Hyprland rounding */
 * {
     border-radius: ${rounding}px;
@@ -96,6 +103,70 @@ stacksidebar,
 .sidebar,
 sidebar {
     background-color: $dark_bg !important;
+    color: $fg !important;
+}
+
+/* Toast popup overrides */
+toast,
+.toast,
+toastoverlay toast,
+.app-notification,
+.notification {
+    --toast-bg-color: $dark_bg !important;
+    --toast-fg-color: $fg !important;
+    background-color: $dark_bg !important;
+    color: $fg !important;
+    border: 1px solid $muted !important;
+}
+
+toast > widget,
+.toast > widget,
+toastoverlay toast > widget {
+    background-color: $dark_bg !important;
+    color: $fg !important;
+    border: none !important;
+}
+
+toast label,
+.toast label,
+.app-notification label,
+.notification label {
+    color: $fg !important;
+}
+
+toast button,
+.toast button,
+.app-notification button,
+.notification button {
+    background-color: $selection !important;
+    color: $accent !important;
+}
+
+toast button:hover,
+.toast button:hover,
+.app-notification button:hover,
+.notification button:hover {
+    background-color: $accent !important;
+    color: $bg !important;
+}
+
+toast button.circular.flat,
+.toast button.circular.flat,
+.app-notification button.circular.flat,
+.notification button.circular.flat,
+.app-notification button.flat,
+.notification button.flat {
+    background-color: transparent !important;
+    color: $fg !important;
+}
+
+toast button.circular.flat:hover,
+.toast button.circular.flat:hover,
+.app-notification button.circular.flat:hover,
+.notification button.circular.flat:hover,
+.app-notification button.flat:hover,
+.notification button.flat:hover {
+    background-color: $selection !important;
     color: $fg !important;
 }
 EOF
@@ -145,6 +216,13 @@ cat > "$dir4/gtk.css" <<EOF
 @define-color sidebar_border_color $muted;
 @define-color sidebar_shade_color $dark_bg;
 
+@define-color osd_bg_color $dark_bg;
+@define-color osd_fg_color $fg;
+@define-color shade_color rgba(0, 0, 0, 0.36);
+@define-color scrollbar_outline_color $muted;
+@define-color thumbnail_bg_color $dark_bg;
+@define-color thumbnail_fg_color $fg;
+
 /* Dynamic corner radius matching Hyprland rounding */
 * {
     border-radius: ${rounding}px;
@@ -170,8 +248,70 @@ switch image {
 stacksidebar,
 .sidebar,
 sidebar {
-    background-color: $dark_bg !important;
-    color: $fg !important;
+    background-color: $dark_bg;
+    color: $fg;
+}
+
+/* Toast popup overrides */
+toast,
+.toast,
+toastoverlay toast,
+.app-notification,
+.notification {
+    background-color: $dark_bg;
+    color: $fg;
+    border: 1px solid $muted;
+}
+
+toast > widget,
+.toast > widget,
+toastoverlay toast > widget {
+    background-color: $dark_bg;
+    color: $fg;
+    border: none;
+}
+
+toast label,
+.toast label,
+.app-notification label,
+.notification label {
+    color: $fg;
+}
+
+toast button,
+.toast button,
+.app-notification button,
+.notification button {
+    background-color: $selection;
+    color: $accent;
+}
+
+toast button:hover,
+.toast button:hover,
+.app-notification button:hover,
+.notification button:hover {
+    background-color: $accent;
+    color: $bg;
+}
+
+toast button.circular.flat,
+.toast button.circular.flat,
+.app-notification button.circular.flat,
+.notification button.circular.flat,
+.app-notification button.flat,
+.notification button.flat {
+    background-color: transparent;
+    color: $fg;
+}
+
+toast button.circular.flat:hover,
+.toast button.circular.flat:hover,
+.app-notification button.circular.flat:hover,
+.notification button.circular.flat:hover,
+.app-notification button.flat:hover,
+.notification button.flat:hover {
+    background-color: $selection;
+    color: $fg;
 }
 EOF
 
