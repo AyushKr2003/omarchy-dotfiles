@@ -48,3 +48,13 @@ Move these files into your Firefox installation directory (typically on Windows)
 - Place `firefox.cfg` directly into the root Firefox folder.
 
 Restart Firefox, and your custom HTML file will seamlessly load every time you open a new tab.
+
+# Zen browser (about:config)
+
+```
+```
+browser.tabs.insertAfterCurrent     true
+zen.urlbar.replace-newtab           false
+zen.view.show-newtab-button-top     false
+```
+```
