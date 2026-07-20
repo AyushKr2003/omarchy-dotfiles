@@ -99,7 +99,11 @@ func KittyThumbnail(path string, cols, rows int) string {
 	if srcW == 0 || srcH == 0 {
 		return ""
 	}
-	scale := min(float64(cols)/float64(srcW), float64(rows*2)/float64(srcH))
+	scale := 1.0
+	maxDim := float64(max(srcW, srcH))
+	if maxDim > 800.0 {
+		scale = 800.0 / maxDim
+	}
 	dstW := max(1, int(float64(srcW)*scale))
 	dstH := max(1, int(float64(srcH)*scale))
 
@@ -112,10 +116,49 @@ func KittyThumbnail(path string, cols, rows int) string {
 	}
 	b64 := base64.StdEncoding.EncodeToString(pngBuf.Bytes())
 
-	// Kitty escape, wrapped in save/restore cursor so the image is placed
-	// at the current position and placeholder newlines reserve visual height.
-	escape := fmt.Sprintf("\x1b_Ga=T,f=100,c=%d,r=%d;%s\x1b\\", cols, rows, b64)
-	return fmt.Sprintf("\x1b[s%s\x1b[u%s", escape, strings.Repeat("\n", rows))
+	imgRatio := float64(srcW) / float64(srcH)
+	actualCols := cols
+	actualRows := int(float64(cols) / (imgRatio * 2.0))
+	if actualRows > rows {
+		actualRows = rows
+		actualCols = int(float64(rows) * imgRatio * 2.0)
+	}
+	if actualCols < 1 { actualCols = 1 }
+	if actualRows < 1 { actualRows = 1 }
+
+	escape := kittyEscape(b64, actualCols, actualRows)
+	var lines []string
+	lines = append(lines, fmt.Sprintf("\x1b[s%s\x1b[u%s", escape, strings.Repeat(" ", actualCols)))
+	for i := 1; i < actualRows; i++ {
+		lines = append(lines, strings.Repeat(" ", actualCols))
+	}
+	return strings.Join(lines, "\n")
+}
+
+func kittyEscape(b64 string, cols, rows int) string {
+	chunkSize := 4096
+	var b strings.Builder
+	
+	if len(b64) <= chunkSize {
+		b.WriteString(fmt.Sprintf("\x1b_Ga=T,f=100,q=2,z=1,c=%d,r=%d;%s\x1b\\", cols, rows, b64))
+		return b.String()
+	}
+	
+	b.WriteString(fmt.Sprintf("\x1b_Ga=T,f=100,q=2,z=1,c=%d,r=%d,m=1;%s\x1b\\", cols, rows, b64[:chunkSize]))
+	b64 = b64[chunkSize:]
+	
+	for len(b64) > chunkSize {
+		b.WriteString(fmt.Sprintf("\x1b_Gm=1;%s\x1b\\", b64[:chunkSize]))
+		b64 = b64[chunkSize:]
+	}
+	
+	if len(b64) > 0 {
+		b.WriteString(fmt.Sprintf("\x1b_Gm=0;%s\x1b\\", b64))
+	} else {
+		b.WriteString("\x1b_Gm=0;\x1b\\")
+	}
+	
+	return b.String()
 }
 
 func decode(path string) (image.Image, error) {
@@ -134,6 +177,35 @@ func rgb(img *image.RGBA, x, y int) (int, int, int) {
 }
 
 func dim(s string) string { return "\x1b[2m" + s + "\x1b[0m" }
+
+// KittyThumbnailBytes encodes image bytes as a Kitty terminal inline image.
+func KittyThumbnailBytes(data []byte, cols, rows int) string {
+	if cols < 1 || rows < 1 {
+		return ""
+	}
+	
+	actualCols, actualRows := cols, rows
+	config, _, err := image.DecodeConfig(bytes.NewReader(data))
+	if err == nil && config.Width > 0 && config.Height > 0 {
+		imgRatio := float64(config.Width) / float64(config.Height)
+		actualRows = int(float64(cols) / (imgRatio * 2.0))
+		if actualRows > rows {
+			actualRows = rows
+			actualCols = int(float64(rows) * imgRatio * 2.0)
+		}
+		if actualCols < 1 { actualCols = 1 }
+		if actualRows < 1 { actualRows = 1 }
+	}
+	
+	b64 := base64.StdEncoding.EncodeToString(data)
+	escape := kittyEscape(b64, actualCols, actualRows)
+	var lines []string
+	lines = append(lines, fmt.Sprintf("\x1b[s%s\x1b[u%s", escape, strings.Repeat(" ", actualCols)))
+	for i := 1; i < actualRows; i++ {
+		lines = append(lines, strings.Repeat(" ", actualCols))
+	}
+	return strings.Join(lines, "\n")
+}
 
 func min(a, b float64) float64 {
 	if a < b {

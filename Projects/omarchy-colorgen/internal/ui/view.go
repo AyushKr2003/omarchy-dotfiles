@@ -13,6 +13,10 @@ import (
 	"omarchy-colorgen/internal/preview"
 )
 
+// kittyDeleteAll sends the Kitty graphics protocol escape to delete all
+// previously rendered images, preventing ghosting/overlap on redraws.
+const kittyDeleteAll = "\x1b_Ga=d,d=A\x1b\\"
+
 func (m Model) View() string {
 	if !m.ready {
 		return "loading…"
@@ -35,7 +39,12 @@ func (m Model) View() string {
 		title, strings.Repeat(" ", max0(m.width-lipgloss.Width(title)-lipgloss.Width(modeBadge)-2)), modeBadge)
 
 	body := m.renderBody()
-	return lipgloss.JoinVertical(lipgloss.Left, header, body, m.footerView())
+	// Clear all previous Kitty images before rendering new frame to prevent overlap
+	var prefix string
+	if m.kitty {
+		prefix = kittyDeleteAll
+	}
+	return prefix + lipgloss.JoinVertical(lipgloss.Left, header, body, m.footerView())
 }
 
 func (m Model) renderBody() string {
@@ -208,7 +217,7 @@ func (m Model) previewView(w, h int) string {
 			logoBlock := lipgloss.JoinVertical(lipgloss.Left, sectionLabelStyle.Render("BOOT LOGO"), logoArt)
 			iconBlock := lipgloss.JoinVertical(lipgloss.Left, sectionLabelStyle.Render("ICONS"), iconArt)
 			
-			rightCol := lipgloss.JoinVertical(lipgloss.Left, logoBlock, spacerStyle.Render(""), iconBlock)
+			rightCol := lipgloss.JoinVertical(lipgloss.Left, logoBlock, "\n\n", iconBlock)
 			
 			bgSection = lipgloss.JoinHorizontal(lipgloss.Top, bgBlock, spacerStyle.Width(4).Render(""), rightCol)
 		} else if inner > 8 {
@@ -229,17 +238,22 @@ func (m Model) previewView(w, h int) string {
 // cache map is shared across model copies (maps are reference types), so
 // writing here from a value receiver persists between renders.
 func (m Model) thumbnail(path string, cols, rows int) string {
-	key := fmt.Sprintf("%s|%dx%d", path, cols, rows)
+	key := fmt.Sprintf("%s|%dx%d|kitty:%v", path, cols, rows, m.kitty)
 	if s, ok := m.thumbCache[key]; ok {
 		return s
 	}
-	s := preview.Thumbnail(path, cols, rows)
+	var s string
+	if m.kitty {
+		s = preview.KittyThumbnail(path, cols, rows)
+	} else {
+		s = preview.Thumbnail(path, cols, rows)
+	}
 	m.thumbCache[key] = s
 	return s
 }
 
 func (m Model) unlockThumbnail(fg string, cols, rows int) string {
-	key := fmt.Sprintf("logo|%s|%dx%d", fg, cols, rows)
+	key := fmt.Sprintf("logo|%s|%dx%d|kitty:%v", fg, cols, rows, m.kitty)
 	if s, ok := m.thumbCache[key]; ok {
 		return s
 	}
@@ -249,7 +263,12 @@ func (m Model) unlockThumbnail(fg string, cols, rows int) string {
 		return "\x1b[2m(logo error)\x1b[0m"
 	}
 	
-	s := preview.ThumbnailBytes(pngBytes, cols, rows)
+	var s string
+	if m.kitty {
+		s = preview.KittyThumbnailBytes(pngBytes, cols, rows)
+	} else {
+		s = preview.ThumbnailBytes(pngBytes, cols, rows)
+	}
 	m.thumbCache[key] = s
 	return s
 }
@@ -261,79 +280,34 @@ func (m Model) iconMockup(accent string, cols, rows int) string {
 
 	themeName := m.iconTheme
 	if themeName == "" {
-		themeName = omarchyIconTheme(accent)
+		themeName = omarchy.IconTheme(accent)
 	}
 
-	accentStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(accent))
 	fileStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.pal.Foreground))
 
+	// themeIconBytes already builds a montage of 3 folders + 1 file as a single PNG.
+	// Render it as one image, exactly like background and boot logo.
+	key := fmt.Sprintf("icongrid|%s|%dx%d|kitty:%v", themeName, cols, rows, m.kitty)
+
 	var grid string
-
-	// Try to get the actual folder icon from the selected theme!
-	key := fmt.Sprintf("folder|%s|%dx%d", themeName, 12, 6)
 	if s, ok := m.thumbCache[key]; ok && s != "" && s != "ERR" {
-		folderIcon := s
-		
-		lblDocs := fileStyle.Render(" Documents")
-		lblDowns := fileStyle.Render(" Downloads")
-		lblPics := fileStyle.Render(" Pictures")
-
-		drawGridItem := func(icon, label string) string {
-			return lipgloss.JoinVertical(lipgloss.Center, icon, label)
-		}
-
-		itemDocs := drawGridItem(folderIcon, lblDocs)
-		itemDowns := drawGridItem(folderIcon, lblDowns)
-		itemPics := drawGridItem(folderIcon, lblPics)
-
-		// Create a 2-row grid layout using the real folder icons
-		row1 := lipgloss.JoinHorizontal(lipgloss.Top, itemDocs, "   ", itemDowns)
-		row2 := lipgloss.JoinHorizontal(lipgloss.Top, itemPics)
-		
-		grid = lipgloss.JoinVertical(lipgloss.Left, row1, "\n", row2)
+		grid = s
 	} else if _, ok := m.thumbCache[key]; !ok {
-		// Not cached yet, try to load it
-		pngBytes := themeIconBytes(themeName)
+		pngBytes := themeIconBytes(themeName, m.pal.Background)
 		if len(pngBytes) > 0 {
-			folderIcon := preview.ThumbnailBytes(pngBytes, 14, 7)
-			m.thumbCache[key] = folderIcon
-			
-			// Recurse to use the cached value now
-			return m.iconMockup(accent, cols, rows)
+			if m.kitty {
+				grid = preview.KittyThumbnailBytes(pngBytes, cols, rows)
+			} else {
+				grid = preview.ThumbnailBytes(pngBytes, cols, rows)
+			}
+			m.thumbCache[key] = grid
 		} else {
 			m.thumbCache[key] = "ERR"
 		}
 	}
 
-	if grid == "" {
-		// Fallback to ASCII art if the actual GTK icon wasn't found or failed
-		folderASCII := accentStyle.Render(" ▄▄▄▄▄▄ \n█▀    ▀█▄▄▄\n█         █\n█▄▄▄▄▄▄▄▄▄█")
-		fileASCII := fileStyle.Render(" ▄▄▄▄▄▄▄ \n █ ≡   █ \n █ ≡   █ \n ▀▀▀▀▀▀▀ ")
-		scriptASCII := fileStyle.Render(" ▄▄▄▄▄▄▄ \n █ >_  █ \n █     █ \n ▀▀▀▀▀▀▀ ")
-		imgASCII := fileStyle.Render(" ▄▄▄▄▄▄▄ \n █ ☼ ⛰ █ \n █     █ \n ▀▀▀▀▀▀▀ ")
-
-		lblDocs := fileStyle.Render(" Documents")
-		lblDowns := fileStyle.Render(" Downloads")
-		lblPics := fileStyle.Render(" Pictures")
-		lblFile := fileStyle.Render(" report.pdf")
-		lblScript := fileStyle.Render(" script.sh")
-		lblImg := fileStyle.Render(" image.png")
-
-		drawGridItem := func(icon, label string) string {
-			return lipgloss.JoinVertical(lipgloss.Center, icon, label)
-		}
-
-		itemDocs := drawGridItem(folderASCII, lblDocs)
-		itemDowns := drawGridItem(folderASCII, lblDowns)
-		itemPics := drawGridItem(folderASCII, lblPics)
-		itemFile := drawGridItem(fileASCII, lblFile)
-		itemScript := drawGridItem(scriptASCII, lblScript)
-		itemImg := drawGridItem(imgASCII, lblImg)
-
-		row1 := lipgloss.JoinHorizontal(lipgloss.Top, itemDocs, "   ", itemDowns, "   ", itemPics)
-		row2 := lipgloss.JoinHorizontal(lipgloss.Top, itemFile, "  ", itemScript, "  ", itemImg)
-
-		grid = lipgloss.JoinVertical(lipgloss.Left, row1, "\n", row2)
+	if grid == "" || grid == "ERR" {
+		grid = fileStyle.Render("(icon preview unavailable)")
 	}
 
 	var b strings.Builder
@@ -341,12 +315,6 @@ func (m Model) iconMockup(accent string, cols, rows int) string {
 	b.WriteString(grid)
 
 	return b.String()
-}
-
-// omarchyIconTheme mirrors omarchy.iconTheme for the UI
-func omarchyIconTheme(accent string) string {
-	// Simple fallback mirroring internal logic
-	return "Yaru-" + accent
 }
 
 func (m Model) footerView() string {
@@ -415,37 +383,67 @@ func max0(n int) int {
 	return n
 }
 
-func themeIconBytes(themeName string) []byte {
+func themeIconBytes(themeName string, bgColor string) []byte {
 	dirs := []string{
 		filepath.Join(os.Getenv("HOME"), ".local/share/icons"),
 		"/usr/share/icons",
 	}
-	var iconPath string
-	for _, base := range dirs {
-		themeDir := filepath.Join(base, themeName)
-		if _, err := os.Stat(themeDir); err == nil {
-			for _, size := range []string{"256x256", "256x256@2x", "128x128", "scalable", "48x48", "64x64"} {
-				for _, ext := range []string{".png", ".svg"} {
-					p := filepath.Join(themeDir, size, "places", "folder"+ext)
-					if _, err := os.Stat(p); err == nil {
-						iconPath = p
-						break
+	
+	// findIconInTheme searches in the given theme for an icon by name and category
+	findIconInTheme := func(theme, name, category string) string {
+		for _, base := range dirs {
+			themeDir := filepath.Join(base, theme)
+			if _, err := os.Stat(themeDir); err == nil {
+				for _, size := range []string{"256x256", "256x256@2x", "128x128", "scalable", "48x48", "64x64"} {
+					for _, ext := range []string{".png", ".svg"} {
+						p := filepath.Join(themeDir, size, category, name+ext)
+						if _, err := os.Stat(p); err == nil {
+							return p
+						}
 					}
-				}
-				if iconPath != "" {
-					break
 				}
 			}
 		}
-		if iconPath != "" {
-			break
-		}
+		return ""
 	}
-	if iconPath == "" {
+
+	// Folder icons live in colored themes (Yaru-blue, etc.)
+	folderPath := findIconInTheme(themeName, "folder", "places")
+	if folderPath == "" {
+		// Fall back to base Yaru
+		folderPath = findIconInTheme("Yaru", "folder", "places")
+	}
+	if folderPath == "" {
 		return nil
 	}
 
-	cmd := exec.Command("magick", "-background", "none", iconPath, "-resize", "128x128", "png:-")
+	// File/mimetype icons only exist in the base Yaru theme, not colored variants
+	filePath := findIconInTheme(themeName, "text-x-generic", "mimetypes")
+	if filePath == "" {
+		filePath = findIconInTheme("Yaru", "text-x-generic", "mimetypes")
+	}
+	if filePath == "" {
+		filePath = findIconInTheme("Yaru", "text-plain", "mimetypes")
+	}
+	if filePath == "" {
+		filePath = folderPath
+	}
+
+	// Use terminal background color for montage, fallback to dark grey
+	bg := bgColor
+	if bg == "" {
+		bg = "#1e1e2e"
+	}
+
+	cmd := exec.Command("magick", "montage", "-background", bg,
+		"-label", "Documents", folderPath,
+		"-label", "Downloads", folderPath,
+		"-label", "Pictures", folderPath,
+		"-label", "report.txt", filePath,
+		"-geometry", "128x128+15+10", "-tile", "2x2",
+		"-font", "Liberation-Sans", "-pointsize", "14",
+		"-fill", "#cccccc",
+		"png:-")
 	out, _ := cmd.Output()
 	return out
 }

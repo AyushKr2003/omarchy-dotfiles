@@ -61,7 +61,7 @@ func Build(dir string, p palette.Palette, wallpaper string, customIconTheme stri
 
 	ico := customIconTheme
 	if ico == "" {
-		ico = iconTheme(p.Accent)
+		ico = IconTheme(p.Accent)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "icons.theme"), []byte(ico+"\n"), 0o644); err != nil {
 		return err
@@ -119,9 +119,11 @@ func Apply(name string) error {
 	return nil
 }
 
-// iconTheme picks the closest Yaru icon accent for the palette accent color,
-// matching the "Yaru-<color>" values first-party themes ship in icons.theme.
-func iconTheme(accent string) string {
+// IconTheme picks the closest Yaru icon accent for the palette accent color,
+// matching the "Yaru-<color>" values that are actually installed on the system.
+// Available: Yaru, Yaru-blue, Yaru-magenta, Yaru-olive, Yaru-prussiangreen,
+// Yaru-purple, Yaru-red, Yaru-sage, Yaru-wartybrown, Yaru-yellow.
+func IconTheme(accent string) string {
 	c, err := palette.ParseHex(accent)
 	if err != nil {
 		return "Yaru-blue"
@@ -134,13 +136,15 @@ func iconTheme(accent string) string {
 	case h < 15 || h >= 345:
 		return "Yaru-red"
 	case h < 45:
-		return "Yaru-orange"
+		return "Yaru-wartybrown" // orange/brown hues
 	case h < 70:
 		return "Yaru-yellow"
 	case h < 155:
 		return "Yaru-olive"
-	case h < 185:
+	case h < 175:
 		return "Yaru-sage"
+	case h < 200:
+		return "Yaru-prussiangreen" // teal/cyan hues
 	case h < 260:
 		return "Yaru-blue"
 	case h < 300:
