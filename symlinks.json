@@ -1,0 +1,21 @@
+{
+  "config": {
+    "browser-default": "dir",
+    "fastfetch": "dir",
+    "fish": "files",
+    "hypr": "files",
+    "mpv": "dir",
+    "omarchy": "files",
+    "omarchy/plugins": "dir",
+    "omarchy/themes": "dir",
+    "omarchy/hooks/theme-set.d": "dir",
+    "qutebrowser": "dir",
+    "superfile": "files"
+  },
+  "local": {
+    "bin": "files",
+    "share": "files",
+    "share/applications": "files",
+    "share/icons": "files"
+  }
+}

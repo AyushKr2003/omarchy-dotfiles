@@ -42,6 +42,47 @@ else
   export TERM_WIDTH=80
 fi
 
+# Recursive, JSON-driven symlink helper function
+process_symlink() {
+  local src="$1"
+  local dest="$2"
+  local rel_path="$3"    # e.g. "omarchy" or "omarchy/plugins"
+  local category="$4"    # e.g. "config"
+  
+  local link_type
+  link_type=$(jq -r ".\"$category\"[\"$rel_path\"]" "$SYMLINKS_JSON" 2>/dev/null)
+  
+  if [[ "$link_type" == "null" ]]; then
+    if [[ -f "$src" ]]; then
+      link_type="file"
+    else
+      # If a directory doesn't have an explicit rule, keep recursing inside it
+      link_type="files"
+    fi
+  fi
+  
+  if [[ "$link_type" == "dir" ]]; then
+    if [[ -e "$dest" || -L "$dest" ]]; then
+      rm -rf "$dest"
+    fi
+    ln -s "$src" "$dest"
+    echo "    [Dir]  $rel_path"
+  elif [[ "$link_type" == "files" ]]; then
+    mkdir -p "$dest"
+    for child in "$src"/*; do
+      [[ -e "$child" ]] || continue
+      local basename="$(basename "$child")"
+      process_symlink "$child" "$dest/$basename" "$rel_path/$basename" "$category"
+    done
+  elif [[ "$link_type" == "file" || -f "$src" ]]; then
+    if [[ -e "$dest" || -L "$dest" ]]; then
+      rm -f "$dest"
+    fi
+    ln -s "$src" "$dest"
+    echo "    [File] $rel_path"
+  fi
+}
+
 clear
 gum style --foreground 6 --border rounded --padding "1 2" --align center \
   "omarchy-dotfiles installer" "$(whoami)@$(hostname)"
@@ -56,6 +97,7 @@ echo ""
 gum style --foreground 2 "==> Installing pacman packages"
 
 PACMAN_PACKAGES=(
+  jq              # required for symlinks.json parsing
   omarchy-fish    # Omarchy's own fish package (from pkgs.omarchy.org, not AUR)
   yazi            # terminal file manager
   qutebrowser     # keyboard-driven browser
@@ -183,13 +225,14 @@ else
 fi
 
 # ════════════════════════════════════════════════════════════════════════
-# SECTION: copy .config/ (interactive checklist, pre-checked)
+# SECTION: copy .config/ (symlink everything directly based on json)
 # ════════════════════════════════════════════════════════════════════════
 
-gum style --foreground 2 "==> Copying .config/"
+gum style --foreground 2 "==> Installing .config/"
 
 SRC_CONFIG="$DOTFILES_ROOT/config"
 DEST_CONFIG="$HOME/.config"
+SYMLINKS_JSON="$DOTFILES_ROOT/symlinks.json"
 
 if [[ ! -d $SRC_CONFIG ]]; then
   echo "    No .config/ directory in this repo, skipping."
@@ -197,36 +240,36 @@ else
   mapfile -t CONFIG_ITEMS < <(find "$SRC_CONFIG" -mindepth 1 -maxdepth 1 -printf '%f\n' | sort)
 
   if ((${#CONFIG_ITEMS[@]} == 0)); then
-    echo "    .config/ is empty, nothing to copy."
+    echo "    .config/ is empty, nothing to install."
   else
-    SELECTED_STRING=$(gum choose --no-limit --selected='*' \
-      --header "Select .config/ items to install into ~/.config/ (space to toggle, enter to confirm)" \
-      --selected-prefix="✓ " --unselected-prefix="✗ " \
-      "${CONFIG_ITEMS[@]}")
-
-    SELECTED=()
-    while IFS= read -r line; do
-      [[ -n $line ]] && SELECTED+=("$line")
-    done <<<"$SELECTED_STRING"
-
-    if ((${#SELECTED[@]} == 0)); then
-      echo "    Nothing selected, skipping .config/ copy."
-    else
-      mkdir -p "$DEST_CONFIG"
-      for item in "${SELECTED[@]}"; do
-        cp -rT "$SRC_CONFIG/$item" "$DEST_CONFIG/$item" 2>/dev/null \
-          || cp -r "$SRC_CONFIG/$item" "$DEST_CONFIG/"
-        echo "    Copied .config/$item"
-      done
-    fi
+    mkdir -p "$DEST_CONFIG"
+    for item in "${CONFIG_ITEMS[@]}"; do
+      src_item="$SRC_CONFIG/$item"
+      target_item="$DEST_CONFIG/$item"
+      
+      # Read the symlink type from JSON, default to "dir" if not specified at top level
+      link_type=$(jq -r ".\"config\".\"$item\" // \"dir\"" "$SYMLINKS_JSON")
+      
+      if [[ "$link_type" == "dir" ]]; then
+        if [[ -e "$target_item" || -L "$target_item" ]]; then
+          rm -rf "$target_item"
+        fi
+        ln -s "$src_item" "$target_item"
+        echo "    [Dir]  $item"
+      elif [[ "$link_type" == "files" ]]; then
+        process_symlink "$src_item" "$target_item" "$item" "config"
+      else
+        echo "    [Skip] Unknown link type '$link_type' for .config/$item"
+      fi
+    done
   fi
 fi
 
 # ════════════════════════════════════════════════════════════════════════
-# SECTION: copy .local/ (interactive checklist, pre-checked)
+# SECTION: copy .local/ (symlink everything directly based on json)
 # ════════════════════════════════════════════════════════════════════════
 
-gum style --foreground 2 "==> Copying .local/"
+gum style --foreground 2 "==> Installing .local/"
 
 SRC_LOCAL="$DOTFILES_ROOT/local"
 DEST_LOCAL="$HOME/.local"
@@ -237,31 +280,32 @@ else
   mapfile -t LOCAL_ITEMS < <(find "$SRC_LOCAL" -mindepth 1 -maxdepth 1 -printf '%f\n' | sort)
 
   if ((${#LOCAL_ITEMS[@]} == 0)); then
-    echo "    .local/ is empty, nothing to copy."
+    echo "    .local/ is empty, nothing to install."
   else
-    SELECTED_STRING=$(gum choose --no-limit --selected='*' \
-      --header "Select .local/ items to install into ~/.local/ (space to toggle, enter to confirm)" \
-      --selected-prefix="✓ " --unselected-prefix="✗ " \
-      "${LOCAL_ITEMS[@]}")
+    mkdir -p "$DEST_LOCAL"
+    for item in "${LOCAL_ITEMS[@]}"; do
+      src_item="$SRC_LOCAL/$item"
+      target_item="$DEST_LOCAL/$item"
+      
+      # Read the symlink type from JSON, default to "dir" if not specified at top level
+      link_type=$(jq -r ".\"local\".\"$item\" // \"dir\"" "$SYMLINKS_JSON")
+      
+      if [[ "$link_type" == "dir" ]]; then
+        if [[ -e "$target_item" || -L "$target_item" ]]; then
+          rm -rf "$target_item"
+        fi
+        ln -s "$src_item" "$target_item"
+        echo "    [Dir]  $item"
+      elif [[ "$link_type" == "files" ]]; then
+        process_symlink "$src_item" "$target_item" "$item" "local"
+      else
+        echo "    [Skip] Unknown link type '$link_type' for .local/$item"
+      fi
+    done
 
-    SELECTED=()
-    while IFS= read -r line; do
-      [[ -n $line ]] && SELECTED+=("$line")
-    done <<<"$SELECTED_STRING"
-
-    if ((${#SELECTED[@]} == 0)); then
-      echo "    Nothing selected, skipping .local/ copy."
-    else
-      mkdir -p "$DEST_LOCAL"
-      for item in "${SELECTED[@]}"; do
-        cp -rT "$SRC_LOCAL/$item" "$DEST_LOCAL/$item" 2>/dev/null \
-          || cp -r "$SRC_LOCAL/$item" "$DEST_LOCAL/"
-        echo "    Copied .local/$item"
-      done
-
-      # Re-mark any scripts executable in case git stripped the bit on clone.
-      find "$DEST_LOCAL/bin" -maxdepth 1 -type f -exec chmod +x {} \; 2>/dev/null || true
-    fi
+    # Re-mark any scripts executable in case git stripped the bit on clone.
+    # Only affects actual files, resolving through symlinks where necessary
+    find "$DEST_LOCAL/bin" -maxdepth 1 -type f -exec chmod +x {} \; 2>/dev/null || true
   fi
 fi
 
