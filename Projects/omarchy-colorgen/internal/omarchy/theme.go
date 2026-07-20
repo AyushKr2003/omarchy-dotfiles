@@ -1,6 +1,8 @@
 package omarchy
 
 import (
+	"bytes"
+	_ "embed"
 	"errors"
 	"fmt"
 	"io"
@@ -13,6 +15,9 @@ import (
 	"omarchy-colorgen/internal/palette"
 	"omarchy-colorgen/internal/preview"
 )
+
+//go:embed logo.svg
+var logoSVG []byte
 
 // ThemesDir is where user themes live.
 func ThemesDir() string {
@@ -44,7 +49,7 @@ func Slug(name string) string {
 // light.mode marker for light themes. Config files (alacritty, hyprland, waybar,
 // …) are intentionally omitted: omarchy-theme-set renders those from templates
 // on apply, so shipping them here would only fight the generator.
-func Build(dir string, p palette.Palette, wallpaper string) error {
+func Build(dir string, p palette.Palette, wallpaper string, customIconTheme string) error {
 	bgDir := filepath.Join(dir, "backgrounds")
 	if err := os.MkdirAll(bgDir, 0o755); err != nil {
 		return err
@@ -54,12 +59,19 @@ func Build(dir string, p palette.Palette, wallpaper string) error {
 		return err
 	}
 
-	if err := os.WriteFile(filepath.Join(dir, "icons.theme"), []byte(iconTheme(p.Accent)+"\n"), 0o644); err != nil {
+	ico := customIconTheme
+	if ico == "" {
+		ico = iconTheme(p.Accent)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "icons.theme"), []byte(ico+"\n"), 0o644); err != nil {
 		return err
 	}
 
 	// A generated preview is best-effort; a failure here should not abort a save.
 	_ = preview.RenderPNG(p, filepath.Join(dir, "preview.png"))
+
+	// Also generate the Plymouth/SDDM unlock.png from the embedded SVG logo
+	_ = RenderUnlockPNG(p.Foreground, filepath.Join(dir, "unlock.png"))
 
 	if p.Mode == "light" {
 		if err := os.WriteFile(filepath.Join(dir, "light.mode"), nil, 0o644); err != nil {
@@ -78,13 +90,13 @@ func Build(dir string, p palette.Palette, wallpaper string) error {
 
 // WriteTheme builds a full theme under ~/.config/omarchy/themes/<slug>/ and
 // returns the theme directory path.
-func WriteTheme(name string, p palette.Palette, wallpaper string) (string, error) {
+func WriteTheme(name string, p palette.Palette, wallpaper string, customIconTheme string) (string, error) {
 	slug := Slug(name)
 	if slug == "" {
 		return "", errors.New("theme name is empty after normalization")
 	}
 	dir := filepath.Join(ThemesDir(), slug)
-	if err := Build(dir, p, wallpaper); err != nil {
+	if err := Build(dir, p, wallpaper, customIconTheme); err != nil {
 		return "", err
 	}
 	return dir, nil
@@ -159,6 +171,8 @@ func minByte(vs ...uint8) uint8 {
 }
 
 // Export writes just the colors.toml content to an arbitrary path.
+// (Not anymore, it's not just colors.toml) Wait, Export isn't used like Build, it just writes ColorsTOML in main.go, wait.
+// Let's check Export. Wait, it only writes colors.toml in the current repo, let's keep it.
 func Export(path string, p palette.Palette, wallpaper string) error {
 	if d := filepath.Dir(path); d != "" {
 		if err := os.MkdirAll(d, 0o755); err != nil {
@@ -185,4 +199,32 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	return out.Close()
+}
+
+// RenderUnlockPNG uses ImageMagick to render the embedded SVG logo into a
+// 801x188 transparent PNG, tinted exactly to the provided foreground color.
+// This matches the size and properties expected by Omarchy Plymouth/SDDM.
+func RenderUnlockPNG(fg, outPath string) error {
+	// Ensure the hex color is prefixed with '#'
+	if !strings.HasPrefix(fg, "#") {
+		fg = "#" + fg
+	}
+
+	cmd := exec.Command("magick", "-background", "none", "svg:-", "-resize", "x188", "-channel", "RGB", "+level-colors", fg+","+fg, outPath)
+	cmd.Stdin = bytes.NewReader(logoSVG)
+	
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("magick error: %w, output: %s", err, string(out))
+	}
+	return nil
+}
+
+// UnlockPNGBytes returns the rendered unlock.png as raw PNG bytes.
+func UnlockPNGBytes(fg string) ([]byte, error) {
+	if !strings.HasPrefix(fg, "#") {
+		fg = "#" + fg
+	}
+	cmd := exec.Command("magick", "-background", "none", "svg:-", "-resize", "x188", "-channel", "RGB", "+level-colors", fg+","+fg, "png:-")
+	cmd.Stdin = bytes.NewReader(logoSVG)
+	return cmd.Output()
 }

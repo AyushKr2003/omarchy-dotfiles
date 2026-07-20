@@ -22,6 +22,7 @@ type keyMap struct {
 	FolderInto  key.Binding
 	ToggleHidden key.Binding
 	WritePath   key.Binding
+	Icons       key.Binding
 }
 
 func defaultKeys() keyMap {
@@ -45,10 +46,11 @@ func defaultKeys() keyMap {
 		FolderInto:   key.NewBinding(key.WithKeys("right", "l"), key.WithHelp("→/l", "open dir")),
 		ToggleHidden: key.NewBinding(key.WithKeys("ctrl+.", "."), key.WithHelp("ctrl+./.", "hidden")),
 		WritePath:    key.NewBinding(key.WithKeys("ctrl+p", "p"), key.WithHelp("ctrl+p/p", "path")),
+		Icons:        key.NewBinding(key.WithKeys("i"), key.WithHelp("i", "toggle icons/wallpapers")),
 	}
 }
 
 // shortHelp is the compact keybinding row shown in the footer.
 func (k keyMap) shortHelp() []key.Binding {
-	return []key.Binding{k.Up, k.Down, k.Toggle, k.Filter, k.Save, k.Apply, k.Export, k.Peek, k.Quit}
+	return []key.Binding{k.Up, k.Down, k.Toggle, k.Icons, k.Filter, k.Save, k.Apply, k.Export, k.Quit}
 }

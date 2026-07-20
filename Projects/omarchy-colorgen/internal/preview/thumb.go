@@ -30,14 +30,25 @@ func Thumbnail(path string, cols, rows int) string {
 	if err != nil {
 		return dim(fmt.Sprintf("(preview unavailable: %v)", err))
 	}
+	return renderASCII(img, cols, rows)
+}
 
+// ThumbnailBytes decodes image bytes and renders a half-block thumbnail.
+func ThumbnailBytes(data []byte, cols, rows int) string {
+	if cols < 1 || rows < 1 {
+		return ""
+	}
+	img, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return dim(fmt.Sprintf("(preview unavailable: %v)", err))
+	}
+	return renderASCII(img, cols, rows)
+}
+
+func renderASCII(img image.Image, cols, rows int) string {
 	pxW := cols
 	pxH := rows * 2
 
-	// Preserve the source aspect ratio. Each cell holds two vertical pixels via
-	// half-blocks and terminal cells are ~2x taller than wide, so a half-block
-	// subpixel is effectively square: scale uniformly to fit the cols x (rows*2)
-	// pixel box.
 	bounds := img.Bounds()
 	srcW, srcH := bounds.Dx(), bounds.Dy()
 	if srcW == 0 || srcH == 0 {
@@ -56,7 +67,6 @@ func Thumbnail(path string, cols, rows int) string {
 			tr, tg, tb := rgb(dst, x, y)
 			if y+1 < dstH {
 				br, bg, bb := rgb(dst, x, y+1)
-				// Foreground = top pixel (upper half block), background = bottom.
 				fmt.Fprintf(&b, "\x1b[38;2;%d;%d;%dm\x1b[48;2;%d;%d;%dm\u2580", tr, tg, tb, br, bg, bb)
 			} else {
 				fmt.Fprintf(&b, "\x1b[38;2;%d;%d;%dm\u2580", tr, tg, tb)
