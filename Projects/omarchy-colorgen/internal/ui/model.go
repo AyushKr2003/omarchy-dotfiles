@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -46,6 +47,11 @@ type Model struct {
 	filtered []wallpaper.Wallpaper
 	cursor   int
 
+	pickingIcons  bool
+	allIcons      []string
+	filteredIcons []string
+	iconCursor    int
+
 	mode  iris.Mode
 	cache map[string]iris.Theme
 
@@ -60,6 +66,8 @@ type Model struct {
 
 	inputMode  inputMode
 	applyAfter bool // when saving, also run omarchy-theme-set
+
+	iconTheme string // custom selected icon theme, empty means default Yaru logic
 
 	status    string
 	statusErr bool
@@ -85,16 +93,18 @@ func New(mode iris.Mode) Model {
 	ti.CharLimit = 256
 
 	m := Model{
-		keys:       defaultKeys(),
-		spinner:    sp,
-		input:      ti,
-		screen:     screenFolder,
-		mode:       mode,
-		cache:      make(map[string]iris.Theme),
-		thumbCache: make(map[string]string),
-		kitty:      kittyAvailable(),
-		omarchyOK:  omarchy.SetAvailable(),
+		keys:          defaultKeys(),
+		spinner:       sp,
+		input:         ti,
+		screen:        screenFolder,
+		mode:          mode,
+		cache:         make(map[string]iris.Theme),
+		thumbCache:    make(map[string]string),
+		kitty:         kittyAvailable(),
+		omarchyOK:     omarchy.SetAvailable(),
+		allIcons:      loadIconThemes(),
 	}
+	m.filteredIcons = m.allIcons
 	m.initFolder(defaultStartDir())
 	return m
 }
@@ -204,7 +214,18 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.showHelp = !m.showHelp
 		return m, nil
 
+	case key.Matches(msg, m.keys.Icons):
+		m.pickingIcons = !m.pickingIcons
+		return m, nil
+
 	case key.Matches(msg, m.keys.Up):
+		if m.pickingIcons {
+			if m.iconCursor > 0 {
+				m.iconCursor--
+				m.iconTheme = m.filteredIcons[m.iconCursor]
+			}
+			return m, nil
+		}
 		if m.cursor > 0 {
 			m.cursor--
 			return m, m.regenerate()
@@ -212,6 +233,13 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case key.Matches(msg, m.keys.Down):
+		if m.pickingIcons {
+			if m.iconCursor < len(m.filteredIcons)-1 {
+				m.iconCursor++
+				m.iconTheme = m.filteredIcons[m.iconCursor]
+			}
+			return m, nil
+		}
 		if m.cursor < len(m.filtered)-1 {
 			m.cursor++
 			return m, m.regenerate()
@@ -233,6 +261,11 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.regenerate()
 
 	case key.Matches(msg, m.keys.Reload):
+		if m.pickingIcons {
+			m.allIcons = loadIconThemes()
+			m.applyIconFilter("")
+			return m, nil
+		}
 		dir := m.srcDir
 		if dir == "" {
 			dir = defaultStartDir()
@@ -252,6 +285,9 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case key.Matches(msg, m.keys.Filter):
+		if m.pickingIcons {
+			return m, m.beginInput(inputFilter, "filter icons: ", "")
+		}
 		return m, m.beginInput(inputFilter, "filter: ", "")
 
 	case key.Matches(msg, m.keys.Open):
@@ -296,6 +332,10 @@ func (m Model) updateInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(msg)
 	if m.inputMode == inputFilter {
+		if m.pickingIcons {
+			m.applyIconFilter(m.input.Value())
+			return m, cmd
+		}
 		m.applyFilter(m.input.Value())
 		return m, tea.Batch(cmd, m.regenerate())
 	}
@@ -313,7 +353,7 @@ func (m Model) confirmInput(mode inputMode, val string) (tea.Model, tea.Cmd) {
 		}
 		w, _ := m.current()
 		dir := expand(val)
-		if err := omarchy.Build(dir, m.pal, w.Path); err != nil {
+		if err := omarchy.Build(dir, m.pal, w.Path, m.iconTheme); err != nil {
 			m.setStatus("export failed: "+err.Error(), true)
 		} else {
 			m.setStatus("exported theme folder → "+val, false)
@@ -349,7 +389,7 @@ func (m Model) saveTheme(name string, apply bool) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	w, _ := m.current()
-	dir, err := omarchy.WriteTheme(name, m.pal, w.Path)
+	dir, err := omarchy.WriteTheme(name, m.pal, w.Path, m.iconTheme)
 	if err != nil {
 		m.setStatus("save failed: "+err.Error(), true)
 		return m, nil
@@ -428,6 +468,32 @@ func (m *Model) applyFilter(q string) {
 	}
 }
 
+func (m *Model) applyIconFilter(q string) {
+	q = strings.ToLower(strings.TrimSpace(q))
+	if q == "" {
+		m.filteredIcons = m.allIcons
+	} else {
+		var out []string
+		for _, name := range m.allIcons {
+			if strings.Contains(strings.ToLower(name), q) {
+				out = append(out, name)
+			}
+		}
+		m.filteredIcons = out
+	}
+	if m.iconCursor >= len(m.filteredIcons) {
+		m.iconCursor = len(m.filteredIcons) - 1
+	}
+	if m.iconCursor < 0 {
+		m.iconCursor = 0
+	}
+	if len(m.filteredIcons) > 0 {
+		m.iconTheme = m.filteredIcons[m.iconCursor]
+	} else {
+		m.iconTheme = ""
+	}
+}
+
 func suggestName(fileName string) string {
 	base := strings.TrimSuffix(fileName, filepath.Ext(fileName))
 	return omarchy.Slug(base)
@@ -449,4 +515,35 @@ func expand(p string) string {
 		return os.Getenv("HOME")
 	}
 	return p
+}
+
+func loadIconThemes() []string {
+	var themes []string
+	seen := make(map[string]bool)
+	
+	dirs := []string{
+		"/usr/share/icons",
+		filepath.Join(os.Getenv("HOME"), ".local/share/icons"),
+	}
+	
+	for _, d := range dirs {
+		entries, err := os.ReadDir(d)
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			if e.IsDir() {
+				// verify it has an index.theme
+				if _, err := os.Stat(filepath.Join(d, e.Name(), "index.theme")); err == nil {
+					if !seen[e.Name()] {
+						seen[e.Name()] = true
+						themes = append(themes, e.Name())
+					}
+				}
+			}
+		}
+	}
+	
+	sort.Strings(themes)
+	return themes
 }
