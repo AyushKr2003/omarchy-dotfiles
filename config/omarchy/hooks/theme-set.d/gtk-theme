@@ -97,13 +97,41 @@ switch image {
     border-radius: 12px;
 }
 
+/* Keep separators as thin straight lines */
+separator {
+    border-radius: 0;
+    min-width: 1px;
+    min-height: 1px;
+    background-color: transparent;
+    border-right: 1px solid $muted;
+    border-bottom: 1px solid $muted;
+}
+
+headerbar separator,
+.titlebar separator {
+    border-radius: 0;
+    min-width: 1px;
+    width: 1px;
+    background-color: transparent;
+    border-right: 1px solid $muted;
+    margin: 0;
+    padding: 0;
+}
+
 /* Sidebar overrides */
 .navigation-sidebar,
 stacksidebar,
 .sidebar,
-sidebar {
+sidebar,
+placessidebar {
     background-color: $dark_bg !important;
     color: $fg !important;
+    border-right: none !important;
+}
+
+.sidebar,
+.navigation-sidebar {
+    border-right: 1px solid $muted !important;
 }
 
 /* Toast popup overrides */
@@ -243,13 +271,42 @@ switch image {
     border-radius: 12px;
 }
 
+/* Keep separators as thin straight lines */
+separator {
+    border-radius: 0;
+    min-width: 1px;
+    min-height: 1px;
+    background-color: transparent;
+    border-right: 1px solid $muted;
+    border-bottom: 1px solid $muted;
+}
+
+headerbar separator,
+.titlebar separator {
+    border-radius: 0;
+    min-width: 1px;
+    width: 1px;
+    background-color: transparent;
+    border-right: 1px solid $muted;
+    margin: 0;
+    padding: 0;
+}
+
 /* Sidebar overrides */
 .navigation-sidebar,
 stacksidebar,
 .sidebar,
-sidebar {
+sidebar,
+placessidebar {
     background-color: $dark_bg;
     color: $fg;
+    border-right: none;
+}
+
+/* Apply border ONLY to the outermost sidebar container to prevent double-thickness */
+.sidebar,
+.navigation-sidebar {
+    border-right: 1px solid $muted;
 }
 
 /* Toast popup overrides */
