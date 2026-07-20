@@ -42,7 +42,7 @@ func (m Model) View() string {
 	// Clear all previous Kitty images before rendering new frame to prevent overlap
 	var prefix string
 	if m.kitty {
-		prefix = kittyDeleteAll
+		prefix = preview.WrapTmux(kittyDeleteAll)
 	}
 	return prefix + lipgloss.JoinVertical(lipgloss.Left, header, body, m.footerView())
 }

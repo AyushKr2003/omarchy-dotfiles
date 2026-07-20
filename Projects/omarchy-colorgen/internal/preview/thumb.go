@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"image"
+	"image/color"
 	_ "image/gif"
 	_ "image/jpeg"
 	"image/png"
@@ -58,18 +59,29 @@ func renderASCII(img image.Image, cols, rows int) string {
 	dstW := max(1, int(float64(srcW)*scale))
 	dstH := max(1, int(float64(srcH)*scale))
 
-	dst := image.NewRGBA(image.Rect(0, 0, dstW, dstH))
+	dst := image.NewNRGBA(image.Rect(0, 0, dstW, dstH))
 	draw.CatmullRom.Scale(dst, dst.Bounds(), img, bounds, draw.Over, nil)
 
 	var b strings.Builder
 	for y := 0; y < dstH; y += 2 {
 		for x := 0; x < dstW; x++ {
-			tr, tg, tb := rgb(dst, x, y)
+			cTop := dst.NRGBAAt(x, y)
+			var cBot color.NRGBA
 			if y+1 < dstH {
-				br, bg, bb := rgb(dst, x, y+1)
-				fmt.Fprintf(&b, "\x1b[38;2;%d;%d;%dm\x1b[48;2;%d;%d;%dm\u2580", tr, tg, tb, br, bg, bb)
+				cBot = dst.NRGBAAt(x, y+1)
+			}
+
+			topSolid := cTop.A > 32
+			botSolid := cBot.A > 32
+
+			if topSolid && botSolid {
+				fmt.Fprintf(&b, "\x1b[38;2;%d;%d;%dm\x1b[48;2;%d;%d;%dm\u2580", cTop.R, cTop.G, cTop.B, cBot.R, cBot.G, cBot.B)
+			} else if topSolid && !botSolid {
+				fmt.Fprintf(&b, "\x1b[0m\x1b[38;2;%d;%d;%dm\u2580", cTop.R, cTop.G, cTop.B)
+			} else if !topSolid && botSolid {
+				fmt.Fprintf(&b, "\x1b[0m\x1b[38;2;%d;%d;%dm\u2584", cBot.R, cBot.G, cBot.B)
 			} else {
-				fmt.Fprintf(&b, "\x1b[38;2;%d;%d;%dm\u2580", tr, tg, tb)
+				b.WriteString("\x1b[0m ")
 			}
 		}
 		b.WriteString("\x1b[0m\n")
@@ -139,6 +151,15 @@ func KittyThumbnailWithID(path string, cols, rows, imgID int) string {
 	return strings.Join(lines, "\n")
 }
 
+// WrapTmux wraps a terminal escape sequence in tmux DCS passthrough if running inside tmux.
+func WrapTmux(seq string) string {
+	if os.Getenv("TMUX") == "" {
+		return seq
+	}
+	escaped := strings.ReplaceAll(seq, "\x1b", "\x1b\x1b")
+	return "\x1bPtmux;" + escaped + "\x1b\\"
+}
+
 func kittyEscape(b64 string, cols, rows int) string {
 	return kittyEscapeWithID(b64, cols, rows, 0)
 }
@@ -160,7 +181,7 @@ func kittyEscapeWithID(b64 string, cols, rows, imgID int) string {
 
 	if len(b64) <= chunkSize {
 		b.WriteString(fmt.Sprintf("\x1b_Ga=T,f=100,q=2%s,c=%d,r=%d;%s\x1b\\", idParam, cols, rows, b64))
-		return b.String()
+		return WrapTmux(b.String())
 	}
 	
 	b.WriteString(fmt.Sprintf("\x1b_Ga=T,f=100,q=2%s,c=%d,r=%d,m=1;%s\x1b\\", idParam, cols, rows, b64[:chunkSize]))
@@ -177,7 +198,7 @@ func kittyEscapeWithID(b64 string, cols, rows, imgID int) string {
 		b.WriteString("\x1b_Gm=0;\x1b\\")
 	}
 	
-	return b.String()
+	return WrapTmux(b.String())
 }
 
 func decode(path string) (image.Image, error) {

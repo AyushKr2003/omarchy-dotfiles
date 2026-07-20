@@ -37,15 +37,21 @@ func cacheKey(path string, mode iris.Mode) string {
 	return path + "\x00" + mode.FlagString()
 }
 
-// kittyAvailable reports whether the terminal can display images via kitten icat.
+// kittyAvailable reports whether the terminal supports the Kitty graphics protocol.
+// Supports Kitty, Ghostty, WezTerm, Konsole natively, and tmux pass-through.
 func kittyAvailable() bool {
-	if _, err := exec.LookPath("kitten"); err != nil {
-		return false
-	}
-	if os.Getenv("KITTY_WINDOW_ID") != "" {
+	if os.Getenv("KITTY_WINDOW_ID") != "" ||
+		os.Getenv("GHOSTTY_RESOURCES_DIR") != "" ||
+		os.Getenv("GHOSTTY_BIN_DIR") != "" ||
+		os.Getenv("WEZTERM_PANE") != "" ||
+		os.Getenv("WEZTERM_EXECUTABLE") != "" ||
+		os.Getenv("KONSOLE_VERSION") != "" {
 		return true
 	}
-	return strings.Contains(strings.ToLower(os.Getenv("TERM")), "kitty")
+	term := strings.ToLower(os.Getenv("TERM"))
+	return strings.Contains(term, "kitty") ||
+		strings.Contains(term, "ghostty") ||
+		strings.Contains(term, "wezterm")
 }
 
 // peekCmd shows the wallpaper full-size via kitten icat and waits for a keypress,
