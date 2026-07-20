@@ -86,6 +86,10 @@ func renderASCII(img image.Image, cols, rows int) string {
 // then emits rows placeholder newlines so Bubble Tea's layout engine
 // reserves the correct visual height.
 func KittyThumbnail(path string, cols, rows int) string {
+	return KittyThumbnailWithID(path, cols, rows, 1)
+}
+
+func KittyThumbnailWithID(path string, cols, rows, imgID int) string {
 	if cols < 1 || rows < 1 {
 		return ""
 	}
@@ -126,7 +130,7 @@ func KittyThumbnail(path string, cols, rows int) string {
 	if actualCols < 1 { actualCols = 1 }
 	if actualRows < 1 { actualRows = 1 }
 
-	escape := kittyEscape(b64, actualCols, actualRows)
+	escape := kittyEscapeWithID(b64, actualCols, actualRows, imgID)
 	var lines []string
 	lines = append(lines, fmt.Sprintf("\x1b[s%s\x1b[u%s", escape, strings.Repeat(" ", actualCols)))
 	for i := 1; i < actualRows; i++ {
@@ -136,15 +140,30 @@ func KittyThumbnail(path string, cols, rows int) string {
 }
 
 func kittyEscape(b64 string, cols, rows int) string {
+	return kittyEscapeWithID(b64, cols, rows, 0)
+}
+
+func kittyEscapeWithID(b64 string, cols, rows, imgID int) string {
 	chunkSize := 4096
 	var b strings.Builder
 	
+	// Delete any previous image at cursor position and delete by image ID if specified
+	if imgID > 0 {
+		b.WriteString(fmt.Sprintf("\x1b_Ga=d,d=I,i=%d\x1b\\", imgID))
+	}
+	b.WriteString("\x1b_Ga=d,d=C\x1b\\")
+
+	idParam := ""
+	if imgID > 0 {
+		idParam = fmt.Sprintf(",i=%d", imgID)
+	}
+
 	if len(b64) <= chunkSize {
-		b.WriteString(fmt.Sprintf("\x1b_Ga=T,f=100,q=2,z=1,c=%d,r=%d;%s\x1b\\", cols, rows, b64))
+		b.WriteString(fmt.Sprintf("\x1b_Ga=T,f=100,q=2%s,c=%d,r=%d;%s\x1b\\", idParam, cols, rows, b64))
 		return b.String()
 	}
 	
-	b.WriteString(fmt.Sprintf("\x1b_Ga=T,f=100,q=2,z=1,c=%d,r=%d,m=1;%s\x1b\\", cols, rows, b64[:chunkSize]))
+	b.WriteString(fmt.Sprintf("\x1b_Ga=T,f=100,q=2%s,c=%d,r=%d,m=1;%s\x1b\\", idParam, cols, rows, b64[:chunkSize]))
 	b64 = b64[chunkSize:]
 	
 	for len(b64) > chunkSize {
@@ -180,6 +199,10 @@ func dim(s string) string { return "\x1b[2m" + s + "\x1b[0m" }
 
 // KittyThumbnailBytes encodes image bytes as a Kitty terminal inline image.
 func KittyThumbnailBytes(data []byte, cols, rows int) string {
+	return KittyThumbnailBytesWithID(data, cols, rows, 0)
+}
+
+func KittyThumbnailBytesWithID(data []byte, cols, rows, imgID int) string {
 	if cols < 1 || rows < 1 {
 		return ""
 	}
@@ -198,7 +221,7 @@ func KittyThumbnailBytes(data []byte, cols, rows int) string {
 	}
 	
 	b64 := base64.StdEncoding.EncodeToString(data)
-	escape := kittyEscape(b64, actualCols, actualRows)
+	escape := kittyEscapeWithID(b64, actualCols, actualRows, imgID)
 	var lines []string
 	lines = append(lines, fmt.Sprintf("\x1b[s%s\x1b[u%s", escape, strings.Repeat(" ", actualCols)))
 	for i := 1; i < actualRows; i++ {

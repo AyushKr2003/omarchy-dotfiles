@@ -253,19 +253,31 @@ func (m Model) thumbnail(path string, cols, rows int) string {
 }
 
 func (m Model) unlockThumbnail(fg string, cols, rows int) string {
+	if cols < 1 || rows < 1 {
+		return ""
+	}
 	key := fmt.Sprintf("logo|%s|%dx%d|kitty:%v", fg, cols, rows, m.kitty)
 	if s, ok := m.thumbCache[key]; ok {
 		return s
 	}
-	
-	pngBytes, err := omarchy.UnlockPNGBytes(fg)
-	if err != nil || len(pngBytes) == 0 {
-		return "\x1b[2m(logo error)\x1b[0m"
+
+	pngKey := "logo:" + fg
+	pngBytes, ok := m.pngCache[pngKey]
+	if !ok {
+		var err error
+		pngBytes, err = omarchy.UnlockPNGBytes(fg)
+		if err != nil || len(pngBytes) == 0 {
+			return "\x1b[2m(logo error)\x1b[0m"
+		}
+		if m.pngCache == nil {
+			m.pngCache = make(map[string][]byte)
+		}
+		m.pngCache[pngKey] = pngBytes
 	}
-	
+
 	var s string
 	if m.kitty {
-		s = preview.KittyThumbnailBytes(pngBytes, cols, rows)
+		s = preview.KittyThumbnailBytesWithID(pngBytes, cols, rows, 2)
 	} else {
 		s = preview.ThumbnailBytes(pngBytes, cols, rows)
 	}
@@ -285,28 +297,35 @@ func (m Model) iconMockup(accent string, cols, rows int) string {
 
 	fileStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.pal.Foreground))
 
-	// themeIconBytes already builds a montage of 3 folders + 1 file as a single PNG.
-	// Render it as one image, exactly like background and boot logo.
 	key := fmt.Sprintf("icongrid|%s|%dx%d|kitty:%v", themeName, cols, rows, m.kitty)
-
-	var grid string
 	if s, ok := m.thumbCache[key]; ok && s != "" && s != "ERR" {
-		grid = s
-	} else if _, ok := m.thumbCache[key]; !ok {
-		pngBytes := themeIconBytes(themeName, m.pal.Background)
+		return s
+	}
+
+	pngKey := "icon:" + themeName + "|" + m.pal.Background
+	pngBytes, ok := m.pngCache[pngKey]
+	if !ok {
+		pngBytes = themeIconBytes(themeName, m.pal.Background)
+		if m.pngCache == nil {
+			m.pngCache = make(map[string][]byte)
+		}
 		if len(pngBytes) > 0 {
-			if m.kitty {
-				grid = preview.KittyThumbnailBytes(pngBytes, cols, rows)
-			} else {
-				grid = preview.ThumbnailBytes(pngBytes, cols, rows)
-			}
-			m.thumbCache[key] = grid
+			m.pngCache[pngKey] = pngBytes
 		} else {
-			m.thumbCache[key] = "ERR"
+			m.pngCache[pngKey] = nil
 		}
 	}
 
-	if grid == "" || grid == "ERR" {
+	var grid string
+	if len(pngBytes) > 0 {
+		if m.kitty {
+			grid = preview.KittyThumbnailBytesWithID(pngBytes, cols, rows, 3)
+		} else {
+			grid = preview.ThumbnailBytes(pngBytes, cols, rows)
+		}
+		m.thumbCache[key] = grid
+	} else {
+		m.thumbCache[key] = "ERR"
 		grid = fileStyle.Render("(icon preview unavailable)")
 	}
 

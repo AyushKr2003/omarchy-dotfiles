@@ -59,6 +59,10 @@ type Model struct {
 	// View never re-decodes an image on a keystroke or spinner tick.
 	thumbCache map[string]string
 
+	// pngCache memoizes generated PNG bytes for logo and icon montages so
+	// ImageMagick is never spawned again when resizing the terminal.
+	pngCache map[string][]byte
+
 	theme      iris.Theme
 	pal        palette.Palette
 	haveTheme  bool
@@ -100,6 +104,7 @@ func New(mode iris.Mode) Model {
 		mode:          mode,
 		cache:         make(map[string]iris.Theme),
 		thumbCache:    make(map[string]string),
+		pngCache:      make(map[string][]byte),
 		kitty:         kittyAvailable(),
 		omarchyOK:     omarchy.SetAvailable(),
 		allIcons:      loadIconThemes(),
@@ -146,6 +151,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
+		m.thumbCache = make(map[string]string)
 		m.ready = true
 		return m, nil
 
