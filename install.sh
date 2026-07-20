@@ -42,6 +42,27 @@ else
   export TERM_WIDTH=80
 fi
 
+# Backup existing target if it exists and is not already a symlink pointing to src
+backup_target() {
+  local target="$1"
+  local src="$2"
+
+  if [[ -e "$target" || -L "$target" ]]; then
+    # If target is already a symlink pointing to src, no backup needed
+    if [[ -L "$target" && "$(readlink "$target")" == "$src" ]]; then
+      return 0
+    fi
+
+    local backup_path="${target}.bak"
+    if [[ -e "$backup_path" || -L "$backup_path" ]]; then
+      backup_path="${target}.bak.$(date +%Y%m%d_%H%M%S)"
+    fi
+
+    echo "    [Backup] $(basename "$target") -> $(basename "$backup_path")"
+    mv "$target" "$backup_path"
+  fi
+}
+
 # Recursive, JSON-driven symlink helper function
 process_symlink() {
   local src="$1"
@@ -62,6 +83,7 @@ process_symlink() {
   fi
   
   if [[ "$link_type" == "dir" ]]; then
+    backup_target "$dest" "$src"
     if [[ -e "$dest" || -L "$dest" ]]; then
       rm -rf "$dest"
     fi
@@ -75,6 +97,7 @@ process_symlink() {
       process_symlink "$child" "$dest/$basename" "$rel_path/$basename" "$category"
     done
   elif [[ "$link_type" == "file" || -f "$src" ]]; then
+    backup_target "$dest" "$src"
     if [[ -e "$dest" || -L "$dest" ]]; then
       rm -f "$dest"
     fi
@@ -251,6 +274,7 @@ else
       link_type=$(jq -r ".\"config\".\"$item\" // \"dir\"" "$SYMLINKS_JSON")
       
       if [[ "$link_type" == "dir" ]]; then
+        backup_target "$target_item" "$src_item"
         if [[ -e "$target_item" || -L "$target_item" ]]; then
           rm -rf "$target_item"
         fi
@@ -291,6 +315,7 @@ else
       link_type=$(jq -r ".\"local\".\"$item\" // \"dir\"" "$SYMLINKS_JSON")
       
       if [[ "$link_type" == "dir" ]]; then
+        backup_target "$target_item" "$src_item"
         if [[ -e "$target_item" || -L "$target_item" ]]; then
           rm -rf "$target_item"
         fi
