@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"omarchy-colorgen/internal/omarchy"
 	"omarchy-colorgen/internal/preview"
 )
 
@@ -146,9 +147,19 @@ func (m Model) previewView(w, h int) string {
 
 	var bgSection string
 	if cur, ok := m.current(); ok {
-		bgCols := inner
-		if bgCols > 8 {
+		if inner > 30 {
+			bgCols := (inner * 2) / 3
+			logoCols := inner - bgCols - 4
+
 			art := m.thumbnail(cur.Path, bgCols, bgArtRows)
+			logoArt := m.unlockThumbnail(m.pal.Foreground, logoCols, bgArtRows)
+			
+			bgBlock := lipgloss.JoinVertical(lipgloss.Left, sectionLabelStyle.Render("BACKGROUND"), art)
+			logoBlock := lipgloss.JoinVertical(lipgloss.Left, sectionLabelStyle.Render("BOOT LOGO"), logoArt)
+			
+			bgSection = lipgloss.JoinHorizontal(lipgloss.Top, bgBlock, spacerStyle.Width(4).Render(""), logoBlock)
+		} else if inner > 8 {
+			art := m.thumbnail(cur.Path, inner, bgArtRows)
 			bgSection = lipgloss.JoinVertical(lipgloss.Left,
 				sectionLabelStyle.Render("BACKGROUND"), art)
 		}
@@ -170,6 +181,22 @@ func (m Model) thumbnail(path string, cols, rows int) string {
 		return s
 	}
 	s := preview.Thumbnail(path, cols, rows)
+	m.thumbCache[key] = s
+	return s
+}
+
+func (m Model) unlockThumbnail(fg string, cols, rows int) string {
+	key := fmt.Sprintf("logo|%s|%dx%d", fg, cols, rows)
+	if s, ok := m.thumbCache[key]; ok {
+		return s
+	}
+	
+	pngBytes, err := omarchy.UnlockPNGBytes(fg)
+	if err != nil || len(pngBytes) == 0 {
+		return "\x1b[2m(logo error)\x1b[0m"
+	}
+	
+	s := preview.ThumbnailBytes(pngBytes, cols, rows)
 	m.thumbCache[key] = s
 	return s
 }

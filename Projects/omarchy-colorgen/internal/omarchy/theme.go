@@ -212,3 +212,13 @@ func RenderUnlockPNG(fg, outPath string) error {
 	}
 	return nil
 }
+
+// UnlockPNGBytes returns the rendered unlock.png as raw PNG bytes.
+func UnlockPNGBytes(fg string) ([]byte, error) {
+	if !strings.HasPrefix(fg, "#") {
+		fg = "#" + fg
+	}
+	cmd := exec.Command("magick", "-background", "none", "svg:-", "-resize", "x188", "-channel", "RGB", "+level-colors", fg+","+fg, "png:-")
+	cmd.Stdin = bytes.NewReader(logoSVG)
+	return cmd.Output()
+}
