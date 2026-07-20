@@ -1,6 +1,8 @@
 package omarchy
 
 import (
+	"bytes"
+	_ "embed"
 	"errors"
 	"fmt"
 	"io"
@@ -13,6 +15,9 @@ import (
 	"omarchy-colorgen/internal/palette"
 	"omarchy-colorgen/internal/preview"
 )
+
+//go:embed logo.svg
+var logoSVG []byte
 
 // ThemesDir is where user themes live.
 func ThemesDir() string {
@@ -60,6 +65,9 @@ func Build(dir string, p palette.Palette, wallpaper string) error {
 
 	// A generated preview is best-effort; a failure here should not abort a save.
 	_ = preview.RenderPNG(p, filepath.Join(dir, "preview.png"))
+
+	// Also generate the Plymouth/SDDM unlock.png from the embedded SVG logo
+	_ = RenderUnlockPNG(p.Foreground, filepath.Join(dir, "unlock.png"))
 
 	if p.Mode == "light" {
 		if err := os.WriteFile(filepath.Join(dir, "light.mode"), nil, 0o644); err != nil {
@@ -185,4 +193,22 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	return out.Close()
+}
+
+// RenderUnlockPNG uses ImageMagick to render the embedded SVG logo into a
+// 801x188 transparent PNG, tinted exactly to the provided foreground color.
+// This matches the size and properties expected by Omarchy Plymouth/SDDM.
+func RenderUnlockPNG(fg, outPath string) error {
+	// Ensure the hex color is prefixed with '#'
+	if !strings.HasPrefix(fg, "#") {
+		fg = "#" + fg
+	}
+
+	cmd := exec.Command("magick", "-background", "none", "svg:-", "-resize", "x188", "-channel", "RGB", "+level-colors", fg+","+fg, outPath)
+	cmd.Stdin = bytes.NewReader(logoSVG)
+	
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("magick error: %w, output: %s", err, string(out))
+	}
+	return nil
 }
