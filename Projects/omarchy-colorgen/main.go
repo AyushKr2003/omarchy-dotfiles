@@ -76,7 +76,7 @@ func runHeadless(path string, light bool, name string, apply bool, exportPath st
 	pal := palette.FromIris(t)
 
 	if exportPath != "" {
-		if err := omarchy.Build(exportPath, pal, path); err != nil {
+		if err := omarchy.Build(exportPath, pal, path, ""); err != nil {
 			return err
 		}
 		fmt.Println("exported theme folder →", exportPath)
@@ -87,7 +87,7 @@ func runHeadless(path string, light bool, name string, apply bool, exportPath st
 	}
 
 	if name != "" {
-		dir, err := omarchy.WriteTheme(name, pal, path)
+		dir, err := omarchy.WriteTheme(name, pal, path, "")
 		if err != nil {
 			return err
 		}

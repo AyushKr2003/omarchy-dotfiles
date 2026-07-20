@@ -49,7 +49,7 @@ func Slug(name string) string {
 // light.mode marker for light themes. Config files (alacritty, hyprland, waybar,
 // …) are intentionally omitted: omarchy-theme-set renders those from templates
 // on apply, so shipping them here would only fight the generator.
-func Build(dir string, p palette.Palette, wallpaper string) error {
+func Build(dir string, p palette.Palette, wallpaper string, customIconTheme string) error {
 	bgDir := filepath.Join(dir, "backgrounds")
 	if err := os.MkdirAll(bgDir, 0o755); err != nil {
 		return err
@@ -59,7 +59,11 @@ func Build(dir string, p palette.Palette, wallpaper string) error {
 		return err
 	}
 
-	if err := os.WriteFile(filepath.Join(dir, "icons.theme"), []byte(iconTheme(p.Accent)+"\n"), 0o644); err != nil {
+	ico := customIconTheme
+	if ico == "" {
+		ico = iconTheme(p.Accent)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "icons.theme"), []byte(ico+"\n"), 0o644); err != nil {
 		return err
 	}
 
@@ -86,13 +90,13 @@ func Build(dir string, p palette.Palette, wallpaper string) error {
 
 // WriteTheme builds a full theme under ~/.config/omarchy/themes/<slug>/ and
 // returns the theme directory path.
-func WriteTheme(name string, p palette.Palette, wallpaper string) (string, error) {
+func WriteTheme(name string, p palette.Palette, wallpaper string, customIconTheme string) (string, error) {
 	slug := Slug(name)
 	if slug == "" {
 		return "", errors.New("theme name is empty after normalization")
 	}
 	dir := filepath.Join(ThemesDir(), slug)
-	if err := Build(dir, p, wallpaper); err != nil {
+	if err := Build(dir, p, wallpaper, customIconTheme); err != nil {
 		return "", err
 	}
 	return dir, nil
@@ -167,6 +171,8 @@ func minByte(vs ...uint8) uint8 {
 }
 
 // Export writes just the colors.toml content to an arbitrary path.
+// (Not anymore, it's not just colors.toml) Wait, Export isn't used like Build, it just writes ColorsTOML in main.go, wait.
+// Let's check Export. Wait, it only writes colors.toml in the current repo, let's keep it.
 func Export(path string, p palette.Palette, wallpaper string) error {
 	if d := filepath.Dir(path); d != "" {
 		if err := os.MkdirAll(d, 0o755); err != nil {
