@@ -79,3 +79,6 @@ hl.config({
   },
 })
 
+-- Load custom screen shader configuration if present
+pcall(require, "hypr.shader")
+

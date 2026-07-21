@@ -4,6 +4,7 @@
     "fastfetch": "dir",
     "fish": "files",
     "hypr": "files",
+    "hypr/shaders": "dir",
     "mpv": "dir",
     "omarchy": "files",
     "omarchy/plugins": "dir",
