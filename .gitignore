@@ -27,7 +27,6 @@ config/hypr/hyprlock.conf
 config/hypr/hyprsunset.conf
 config/hypr/monitors.lua
 config/hypr/xdph.conf
-config/hypr/.luarc.json
 config/superfile/theme/
 config/fish/completions/
 config/fish/conf.d/

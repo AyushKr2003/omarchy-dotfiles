@@ -96,29 +96,51 @@ end)
 -- Workspace navigation: normal mode uses LEFT/RIGHT, niri mode uses UP/DOWN
 hl.unbind("SUPER + CTRL + RIGHT")
 o.bind("SUPER + CTRL + RIGHT", "Next workspace (normal)", function()
-	if not niriModeEnabled() then
-		hl.dispatch(hl.dsp.focus({ workspace = "e+1" }))
-	end
+  if not niriModeEnabled() then
+    hl.dispatch(hl.dsp.focus({ workspace = "e+1" }))
+  else
+    hl.dispatch(hl.dsp.layout("consume_or_expel next"))
+  end
 end)
 
 hl.unbind("SUPER + CTRL + LEFT")
 o.bind("SUPER + CTRL + LEFT", "Previous workspace (normal)", function()
 	if not niriModeEnabled() then
 		hl.dispatch(hl.dsp.focus({ workspace = "e-1" }))
-	end
+	else
+    hl.dispatch(hl.dsp.layout("consume_or_expel prev"))
+  end
 end)
 
 hl.unbind("SUPER + UP")
 o.bind("SUPER  + UP", "Next workspace (niri)", function()
 	if niriModeEnabled() then
 		hl.dispatch(hl.dsp.focus({ workspace = "e-1" }))
-	end
+  else
+    hl.dispatch(hl.dsp.focus({ direction = "u"}))
+  end
 end)
 
 hl.unbind("SUPER + DOWN")
 o.bind("SUPER + DOWN", "Previous workspace (niri)", function()
 	if niriModeEnabled() then
 		hl.dispatch(hl.dsp.focus({ workspace = "e+1" }))
+  else
+    hl.dispatch(hl.dsp.focus({ direction = "d"}))
+	end
+end)
+
+hl.unbind("SUPER + CTRL + UP")
+o.bind("SUPER + CTRL + UP", "Next workspace (niri)", function()
+	if niriModeEnabled() then
+    hl.dispatch(hl.dsp.focus({ direction = "u"}))
+  end
+end)
+
+hl.unbind("SUPER + CTRL + DOWN")
+o.bind("SUPER + CTRL + DOWN", "Previous workspace (niri)", function()
+	if niriModeEnabled() then
+    hl.dispatch(hl.dsp.focus({ direction = "d"}))
 	end
 end)
 
