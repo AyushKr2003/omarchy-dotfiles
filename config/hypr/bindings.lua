@@ -255,3 +255,7 @@ o.window({ title = "^(Manga)$" }, {
   move = { 5, 31 },
   tag = "+manga-window",
 })
+
+
+ -- Our custom lua files
+require("hypr.hyprNiri")

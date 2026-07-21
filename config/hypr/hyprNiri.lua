@@ -145,13 +145,13 @@ local function applyScrolloverviewConfig()
 				scale = 0.5, -- preferred overview scale
 				workspace_gap = 100,
 				layout = "vertical", -- vertical or horizontal
-				wallpaper = 2, -- 0: global only, 1: per-workspace only, 2: both
-				blur = true, -- blur only the main overview wallpaper
+				wallpaper = 0, -- 0: global only, 1: per-workspace only, 2: both
+				blur = false, -- blur only the main overview wallpaper
 
 				shadow = {
 					enabled = true,
 					range = 50,
-					render_power = 3,
+					render_power = 8,
 					color = 0xee1a1a1a,
 				},
 			},
