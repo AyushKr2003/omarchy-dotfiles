@@ -261,12 +261,18 @@ body {
   height: 1rem;
   object-fit: contain;
   border-radius: 2px;
-  opacity: 0.75;
-  transition: opacity var(--transition);
+  filter: grayscale(100%) opacity(0.75);
+  transition: filter var(--transition), opacity var(--transition);
+  flex-shrink: 0;
 }
 
 .quicklinks a:hover img.quicklink-icon {
-  opacity: 1;
+  filter: grayscale(100%) opacity(1);
+}
+
+.quicklink-fallback-dot {
+  margin-right: 4px;
+  color: var(--accent);
 }
 
 /* Plus Pin Button */
