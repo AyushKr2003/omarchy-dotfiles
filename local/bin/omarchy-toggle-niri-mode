@@ -83,14 +83,6 @@ enable() {
 	  general = { layout = "scrolling" },
 	  scrolling = { column_width = 0.72 },
 	})
-
-	hl.animation({
-	  leaf = "workspaces",
-	  enabled = true,
-	  speed = 3,
-	  bezier = "easeOutQuint",
-	  style = "slidevert",
-	})
 	LUA
 
   osd "󱒆 " "Scrolling"
