@@ -108,17 +108,17 @@ o.bind("SUPER + CTRL + LEFT", "Previous workspace (normal)", function()
 	end
 end)
 
-hl.unbind("SUPER + CTRL + UP")
-o.bind("SUPER + CTRL + UP", "Next workspace (niri)", function()
+hl.unbind("SUPER + UP")
+o.bind("SUPER  + UP", "Next workspace (niri)", function()
 	if niriModeEnabled() then
-		hl.dispatch(hl.dsp.focus({ workspace = "e+1" }))
+		hl.dispatch(hl.dsp.focus({ workspace = "e-1" }))
 	end
 end)
 
-hl.unbind("SUPER + CTRL + DOWN")
-o.bind("SUPER + CTRL + DOWN", "Previous workspace (niri)", function()
+hl.unbind("SUPER + DOWN")
+o.bind("SUPER + DOWN", "Previous workspace (niri)", function()
 	if niriModeEnabled() then
-		hl.dispatch(hl.dsp.focus({ workspace = "e-1" }))
+		hl.dispatch(hl.dsp.focus({ workspace = "e+1" }))
 	end
 end)
 

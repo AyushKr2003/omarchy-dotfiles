@@ -64,7 +64,7 @@ enable() {
 	-- don't hand-edit (edits will be lost the next time you toggle off/on).
 	hl.config({
 	  general = { layout = "scrolling" },
-	  scrolling = { column_width = 1.0 },
+	  scrolling = { column_width = 0.72 },
 	})
 
 	hl.animation({
@@ -77,7 +77,7 @@ enable() {
 	LUA
 
   hyprctl reload >/dev/null 2>&1
-  omarchy-bar-position left >/dev/null 2>&1 || true
+  omarchy-bar position left >/dev/null 2>&1 || true
   osd "󱒆 " "Scrolling"
   refresh_indicators
 }
@@ -90,7 +90,7 @@ disable() {
   # behavior, just applied immediately instead of waiting on reload.
   hyprctl keyword general:layout "$DEFAULT_LAYOUT" >/dev/null 2>&1 || true
   hyprctl reload >/dev/null 2>&1
-  omarchy-bar-position top >/dev/null 2>&1 || true
+  omarchy-bar position top >/dev/null 2>&1 || true
   osd "󰕰 " "Dwindle"
   refresh_indicators
 }
