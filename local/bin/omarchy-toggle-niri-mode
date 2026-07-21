@@ -27,6 +27,7 @@ set -euo pipefail
 
 STATE_DIR="$HOME/.local/state/omarchy/toggles/hypr"
 STATE_FILE="$STATE_DIR/niri-mode.lua"
+LOCK_FILE="${XDG_RUNTIME_DIR:-/tmp}/omarchy-toggle-niri-mode.lock"
 
 # What to restore when niri mode is turned off. Override these in your shell
 # profile (export NIRI_MODE_DEFAULT_LAYOUT=...) if your base Hyprland layout
@@ -41,14 +42,30 @@ niri_mode_enabled() {
   [[ -f $STATE_FILE ]]
 }
 
+acquire_lock() {
+  exec 9>"$LOCK_FILE"
+  if ! flock -n 9; then
+    # Another instance is actively toggling — drop concurrent execution
+    exit 0
+  fi
+}
+
 osd() {
   local icon=$1
   local mode=$2
   omarchy-osd -i $icon -m "$mode" -d 2000 >/dev/null 2>&1 || true
 }
 
-refresh_indicators() {
-  omarchy-shell -q omarchy.indicators refresh >/dev/null 2>&1 || true
+get_bar_position() {
+  jq -r '.bar.position // "top"' "$HOME/.config/omarchy/shell.json" 2>/dev/null || echo "top"
+}
+
+set_bar_position_if_needed() {
+  local target_pos="$1"
+  if [[ $(get_bar_position) != "$target_pos" ]]; then
+    omarchy-bar position "$target_pos" >/dev/null 2>&1 || true
+    sleep 0.3
+  fi
 }
 
 enable() {
@@ -76,10 +93,10 @@ enable() {
 	})
 	LUA
 
-  hyprctl reload >/dev/null 2>&1
-  omarchy-bar position left >/dev/null 2>&1 || true
   osd "󱒆 " "Scrolling"
-  refresh_indicators
+  sleep 0.2
+  set_bar_position_if_needed left
+  hyprctl reload >/dev/null 2>&1
 }
 
 disable() {
@@ -88,11 +105,11 @@ disable() {
   # Explicitly restore the layout rather than assuming some other config
   # file will set it — matches the original hyprNiri.lua's originalLayout
   # behavior, just applied immediately instead of waiting on reload.
+  osd "󰕰 " "Dwindle"
+  sleep 0.2
+  set_bar_position_if_needed top
   hyprctl keyword general:layout "$DEFAULT_LAYOUT" >/dev/null 2>&1 || true
   hyprctl reload >/dev/null 2>&1
-  omarchy-bar position top >/dev/null 2>&1 || true
-  osd "󰕰 " "Dwindle"
-  refresh_indicators
 }
 
 print_status() {
@@ -105,12 +122,15 @@ print_status() {
 
 case "${1:-toggle}" in
   on)
+    acquire_lock
     enable
     ;;
   off)
+    acquire_lock
     disable
     ;;
   toggle)
+    acquire_lock
     if niri_mode_enabled; then disable; else enable; fi
     ;;
   status | --status)
