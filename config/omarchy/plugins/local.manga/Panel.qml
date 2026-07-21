@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import qs.Commons
 import qs.Ui
+import "services" as Services
 
 Item {
   id: root
@@ -10,6 +11,39 @@ Item {
   property var shell: null
   property var manifest: null
   property var settings: ({})
+
+  function syncSettings() {
+    var id = (manifest && manifest.id) || "local.manga"
+    var config = shell ? shell.shellConfig : null
+    var plugins = config ? config.plugins : []
+    if (Array.isArray(plugins)) {
+      for (var i = 0; i < plugins.length; i++) {
+        if (plugins[i] && plugins[i].id === id) {
+          settings = plugins[i]
+          return
+        }
+      }
+    }
+    settings = ({})
+  }
+
+  onShellChanged: syncSettings()
+  onManifestChanged: syncSettings()
+  Component.onCompleted: syncSettings()
+
+  Connections {
+    target: shell
+    ignoreUnknownSignals: true
+    function onShellConfigChanged() {
+      root.syncSettings()
+    }
+  }
+
+  Binding {
+    target: Services.Manga
+    property: "enableServer"
+    value: root.setting("enableServer", true)
+  }
 
   readonly property int configuredWidth: Math.max(560, Number(setting("windowWidth", 580)) || 580)
   readonly property int configuredHeight: Math.max(520, Number(setting("windowHeight", 1045)) || 1045)
@@ -20,6 +54,10 @@ Item {
   }
 
   function open(payloadJson) {
+    if (!root.setting("enableServer", true)) {
+      Quickshell.execDetached(["omarchy-notification-send", "-g", "󰒏", "Manga", "Manga server is off"])
+      return
+    }
     closingFromHost = false
     window.visible = true
     Qt.callLater(function() { keyCatcher.forceActiveFocus() })

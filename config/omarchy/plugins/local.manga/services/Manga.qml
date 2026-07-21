@@ -136,6 +136,14 @@ Singleton {
     Component.onCompleted: libraryFile.reload()
 
     // ── Backend server ───────────────────────────────────────────────────────
+    property bool enableServer: true
+    onEnableServerChanged: {
+        if (!enableServer) {
+            serverReady = false
+            serverError = ""
+        }
+    }
+
     property bool serverReady: false
     property string serverError: ""
     property int healthAttempts: 0
@@ -143,7 +151,7 @@ Singleton {
     Process {
         id: serverProcess
         command: ["python3", root._serverScript]
-        running: true
+        running: root.enableServer
         stdout: SplitParser {
             onRead: function(data) {
                 console.log("[ServiceManga]", data)
@@ -179,7 +187,7 @@ Singleton {
         interval: 1500
         repeat: false
         onTriggered: {
-            if (!root.serverReady && !serverProcess.running)
+            if (root.enableServer && !root.serverReady && !serverProcess.running)
                 serverProcess.running = true
         }
     }
@@ -188,7 +196,7 @@ Singleton {
         id: healthPoller
         interval: 150
         repeat: true
-        running: true
+        running: root.enableServer
         onTriggered: {
             var xhr = new XMLHttpRequest()
             xhr.onreadystatechange = function() {
