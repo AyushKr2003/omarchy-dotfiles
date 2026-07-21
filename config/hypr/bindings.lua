@@ -208,7 +208,7 @@ o.bind(
 
 -- Keyboard-driven cursor (ydotool)
 o.bind("SUPER + CTRL + ALT + M", "Enter keyboard cursor mode", function()
-  hl.exec_cmd("notify-send -a 'cursor-mode' -u low -t 0 'Cursor Mode' 'Keyboard mouse control: ON'")
+  hl.exec_cmd("omarchy-notification-send --app-name 'cursor-mode' -u critical -g 󰍽 'Cursor Mode' 'Keyboard mouse control: ON'")
   hl.dispatch(hl.dsp.submap("cursor"))
 end)
 
@@ -230,7 +230,7 @@ hl.define_submap("cursor", function()
 
   -- Exit back to normal Hyprland binds
   o.bind("ESCAPE", "Exit cursor mode", function()
-    hl.exec_cmd("makoctl dismiss -a 'cursor-mode'")
+    hl.exec_cmd("omarchy-shell -q notifications dismiss 'Cursor Mode'")
     hl.dispatch(hl.dsp.submap("reset"))
   end)
 end)
