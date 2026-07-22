@@ -1,0 +1,31 @@
+## ═══════════════════════════════════════════
+##░█▀▀░█░█░█▀▄░█▀▀░█▀▄░█▀█░█░█░█░█░█▀█░█░█
+##░█░░░░█░░█▀▄░█▀▀░█▀▄░█▀▀░█▀█░█░█░█░█░█▀▄
+##░▀▀▀░░▀░░▀▀░░▀▀▀░▀░▀░▀░░░▀░▀░▀▀▀░▀░▀░▀░▀
+##                 BY
+## ⢀⣀ ⠄ ⢀⡀ ⣀⡀ ⢀⣀ ⡇   ⢀⣸ ⠄ ⡀⣀ ⢀⡀ ⢀⣀ ⣰⡀ ⠄ ⡀⢀ ⢀⡀
+## ⠭⠕ ⠇ ⣑⡺ ⠇⠸ ⠣⠼ ⠣   ⠣⠼ ⠇ ⠏  ⠣⠭ ⠣⠤ ⠘⠤ ⠇ ⠱⠃ ⠣⠭
+## ═══════════════════════════════════════════
+accent = "#2BE3FC"
+cursor = "#00f0ff"
+foreground = "#c8c8e8"
+background = "#15191F"
+selection_foreground = "#080814"
+selection_background = "#00f0ff"
+
+color0 = "#15191F"
+color1 = "#F865A5"
+color2 = "#29EDBE"
+color3 = "#FFC457"
+color4 = "#33AEFF"
+color5 = "#AF54FF"
+color6 = "#2BE3FC"
+color7 = "#c8c8e8"
+color8 = "#61656B"
+color9 = "#FF598B"
+color10 = "#1FE0A6"
+color11 = "#FFB630"
+color12 = "#33AEFF"
+color13 = "#B467F9"
+color14 = "#2BCAFC"
+color15 = "#e8e8ff"
