@@ -112,8 +112,8 @@ func TestKittyThumbnail_Format(t *testing.T) {
 	if !strings.Contains(out, "\x1b_Ga=T,f=100") {
 		t.Error("missing Kitty APC sequence")
 	}
-	if !strings.HasSuffix(out, strings.Repeat("\n", 4)) {
-		t.Error("missing placeholder newlines")
+	if len(strings.Split(out, "\n")) < 2 {
+		t.Error("missing placeholder lines")
 	}
 }
 

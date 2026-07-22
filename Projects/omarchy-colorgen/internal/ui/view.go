@@ -13,9 +13,9 @@ import (
 	"omarchy-colorgen/internal/preview"
 )
 
-// kittyDeleteAll sends the Kitty graphics protocol escape to delete all
-// previously rendered images, preventing ghosting/overlap on redraws.
-const kittyDeleteAll = "\x1b_Ga=d,d=A\x1b\\"
+// kittyDeleteAll sends Kitty graphics protocol escape sequences to delete all
+// previously rendered images and placements, preventing ghosting/overlap on redraws.
+const kittyDeleteAll = "\x1b_Ga=d,d=A\x1b\\\x1b_Ga=d,d=a\x1b\\\x1b_Ga=d,d=I,i=1\x1b\\\x1b_Ga=d,d=I,i=2\x1b\\\x1b_Ga=d,d=I,i=3\x1b\\"
 
 func (m Model) View() string {
 	if !m.ready {

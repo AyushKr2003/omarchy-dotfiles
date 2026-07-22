@@ -80,7 +80,7 @@ func TestWriteTheme(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	themeDir, err := WriteTheme("Test Theme", samplePalette(), wall)
+	themeDir, err := WriteTheme("Test Theme", samplePalette(), wall, "Yaru")
 	if err != nil {
 		t.Fatalf("write theme: %v", err)
 	}

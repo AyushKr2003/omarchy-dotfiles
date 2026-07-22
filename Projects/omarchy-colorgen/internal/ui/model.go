@@ -225,6 +225,7 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case key.Matches(msg, m.keys.Up):
+		m.thumbCache = make(map[string]string)
 		if m.pickingIcons {
 			if m.iconCursor > 0 {
 				m.iconCursor--
@@ -239,6 +240,7 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case key.Matches(msg, m.keys.Down):
+		m.thumbCache = make(map[string]string)
 		if m.pickingIcons {
 			if m.iconCursor < len(m.filteredIcons)-1 {
 				m.iconCursor++
@@ -253,6 +255,8 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case key.Matches(msg, m.keys.Toggle):
+		m.thumbCache = make(map[string]string)
+		m.pngCache = make(map[string][]byte)
 		if m.mode == iris.Dark {
 			m.mode = iris.Light
 		} else {
@@ -261,12 +265,16 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.regenerate()
 
 	case key.Matches(msg, m.keys.Regen):
+		m.thumbCache = make(map[string]string)
+		m.pngCache = make(map[string][]byte)
 		if w, ok := m.current(); ok {
 			delete(m.cache, cacheKey(w.Path, m.mode))
 		}
 		return m, m.regenerate()
 
 	case key.Matches(msg, m.keys.Reload):
+		m.thumbCache = make(map[string]string)
+		m.pngCache = make(map[string][]byte)
 		if m.pickingIcons {
 			m.allIcons = loadIconThemes()
 			m.applyIconFilter("")
@@ -453,6 +461,7 @@ func (m *Model) setStatus(text string, isErr bool) {
 }
 
 func (m *Model) applyFilter(q string) {
+	m.thumbCache = make(map[string]string)
 	q = strings.ToLower(strings.TrimSpace(q))
 	if q == "" {
 		m.filtered = m.all
@@ -475,6 +484,7 @@ func (m *Model) applyFilter(q string) {
 }
 
 func (m *Model) applyIconFilter(q string) {
+	m.thumbCache = make(map[string]string)
 	q = strings.ToLower(strings.TrimSpace(q))
 	if q == "" {
 		m.filteredIcons = m.allIcons
