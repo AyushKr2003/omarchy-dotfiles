@@ -1,38 +1,39 @@
 {
+    "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
     "logo": {
         "type": "auto",
         "source": "~/.config/omarchy/branding/about.txt",
         "height": 21,
         "width": 40,
         "padding": {
-          "top": 5,
-          "right": 6,
-          "left": 2
+            "top": 5,
+            "right": 6,
+            "left": 2
         }
     },
     "display": {
         "separator": " ",
         "constants": [
-            "\u001b[38;2;81;188;254m\u001B[1m",    // {$1},
-            "\u001b[38;2;105;181;254m\u001B[1m",   // {$2},
-            "\u001b[38;2;130;173;253m\u001B[1m",   // {$3},
-            "\u001b[38;2;154;166;253m\u001B[1m",   // {$4},
-            "\u001b[38;2;169;160;253m\u001B[1m",   // {$5},
-            "\u001b[38;2;179;154;253m\u001B[1m",   // {$6},
-            "\u001b[38;2;186;153;253m\u001B[1m",   // {$7},
-            "\u001b[38;2;192;163;253m\u001B[1m",   // {$8},
-            "\u001b[38;2;198;167;253m\u001B[1m",   // {$9},
-            "\u001b[38;2;205;173;252m\u001B[1m",   // {$10},
-            "┌────────",   // {$11},
-            "─────────",   // {$12},
-            "────────┐",   // {$13},
-         ],
+            "\u001b[34m\u001b[1m",   // {$1}  - Omarchy Theme Blue
+            "\u001b[94m\u001b[1m",   // {$2}  - Omarchy Theme Bright Blue
+            "\u001b[36m\u001b[1m",   // {$3}  - Omarchy Theme Cyan
+            "\u001b[96m\u001b[1m",   // {$4}  - Omarchy Theme Bright Cyan
+            "\u001b[32m\u001b[1m",   // {$5}  - Omarchy Theme Green
+            "\u001b[92m\u001b[1m",   // {$6}  - Omarchy Theme Bright Green
+            "\u001b[33m\u001b[1m",   // {$7}  - Omarchy Theme Yellow
+            "\u001b[35m\u001b[1m",   // {$8}  - Omarchy Theme Magenta
+            "\u001b[95m\u001b[1m",   // {$9}  - Omarchy Theme Bright Magenta
+            "\u001b[31m\u001b[1m",   // {$10} - Omarchy Theme Red
+            "┌────────",             // {$11}
+            "─────────",             // {$12}
+            "────────┐"              // {$13}
+        ],
         "percent": {
-            "type": 9,         // 1=number, 2=bar, 3=both, 9=colored number
+            "type": 9,
             "color": {
-                "green": "#51bcfe",
-                "yellow": "#abff4a",
-                "red": "#ff8f45"
+                "green": "green",
+                "yellow": "yellow",
+                "red": "red"
             }
         }
     },
@@ -40,73 +41,68 @@
         "break",
         {
             "type": "version",
-            "color": {
-            "keys": ""
-            },
             "key": "{$4}                󱐋󱐋 Fastfetch ",
-            "format": "{$6}{2}",
+            "format": "{$6}{2}"
         },
         {
             "type": "custom",
-            "format": "{$1}{$11}{$2}{$12}{$3}{$12}{$4}{$12}{$5}{$12}{$6}{$12}{$7}{$12}{$8}{$12}{$9}{$12}{$10}{$13} Hardware "
+            "format": "{$1}{$11}{$2}{$12}{$3}{$12}{$4}{$12}{$5}{$12}{$6}{$12}{$7}{$12}{$8}{$12}{$9}{$12}{$10}{$13}\u001b[1m Hardware \u001b[0m"
         },
         {
             "type": "host",
-            "key": "{$1}├   PC        ",
+            "key": "{$1}├   PC        "
         },
-                {
+        {
             "type": "board",
-            "key": "{$2}├ 󱔼  Board     ",
+            "key": "{$2}├ 󱔼  Board     "
         },
         {
             "type": "cpu",
-            "key": "{$3}├   CPU       ",
+            "key": "{$3}├   CPU       "
         },
         {
             "type": "gpu",
-            "key": "{$4}├ 󰾲  GPU       ",
+            "key": "{$4}├ 󰾲  GPU       "
         },
         {
             "type": "display",
-            "key": "{$5}├ 󰍹  Display   ",
+            "key": "{$5}├ 󰍹  Display   "
         },
         {
             "type": "sound",
-            //"format": "{platform-api}/{2} ({3})",
-            "key": "{$6}├   Sound     ",
+            "key": "{$6}├   Sound     "
         },
         {
             "type": "battery",
             "key": "{$6}├ 󰢟  Battery   ",
-            "format": "{manufacturer} {model-name} ({capacity})",
+            "format": "{manufacturer} {model-name} ({capacity})"
         },
         {
             "type": "memory",
             "key": "{$7}├   Memory    ",
             "percent": {
-                "type": 3, // 3 = show number + bar + percentage
-                "green": 30, // <30% is green
-                "yellow": 70 // 30-70% is yellow, >70% is red
+                "type": 3,
+                "green": 30,
+                "yellow": 70
             }
         },
-                {
+        {
             "type": "swap",
             "key": "{$8}├ 󰯍  Swap      ",
             "percent": {
-                "type": 3, // 3 = show number + bar + percentage
-                "green": 30, // <30% is green
-                "yellow": 70 // 30-70% is yellow, >70% is red
+                "type": 3,
+                "green": 30,
+                "yellow": 70
             }
         },
-
         {
             "type": "disk",
             "key": "{$9}├   Disk      ",
             "folders": ["/"],
             "percent": {
-                "type": 3, // 3 = show number + bar + percentage
-                "green": 30, // <30% is green
-                "yellow": 70 // 30-70% is yellow, >70% is red
+                "type": 3,
+                "green": 30,
+                "yellow": 70
             }
         },
         {
@@ -114,14 +110,14 @@
             "key": "{$10}└   Home      ",
             "folders": ["/home"],
             "percent": {
-                "type": 3, // 3 = show number + bar + percentage
-                "green": 30, // <30% is green
-                "yellow": 70 // 30-70% is yellow, >70% is red
+                "type": 3,
+                "green": 30,
+                "yellow": 70
             }
         },
         {
             "type": "custom",
-            "format": "{$10}{$11}{$9}{$12}{$8}{$12}{$7}{$12}{$6}{$12}{$5}{$12}{$4}{$12}{$3}{$12}{$2}{$12}{$1}{$13} Software "
+            "format": "{$10}{$11}{$9}{$12}{$8}{$12}{$7}{$12}{$6}{$12}{$5}{$12}{$4}{$12}{$3}{$12}{$2}{$12}{$1}{$13}\u001b[1m Software \u001b[0m"
         },
         {
             "type": "os",
@@ -130,63 +126,64 @@
         },
         {
             "type": "kernel",
-            "key": "{$10}├   Kernel    ",
+            "key": "{$10}├   Kernel    "
         },
         {
             "type": "bios",
-            "key": "{$9}├ 󰚗  BIOS      ",
+            "key": "{$9}├ 󰚗  BIOS      "
         },
         {
-            "type": "packages",
+            "type": "command",
             "key": "{$9}├ 󰏖  Packages  ",
+            "text": "echo \"󰮯 $(pacman -Qn 2>/dev/null | wc -l) Pacman   󰣇 $(pacman -Qm 2>/dev/null | wc -l) AUR   󰏖 $(flatpak list --app 2>/dev/null | wc -l) Flatpak\""
         },
         {
-            "type": "Processes",
-            "key": "{$9}├ 󰑮  Processes ",
+            "type": "processes",
+            "key": "{$9}├ 󰑮  Processes "
         },
         {
             "type": "shell",
-            "key": "{$8}├   Shell     ",
+            "key": "{$8}├   Shell     "
         },
         {
             "type": "terminal",
-            "key": "{$7}├   Terminal  ",
+            "key": "{$7}├   Terminal  "
         },
         {
             "type": "terminalfont",
-            "key": "{$6}├ 󰛖  Term Font ",
+            "key": "{$6}├ 󰛖  Term Font "
         },
         {
             "type": "de",
-            "key": "{$5}├   DE        ",
+            "key": "{$5}├   DE        "
         },
         {
             "type": "lm",
-            "key": "{$4}├ 󰧨  Login     ",
+            "key": "{$4}├ 󰧨  Login     "
         },
         {
             "type": "wm",
-            "key": "{$3}├   Window    ",
+            "key": "{$3}├   Window    "
         },
         {
             "type": "wmtheme",
-            "key": "{$2}├ 󰉼  Theme     ",
+            "key": "{$2}├ 󰉼  Theme     "
         },
         {
             "type": "font",
-            "key": "{$2}├ 󰛖  Font      ",
+            "key": "{$2}├ 󰛖  Font      "
         },
         {
             "type": "opengl",
-            "key": "{$1}├ 󰆧  OpenGL    ",
+            "key": "{$1}├ 󰆧  OpenGL    "
         },
         {
             "type": "vulkan",
-            "key": "{$1}└ 󰈸  Vulkan    ",
+            "key": "{$1}└ 󰈸  Vulkan    "
         },
         {
             "type": "custom",
-            "format": "{$1}{$11}{$2}{$12}{$3}{$12}{$4}{$12}{$5}{$12}{$6}{$12}{$7}{$12}{$8}{$12}{$9}{$12}{$10}{$13} Connectivity"
+            "format": "{$1}{$11}{$2}{$12}{$3}{$12}{$4}{$12}{$5}{$12}{$6}{$12}{$7}{$12}{$8}{$12}{$9}{$12}{$10}{$13}\u001b[1m Connectivity \u001b[0m"
         },
         {
             "type": "bluetooth",
@@ -195,8 +192,7 @@
         },
         {
             "type": "bluetoothradio",
-            "key": "{$1}├ 󰂯  BT Radio  ",
-            "format": "{5}"
+            "key": "{$1}├ 󰂯  BT Radio  "
         },
         {
             "type": "wifi",
@@ -206,36 +202,31 @@
         },
         {
             "type": "dns",
-            "key": "{$4}├ 󱦂  DNS       ",
+            "key": "{$4}├ 󱦂  DNS       "
         },
         {
             "type": "localip",
             "key": "{$6}├ 󰩟  Local IP  ",
-            "format": "{1} - {3}",
-            "showMac": true
-        },
-        {
-            "type": "publicip",
-            "key": "{$8}└ 󰩠  Public IP ",
-            "format": "{1} - {2}"
+            "format": "{1}",
+            "showMac": false
         },
         {
             "type": "custom",
-            "format": "{$10}{$11}{$9}{$12}{$8}{$12}{$7}{$12}{$6}{$12}{$5}{$12}{$4}{$12}{$3}{$12}{$2}{$12}{$1}{$13} Time "
+            "format": "{$10}{$11}{$9}{$12}{$8}{$12}{$7}{$12}{$6}{$12}{$5}{$12}{$4}{$12}{$3}{$12}{$2}{$12}{$1}{$13}\u001b[1m Time \u001b[0m"
         },
         {
-            "type": "DateTime",
-            "key": "{$10}├ 󰥔  Date/Time ",
+            "type": "datetime",
+            "key": "{$10}├ 󰥔  Date/Time "
         },
         {
-            "key": "{$8}├   OS Age    ",
             "type": "disk",
+            "key": "{$8}├   OS Age    ",
             "folders": "/",
             "format": "{create-time:10} ({days} days)"
         },
         {
             "type": "uptime",
-            "key": "{$6}└   Uptime    ",
-        },
-  ]
+            "key": "{$6}└   Uptime    "
+        }
+    ]
 }
