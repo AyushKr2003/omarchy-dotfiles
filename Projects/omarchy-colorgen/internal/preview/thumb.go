@@ -168,11 +168,11 @@ func kittyEscapeWithID(b64 string, cols, rows, imgID int) string {
 	chunkSize := 4096
 	var b strings.Builder
 	
-	// Delete any previous image at cursor position and delete by image ID if specified
+	// Delete any previous image and placements by image ID if specified
 	if imgID > 0 {
-		b.WriteString(fmt.Sprintf("\x1b_Ga=d,d=I,i=%d\x1b\\", imgID))
+		b.WriteString(fmt.Sprintf("\x1b_Ga=d,d=i,i=%d\x1b\\", imgID))
 	}
-	b.WriteString("\x1b_Ga=d,d=C\x1b\\")
+	b.WriteString("\x1b_Ga=d,d=c\x1b\\")
 
 	idParam := ""
 	if imgID > 0 {

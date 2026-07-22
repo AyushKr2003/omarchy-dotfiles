@@ -15,7 +15,7 @@ import (
 
 // kittyDeleteAll sends Kitty graphics protocol escape sequences to delete all
 // previously rendered images and placements, preventing ghosting/overlap on redraws.
-const kittyDeleteAll = "\x1b_Ga=d,d=A\x1b\\\x1b_Ga=d,d=a\x1b\\\x1b_Ga=d,d=I,i=1\x1b\\\x1b_Ga=d,d=I,i=2\x1b\\\x1b_Ga=d,d=I,i=3\x1b\\"
+const kittyDeleteAll = "\x1b_Ga=d,d=A\x1b\\\x1b_Ga=d,d=a\x1b\\\x1b_Ga=d,d=i,i=1\x1b\\\x1b_Ga=d,d=i,i=2\x1b\\\x1b_Ga=d,d=i,i=3\x1b\\"
 
 func (m Model) View() string {
 	if !m.ready {
@@ -160,21 +160,30 @@ func (m Model) iconPickerView(w, h int) string {
 }
 
 func (m Model) previewView(w, h int) string {
-	if m.generating {
-		return m.spinner.View() + " generating palette…"
-	}
-	if !m.haveTheme {
-		if m.status != "" {
-			return errStyle.Render(m.status)
-		}
-		return mutedStyle.Render("select a wallpaper to preview")
-	}
-
 	inner := w - 4
 	if inner < 1 {
 		inner = 1
 	}
 	contentH := h - 2
+	if contentH < 1 {
+		contentH = 1
+	}
+
+	var clearPrefix string
+	if m.kitty {
+		clearPrefix = preview.WrapTmux(kittyDeleteAll)
+	}
+
+	if m.generating {
+		msg := m.spinner.View() + " generating palette…"
+		return clearPrefix + lipgloss.Place(inner, contentH, lipgloss.Center, lipgloss.Center, msg)
+	}
+	if !m.haveTheme {
+		if m.status != "" {
+			return clearPrefix + errStyle.Render(m.status)
+		}
+		return clearPrefix + mutedStyle.Render("select a wallpaper to preview")
+	}
 
 	var bottomSection string
 	if h > 24 && inner >= 66 {
@@ -233,10 +242,10 @@ func (m Model) previewView(w, h int) string {
 		}
 	}
 	if bgSection == "" {
-		return bottomSection
+		return clearPrefix + bottomSection
 	}
 
-	return strings.Join([]string{bgSection, bottomSection}, "\n\n\n")
+	return clearPrefix + strings.Join([]string{bgSection, bottomSection}, "\n\n\n")
 }
 
 // thumbnail returns a half-block ANSI wallpaper preview at the given cell
