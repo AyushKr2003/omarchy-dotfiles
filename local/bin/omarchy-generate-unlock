@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+
+# omarchy:summary=Generate unlock.png for a custom theme using its colors.toml
+# omarchy:args=<theme-name-or-path>
+
+if (( $# != 1 )); then
+  echo "Usage: omarchy-generate-unlock <theme-name-or-path>" >&2
+  exit 1
+fi
+
+theme="$1"
+
+# Resolve theme path
+if [[ -d "$theme" ]]; then
+  theme_dir="$theme"
+elif [[ -d ~/.config/omarchy/themes/$theme ]]; then
+  theme_dir=~/.config/omarchy/themes/$theme
+elif [[ -d "$OMARCHY_PATH/themes/$theme" ]]; then
+  theme_dir="$OMARCHY_PATH/themes/$theme"
+else
+  echo "Error: Could not find theme '$theme'" >&2
+  exit 1
+fi
+
+if [[ ! -f "$theme_dir/colors.toml" ]]; then
+  echo "Error: colors.toml not found in $theme_dir" >&2
+  exit 1
+fi
+
+# Find the default logo.svg
+logo_svg=""
+if [[ -n "$OMARCHY_PATH" && -f "$OMARCHY_PATH/logo.svg" ]]; then
+  logo_svg="$OMARCHY_PATH/logo.svg"
+elif [[ -f "/home/shadow/omarchy-dotfiles/omarchy-repo/logo.svg" ]]; then
+  logo_svg="/home/shadow/omarchy-dotfiles/omarchy-repo/logo.svg"
+else
+  echo "Error: Could not find base logo.svg to generate from." >&2
+  exit 1
+fi
+
+# Extract foreground color from colors.toml
+text_hex=$(awk -F= -v key="foreground" '
+  function clean(raw) {
+    gsub(/^[[:space:]]+|[[:space:]]+$/, "", raw)
+    if (raw ~ /^"/) {
+      sub(/^"/, "", raw)
+      sub(/".*$/, "", raw)
+    }
+    return raw
+  }
+  {
+    field = $1
+    gsub(/^[[:space:]]+|[[:space:]]+$/, "", field)
+    if (field == key) {
+      print clean($2)
+      exit
+    }
+  }
+' "$theme_dir/colors.toml")
+
+if [[ -z "$text_hex" ]]; then
+  echo "Error: Could not find 'foreground' hex in colors.toml" >&2
+  exit 1
+fi
+
+# Ensure '#' prefix is present for ImageMagick
+if ! [[ "$text_hex" =~ ^# ]]; then
+  text_hex="#$text_hex"
+fi
+
+output_file="$theme_dir/unlock.png"
+
+echo "Generating unlock.png for $theme..."
+echo "  Foreground Color: $text_hex"
+echo "  Target: $output_file"
+
+# Generate 801x188 transparent PNG tinted to the foreground color
+magick -background none "$logo_svg" -resize x188 -channel RGB +level-colors "$text_hex","$text_hex" "$output_file"
+
+if [[ -f "$output_file" ]]; then
+  echo "Success! Image generated."
+else
+  echo "Failed to generate image." >&2
+  exit 1
+fi

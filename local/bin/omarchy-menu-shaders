@@ -1,0 +1,105 @@
+#!/bin/bash
+
+# omarchy:summary=Select and apply Hyprland screen shaders using an interactive search menu
+# omarchy:group=menu
+# omarchy:name=shaders
+# omarchy:args=[--print|-p]
+
+set -euo pipefail
+
+SHADERS_DIR="${HOME}/.config/hypr/shaders"
+SHADER_LUA_HOME="${HOME}/.config/hypr/shader.lua"
+SHADER_LUA_DOTFILES="${DOTFILES_ROOT:-$HOME/omarchy-dotfiles}/config/hypr/shader.lua"
+
+print_only=false
+if [[ ${1:-} == "--print" || ${1:-} == "-p" ]]; then
+  print_only=true
+fi
+
+# Generate formatted list of options: "None" + available .glsl files
+get_shader_options() {
+  echo "None"
+  if [[ -d "$SHADERS_DIR" ]]; then
+    find -L "$SHADERS_DIR" -maxdepth 1 -type f -name "*.glsl" 2>/dev/null | sort | while read -r filepath; do
+      filename=$(basename "$filepath")
+      echo "$filename"
+    done
+  fi
+}
+
+if [[ $print_only == "true" ]]; then
+  get_shader_options
+  exit 0
+fi
+
+# Build options for menu selection
+options=()
+mapfile -t options < <(get_shader_options)
+
+if (( ${#options[@]} == 0 )); then
+  echo "No shaders found in $SHADERS_DIR" >&2
+  exit 1
+fi
+
+selection=$(printf '%s\n' "${options[@]}" | omarchy-menu-select 'Screen Shaders' -- --width 500 --height 400 2>/dev/null || true)
+
+if [[ -z $selection ]]; then
+  exit 0
+fi
+
+notify() {
+  local msg="$1"
+  if command -v omarchy-notification-send &>/dev/null; then
+    omarchy-notification-send "$msg" -t 2000 || true
+  elif command -v notify-send &>/dev/null; then
+    notify-send "Shaders" "$msg" || true
+  fi
+}
+
+save_lua_config() {
+  local shader_val="$1"
+  local damage_val="$2"
+  local content="-- Hyprland Screen Shader Configuration
+-- Managed by omarchy-menu-shaders
+
+hl.config({
+  debug = {
+    damage_tracking = ${damage_val},
+  },
+  decoration = {
+    screen_shader = \"${shader_val}\",
+  },
+})
+"
+  mkdir -p "$(dirname "$SHADER_LUA_HOME")"
+  printf '%s' "$content" > "$SHADER_LUA_HOME"
+
+  if [[ -d "$(dirname "$SHADER_LUA_DOTFILES")" ]]; then
+    printf '%s' "$content" > "$SHADER_LUA_DOTFILES"
+  fi
+}
+
+apply_shader_live() {
+  local target="$1"
+  local damage_val="$2"
+  if command -v hyprctl &>/dev/null; then
+    hyprctl eval "hl.config({ debug = { damage_tracking = ${damage_val} }, decoration = { screen_shader = '${target}' } })" >/dev/null 2>&1 || \
+    (hyprctl keyword debug:damage_tracking "$damage_val" >/dev/null 2>&1 && hyprctl keyword decoration:screen_shader "$target" >/dev/null 2>&1) || true
+  fi
+}
+
+if [[ $selection == "None" ]]; then
+  apply_shader_live "" 2
+  save_lua_config "" 2
+  notify "Screen shader disabled (None)"
+else
+  target_path="$SHADERS_DIR/$selection"
+  if [[ ! -f $target_path ]]; then
+    echo "Shader file not found: $target_path" >&2
+    exit 1
+  fi
+
+  apply_shader_live "$target_path" 0
+  save_lua_config "$target_path" 0
+  notify "Screen shader applied: $selection"
+fi

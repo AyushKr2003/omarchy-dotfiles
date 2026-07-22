@@ -1,9 +1,0 @@
-[Desktop Entry]
-Version=1.0
-Name=Superfile
-Comment=Superfile
-Exec=xdg-terminal-exec --app-id=TUI.float -e spf
-Terminal=false
-Type=Application
-Icon=/home/shadow/.local/share/applications/icons/Superfile.png
-StartupNotify=true
