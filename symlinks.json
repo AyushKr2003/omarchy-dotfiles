@@ -14,9 +14,6 @@
     "superfile": "files"
   },
   "local": {
-    "bin": "files",
-    "share": "files",
-    "share/applications": "files",
-    "share/icons": "files"
+    "bin": "files"
   }
 }
