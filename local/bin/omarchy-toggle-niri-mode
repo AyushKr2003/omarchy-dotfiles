@@ -81,7 +81,10 @@ enable() {
 	-- don't hand-edit (edits will be lost the next time you toggle off/on).
 	hl.config({
 	  general = { layout = "scrolling" },
-	  scrolling = { column_width = 0.72 },
+	  scrolling = {
+	    column_width = 0.72,
+	    explicit_column_widths = "0.333, 0.5, 0.72, 1.0",
+	  },
 	})
 	LUA
 

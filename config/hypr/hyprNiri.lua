@@ -62,14 +62,14 @@ local function applyGestures(niri, isInitial)
 			fingers = 3,
 			direction = "left",
 			action = function()
-				hl.dispatch(hl.dsp.focus({ direction = "r" }))
+				hl.dispatch(hl.dsp.layout("move +col"))
 			end,
 		})
 		hl.gesture({
 			fingers = 3,
 			direction = "right",
 			action = function()
-				hl.dispatch(hl.dsp.focus({ direction = "l" }))
+				hl.dispatch(hl.dsp.layout("move -col"))
 			end,
 		})
 		_G.__niriGestureMode = "niri"
@@ -141,6 +141,33 @@ hl.unbind("SUPER + CTRL + DOWN")
 o.bind("SUPER + CTRL + DOWN", "Previous workspace (niri)", function()
 	if niriModeEnabled() then
     hl.dispatch(hl.dsp.focus({ direction = "d"}))
+	end
+end)
+
+-- Left/Right navigation: normal mode uses directional focus, niri mode uses layout column scrolling
+hl.unbind("SUPER + LEFT")
+o.bind("SUPER + LEFT", "Focus left window/column", function()
+	if niriModeEnabled() then
+		hl.dispatch(hl.dsp.layout("move -col"))
+	else
+		hl.dispatch(hl.dsp.focus({ direction = "l" }))
+	end
+end)
+
+hl.unbind("SUPER + RIGHT")
+o.bind("SUPER + RIGHT", "Focus right window/column", function()
+	if niriModeEnabled() then
+		hl.dispatch(hl.dsp.layout("move +col"))
+	else
+		hl.dispatch(hl.dsp.focus({ direction = "r" }))
+	end
+end)
+
+-- Cycle column widths in niri mode
+hl.unbind("SUPER + R")
+o.bind("SUPER + R", "Cycle column width (niri)", function()
+	if niriModeEnabled() then
+		hl.dispatch(hl.dsp.layout("colresize +conf"))
 	end
 end)
 
