@@ -142,6 +142,7 @@ func (m Model) chooseFolder(dir string) (tea.Model, tea.Cmd) {
 	}
 	m.srcDir = dir
 	m.all = found
+	m.thumbCache = make(map[string]string)
 	m.applyFilter("")
 	m.cursor = 0
 	m.screen = screenMain

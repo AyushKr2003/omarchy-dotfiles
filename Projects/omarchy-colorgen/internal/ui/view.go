@@ -21,11 +21,17 @@ func (m Model) View() string {
 	if !m.ready {
 		return "loading…"
 	}
+
+	var prefix string
+	if m.kitty {
+		prefix = preview.WrapTmux(kittyDeleteAll)
+	}
+
 	if m.screen == screenFolder {
-		return m.folderView()
+		return prefix + m.folderView()
 	}
 	if m.width < 60 || m.height < 20 {
-		return "terminal too small — resize to at least 60x20"
+		return prefix + "terminal too small — resize to at least 60x20"
 	}
 
 	title := titleStyle.Render("omarchy-colorgen") + "  " +
@@ -43,11 +49,6 @@ func (m Model) View() string {
 	footerH := lipgloss.Height(footer)
 
 	body := m.renderBody(headerH, footerH)
-	// Clear all previous Kitty images before rendering new frame to prevent overlap
-	var prefix string
-	if m.kitty {
-		prefix = preview.WrapTmux(kittyDeleteAll)
-	}
 	return prefix + lipgloss.JoinVertical(lipgloss.Left, header, body, footer)
 }
 
@@ -355,36 +356,17 @@ func (m Model) footerView() string {
 		}
 	}
 
-	var help string
-	if m.showHelp {
-		help = m.fullHelp()
-	} else {
-		var parts []string
-		for _, k := range m.keys.shortHelp() {
-			h := k.Help()
-			parts = append(parts, mutedStyle.Render(h.Key)+" "+h.Desc)
-		}
-		help = strings.Join(parts, mutedStyle.Render(" · "))
+	var parts []string
+	for _, k := range m.keys.shortHelp() {
+		h := k.Help()
+		parts = append(parts, mutedStyle.Render(h.Key)+" "+h.Desc)
 	}
+	help := strings.Join(parts, mutedStyle.Render(" · "))
 
 	if status != "" {
 		return status + "\n" + help
 	}
-	return help + "\n" + mutedStyle.Render("press ? for all keys")
-}
-
-func (m Model) fullHelp() string {
-	lines := []string{
-		"↑/k, ↓/j  navigate wallpapers",
-		"d         toggle dark / light (default dark)",
-		"/         filter list      o  change wallpaper folder",
-		"g         regenerate       r  reload wallpaper list",
-		"w         peek full image (kitty)",
-		"s         save theme       a  save + apply (omarchy-theme-set)",
-		"e         export full theme folder",
-		"?         toggle help      q  quit",
-	}
-	return mutedStyle.Render(strings.Join(lines, "\n"))
+	return help
 }
 
 func truncate(s string, n int) string {

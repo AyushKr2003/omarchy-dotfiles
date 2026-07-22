@@ -75,7 +75,6 @@ type Model struct {
 
 	status    string
 	statusErr bool
-	showHelp  bool
 
 	showHidden bool
 	kitty      bool
@@ -216,11 +215,6 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Quit):
 		return m, tea.Quit
 
-	case key.Matches(msg, m.keys.Help):
-		m.showHelp = !m.showHelp
-		m.thumbCache = make(map[string]string)
-		return m, nil
-
 	case key.Matches(msg, m.keys.Icons):
 		m.pickingIcons = !m.pickingIcons
 		return m, nil
@@ -289,16 +283,6 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.applyFilter("")
 		return m, m.regenerate()
 
-	case key.Matches(msg, m.keys.Peek):
-		if !m.kitty {
-			m.setStatus("image peek needs a kitty terminal", true)
-			return m, nil
-		}
-		if w, ok := m.current(); ok {
-			return m, peekCmd(w.Path)
-		}
-		return m, nil
-
 	case key.Matches(msg, m.keys.Filter):
 		if m.pickingIcons {
 			return m, m.beginInput(inputFilter, "filter icons: ", "")
@@ -311,6 +295,7 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if start == "" {
 			start = defaultStartDir()
 		}
+		m.thumbCache = make(map[string]string)
 		m.screen = screenFolder
 		m.initFolder(start)
 		return m, nil
