@@ -1,49 +1,3 @@
--- -- Application bindings.
--- o.bind("SUPER + RETURN", "Terminal", { omarchy = "terminal" })
--- o.bind("SUPER + ALT + RETURN", "Tmux", { omarchy = "terminal-tmux" })
--- o.bind("SUPER + SHIFT + RETURN", "Browser", { omarchy = "browser" })
--- o.bind("SUPER + SHIFT + F", "File manager", { omarchy = "nautilus" })
--- o.bind("SUPER + ALT + SHIFT + F", "File manager (cwd)", { omarchy = "nautilus-cwd" })
--- o.bind("SUPER + SHIFT + B", "Browser", { omarchy = "browser" })
--- o.bind("SUPER + SHIFT + ALT + B", "Browser (private)", "chromium --incognito")
--- o.bind("SUPER + SHIFT + M", "Music", { omarchy = "or-focus spotify" })
--- o.bind("SUPER + SHIFT + ALT + M", "Music TUI", { tui = "cliamp", focus = true })
--- o.bind("SUPER + SHIFT + N", "Editor", { omarchy = "editor" })
--- o.bind("SUPER + SHIFT + D", "Docker", { tui = "lazydocker" })
--- o.bind("SUPER + SHIFT + G", "Signal", { launch = "signal-desktop", focus = "^signal$" })
--- o.bind("SUPER + SHIFT + O", "Obsidian", { launch = "obsidian", focus = "^obsidian$" })
--- o.bind("SUPER + SHIFT + W", "Typora", { launch = "typora --enable-wayland-ime" })
--- o.bind("SUPER + SHIFT + SLASH", "Passwords", { launch = "1password" })
---
--- -- Web app bindings.
--- o.bind("SUPER + SHIFT + A", "ChatGPT", { webapp = "https://chatgpt.com" })
--- o.bind("SUPER + SHIFT + ALT + A", "Grok", { webapp = "https://grok.com" })
--- o.bind("SUPER + SHIFT + C", "Calendar", { webapp = "https://app.hey.com/calendar/weeks/" })
--- o.bind("SUPER + SHIFT + E", "Email", { webapp = "https://app.hey.com" })
--- o.bind("SUPER + SHIFT + Y", "YouTube", { webapp = "https://youtube.com/" })
--- o.bind("SUPER + SHIFT + ALT + G", "WhatsApp", { webapp = "https://web.whatsapp.com/", focus = true })
--- o.bind(
--- 	"SUPER + SHIFT + CTRL + G",
--- 	"Google Messages",
--- 	{ webapp = "https://messages.google.com/web/conversations", focus = true }
--- )
--- o.bind("SUPER + SHIFT + P", "Google Photos", { webapp = "https://photos.google.com/", focus = true })
--- o.bind("SUPER + SHIFT + S", "Google Maps", { webapp = "https://maps.google.com/", focus = true })
--- o.bind("SUPER + SHIFT + X", "X", { webapp = "https://x.com/" })
--- o.bind("SUPER + SHIFT + ALT + X", "X Post", { webapp = "https://x.com/compose/post" })
-
--- Add extra bindings below.
--- o.bind("SUPER + SHIFT + R", "SSH", "alacritty -e ssh your-server")
-
--- Overwrite existing bindings with hl.unbind() first if needed.
--- hl.unbind("SUPER + SPACE")
--- o.bind("SUPER + SPACE", "Omarchy menu", "omarchy-menu")
-
--- Logitech MX Keys examples:
--- o.bind("SUPER + SHIFT + S", nil, "omarchy-capture-screenshot")
--- o.bind("SUPER + H", nil, "voxtype record toggle")
--- o.bind("SUPER + PERIOD", nil, { omarchy = "walker -m symbols" })
-
 -- ╭─────────────────────────────────────────────────────────────────────────╮
 -- │  Custom bindings — loaded after omarchy defaults.                       │
 -- │  Uses helpers from default/hypr/helpers.lua:                            │
@@ -68,20 +22,26 @@ o.bind("SUPER + PAUSE", "float" ,hl.dsp.exec_cmd("xdg-terminal-exec fish -c full
 hl.unbind("SUPER + RETURN")
 o.bind("SUPER  + RETURN", "Tmux", o.launch("omarchy-launch-terminal bash -c 'tmux attach -t Work || tmux new -s Work'"))
 
-hl.unbind("SUPER + ALT + RETURN")
-o.bind("SUPER + ALT + RETURN", "Terminal", { omarchy = "terminal" })
+hl.unbind("SUPER + T")
+o.bind("SUPER + T", "Terminal", { omarchy = "terminal" })
+
+hl.unbind("SUPER + SHIFT + T")
+o.bind(
+	"SUPER + SHIFT + T",
+	"Floating Tmux",
+	o.launch("xdg-terminal-exec --app-id=org.omarchy.terminal --title=Omarchy -e fish")
+)
 
 -- Floating terminal — xdg-terminal-exec is a GUI app, needs uwsm-app
 hl.unbind("SUPER + SHIFT + RETURN")
 o.bind(
 	"SUPER + SHIFT + RETURN",
 	"Floating Tmux",
-  hl.dsp.exec_cmd("omarchy-launch-terminal bash -c 'tmux attach -t Float || tmux new -s Float'", {float=true, size="875 600"}) --875 600
-	-- o.launch("xdg-terminal-exec --app-id=org.omarchy.terminal --title=Omarchy -e fish")
+  hl.dsp.exec_cmd("omarchy-launch-terminal bash -c 'tmux attach -t Float || tmux new -s Float'", {float=true, size="875 600"})
 )
 
-hl.unbind("SUPER + SHIFT + T")
-o.bind("SUPER + SHIFT + T", "TypeTUI", "xdg-terminal-exec --app-id=TUI.float -e typetui")
+hl.unbind("SUPER + ALT + T")
+o.bind("SUPER + ALT + T", "TypeTUI", "xdg-terminal-exec --app-id=TUI.float -e typetui")
 
 -- Editor → VS Code
 hl.unbind("SUPER + SHIFT + N")
@@ -104,16 +64,6 @@ o.bind("SUPER + Z", "Resize window", hl.dsp.window.resize(), { mouse = true })
 hl.unbind("SUPER + SHIFT + O")
 o.bind("SUPER + SHIFT + O", "Toggle window floating/tiling", hl.dsp.window.float({ action = "toggle" }))
 
--- Toggle focus between tiled and floating
--- hl.unbind("SUPER + T")
--- o.bind("SUPER + T", "Toggle focus floating/tiling", function()
--- 	local active = hl.get_active_window()
--- 	if active and active.floating then
--- 		hl.dispatch(hl.dsp.focus({ window = "tiled" }))
--- 	else
--- 		hl.dispatch(hl.dsp.focus({ window = "floating" }))
--- 	end
--- end)
 
 -- ── Lock & workspace ─────────────────────────────────────────────────────
 
