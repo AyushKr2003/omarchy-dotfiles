@@ -84,7 +84,7 @@ enable() {
 	  scrolling = {
 	    column_width = 0.72,
 	    explicit_column_widths = "0.333, 0.5, 0.72, 1.0",
-      focus_fit_method = 0
+      focus_fit_method = 1
 	  },
 	})
 	LUA
