@@ -38,19 +38,24 @@ func (m Model) View() string {
 	header := lipgloss.JoinHorizontal(lipgloss.Center,
 		title, strings.Repeat(" ", max0(m.width-lipgloss.Width(title)-lipgloss.Width(modeBadge)-2)), modeBadge)
 
-	body := m.renderBody()
+	footer := m.footerView()
+	headerH := lipgloss.Height(header)
+	footerH := lipgloss.Height(footer)
+
+	body := m.renderBody(headerH, footerH)
 	// Clear all previous Kitty images before rendering new frame to prevent overlap
 	var prefix string
 	if m.kitty {
 		prefix = preview.WrapTmux(kittyDeleteAll)
 	}
-	return prefix + lipgloss.JoinVertical(lipgloss.Left, header, body, m.footerView())
+	return prefix + lipgloss.JoinVertical(lipgloss.Left, header, body, footer)
 }
 
-func (m Model) renderBody() string {
-	bodyH := m.height - 4
-	if bodyH < 6 {
-		bodyH = 6
+func (m Model) renderBody(headerH, footerH int) string {
+	// Account for top+bottom pane borders (+2 lines) plus spacing so total height never exceeds m.height
+	bodyH := m.height - headerH - footerH - 3
+	if bodyH < 4 {
+		bodyH = 4
 	}
 	leftW := 34
 	if leftW > m.width/2 {

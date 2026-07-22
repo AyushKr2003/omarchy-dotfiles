@@ -218,6 +218,7 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, m.keys.Help):
 		m.showHelp = !m.showHelp
+		m.thumbCache = make(map[string]string)
 		return m, nil
 
 	case key.Matches(msg, m.keys.Icons):
@@ -442,6 +443,7 @@ func (m *Model) beginSave(apply bool) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) beginInput(mode inputMode, prompt, value string) tea.Cmd {
+	m.thumbCache = make(map[string]string)
 	m.inputMode = mode
 	m.input.Prompt = prompt
 	m.input.SetValue(value)
@@ -450,12 +452,14 @@ func (m *Model) beginInput(mode inputMode, prompt, value string) tea.Cmd {
 }
 
 func (m *Model) endInput() {
+	m.thumbCache = make(map[string]string)
 	m.inputMode = inputNone
 	m.input.Blur()
 	m.input.SetValue("")
 }
 
 func (m *Model) setStatus(text string, isErr bool) {
+	m.thumbCache = make(map[string]string)
 	m.status = text
 	m.statusErr = isErr
 }
