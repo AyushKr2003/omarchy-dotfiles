@@ -97,8 +97,8 @@ o.bind("SUPER + I", "Omarchy Settings", "omarchy-shell shell summon local.settin
 hl.unbind("SUPER + M")
 o.bind("SUPER + M", "Manga Reader", "omarchy-shell shell toggle local.manga")
 
-o.bind("SUPER + CTRL + K", "Neovim Keybindings", "omarchy-menu-nvim-keybindings")
-o.bind("SUPER + SHIFT + K", "Qutebrowser Keybindings", "omarchy-menu-qutebrowser-keybindings")
+hl.unbind("SUPER + CTRL + T")
+o.bind("SUPER + CTRL + T", "System Monitor", "omarchy-shell shell toggle local.system")
 
 
 -- ── 6. Hardware & Mouse Controls ────────────────────────────────────────────

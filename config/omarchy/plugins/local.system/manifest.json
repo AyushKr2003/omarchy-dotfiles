@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "id": "local.sysstat",
-  "name": "Local Sysstat",
+  "id": "local.system",
+  "name": "Local System",
   "version": "1.0.0",
   "author": "AyushKr2003",
-  "description": "Compact system stats bar widget with a detailed click panel.",
+  "description": "System telemetry, hardware monitor, and host status panel.",
   "kinds": [
     "bar-widget"
   ],
@@ -12,8 +12,8 @@
     "barWidget": "Panel.qml"
   },
   "barWidget": {
-    "displayName": "Local Sysstat",
-    "description": "CPU, GPU, memory, and disk details in compact horizontal rows.",
+    "displayName": "Local System Monitor",
+    "description": "Comprehensive system telemetry panel featuring CPU, RAM, Swap, Disk, GPU, and Uptime metrics.",
     "category": "System",
     "allowMultiple": false,
     "defaults": {
