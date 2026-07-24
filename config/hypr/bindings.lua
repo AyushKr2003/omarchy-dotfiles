@@ -65,7 +65,7 @@ o.bind("SUPER + E", "Nautilus File Manager", { omarchy = "nautilus" })
 o.bind("SUPER + ALT + E", "File manager (cwd)", { omarchy = "nautilus-cwd" })
 
 hl.unbind("SUPER + SHIFT + E")
-o.bind("SUPER + SHIFT + E", "Superfile (TUI)", o.launch("xdg-terminal-exec --app-id=TUI.float -e fish -c spf"))
+o.bind("SUPER + SHIFT + E", "Superfile (TUI)", {launch="omarchy-launch-float-terminal spf"})
 
 
 -- ── 4. Window Management & Workspaces ───────────────────────────────────────
