@@ -26,13 +26,13 @@ hl.unbind("SUPER + T")
 o.bind("SUPER + T", "Terminal", { omarchy = "terminal" })
 
 hl.unbind("SUPER + SHIFT + T")
-o.bind("SUPER + SHIFT + T", "Floating Fish Terminal", o.launch("xdg-terminal-exec --app-id=org.omarchy.terminal --title=Omarchy -e fish"))
+o.bind("SUPER + SHIFT + T", "Floating Terminal", { launch = "omarchy-launch-float-terminal" })
 
 hl.unbind("SUPER + ALT + T")
-o.bind("SUPER + ALT + T", "TypeTUI", "xdg-terminal-exec --app-id=TUI.float -e typetui")
+o.bind("SUPER + ALT + T", "TypeTUI", { launch = "omarchy-launch-float-terminal typetui"})
 
 hl.unbind("SUPER + CTRL + L")
-o.bind("SUPER + CTRL + L", "Terminal Launcher", o.launch("xdg-terminal-exec --app-id=TUI.float -e fish -c 'a -a'"))
+o.bind("SUPER + CTRL + L", "Terminal Launcher", { launch = "omarchy-launch-float-terminal a -a"})
 
 o.bind("SUPER + PAUSE", "Full System Info", hl.dsp.exec_cmd("xdg-terminal-exec fish -c full_sys", { float = true, size = "1220 680" }))
 
@@ -46,13 +46,13 @@ hl.unbind("SUPER + W")
 o.bind("SUPER + W", "Default Browser", "omarchy-launch-browser")
 
 hl.unbind("SUPER + ALT + B")
-o.bind("SUPER + ALT + B", "QuteBrowser", o.launch("qutebrowser"))
+o.bind("SUPER + ALT + B", "QuteBrowser", { launch = "qutebrowser"})
 
 hl.unbind("SUPER + B")
-o.bind("SUPER + B", "Zen Browser", o.launch("zen-browser"))
+o.bind("SUPER + B", "Zen Browser", {launch="zen-browser"})
 
 hl.unbind("SUPER + SHIFT + B")
-o.bind("SUPER + SHIFT + B", "QuteBrowser (Private)", o.launch("bash -c 'qutebrowser --basedir /tmp/qb-private-$(date +%s) --config $HOME/.config/qutebrowser/private.py --target window'"))
+o.bind("SUPER + SHIFT + B", "QuteBrowser (Private)", {launch="bash -c 'qutebrowser --basedir /tmp/qb-private-$(date +%s) --config $HOME/.config/qutebrowser/private.py --target window'"})
 
 hl.unbind("SUPER + SHIFT + W")
 o.bind("SUPER + SHIFT + W", "WhatsApp Web", { webapp = "https://web.whatsapp.com/", focus = true })
@@ -61,6 +61,8 @@ o.bind("SUPER + SHIFT + W", "WhatsApp Web", { webapp = "https://web.whatsapp.com
 -- ── 3. File Managers ────────────────────────────────────────────────────────
 
 o.bind("SUPER + E", "Nautilus File Manager", { omarchy = "nautilus" })
+
+o.bind("SUPER + ALT + E", "File manager (cwd)", { omarchy = "nautilus-cwd" })
 
 hl.unbind("SUPER + SHIFT + E")
 o.bind("SUPER + SHIFT + E", "Superfile (TUI)", o.launch("xdg-terminal-exec --app-id=TUI.float -e fish -c spf"))
