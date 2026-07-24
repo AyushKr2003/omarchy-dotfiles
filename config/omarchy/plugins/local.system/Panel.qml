@@ -401,8 +401,6 @@ Panel {
             accentColor: root.statusColorFor(root.memPercent)
           }
 
-          PanelSeparator { foreground: root.panelFg; strength: 0.06 }
-
           StatRowItem {
             width: parent.width
             visible: root.swapTotalGb > 0
@@ -413,8 +411,6 @@ Panel {
             badgeIcon: "󰓡"
             accentColor: root.statusColorFor(root.swapPercent)
           }
-
-          PanelSeparator { visible: root.swapTotalGb > 0; foreground: root.panelFg; strength: 0.06 }
 
           StatRowItem {
             width: parent.width
