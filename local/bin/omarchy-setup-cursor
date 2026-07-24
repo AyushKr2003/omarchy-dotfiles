@@ -13,11 +13,11 @@ if [[ -z "$THEME" ]]; then
   echo "Available installed cursor themes:"
   find /usr/share/icons ~/.icons ~/.local/share/icons -maxdepth 2 -type f \( -name "cursor.theme" -o -name "index.theme" \) 2>/dev/null | while read -r file; do
     dirname "$file" | xargs basename
-  done | sort -u | sed 's/^/  - /'
+  done | sort -u | grep -v '^default$' | sed 's/^/  - /'
   exit 1
 fi
 
-AUTOSTART_LUA="$HOME/.config/hypr/autostart.lua"
+AUTOSTART_LUA="$HOME/omarchy-dotfiles/config/hypr/autostart.lua"
 if [[ ! -f "$AUTOSTART_LUA" ]]; then
   AUTOSTART_LUA="$HOME/.config/hypr/autostart.lua"
 fi
@@ -54,15 +54,15 @@ EOF
 done
 echo "✓ GTK 3.0 and GTK 4.0 settings.ini updated"
 
-# 3. Update XDG ~/.icons/default/index.theme
-mkdir -p "$HOME/.icons/default"
-cat << EOF > "$HOME/.icons/default/index.theme"
+# 3. Update XDG ~/.local/share/icons/default
+mkdir -p "$HOME/.local/share/icons/default"
+cat << EOF > "$HOME/.local/share/icons/default/index.theme"
 [Icon Theme]
 Name=Default
 Comment=Default Cursor Theme
 Inherits=$THEME
 EOF
-echo "✓ ~/.icons/default/index.theme updated"
+echo "✓ ~/.local/share/icons/default/index.theme updated"
 
 # 4. Update ~/.Xresources
 cat << EOF > "$HOME/.Xresources"
@@ -76,19 +76,6 @@ echo "✓ ~/.Xresources updated"
 
 # 5. Update config/hypr/autostart.lua cleanly
 if [[ -f "$AUTOSTART_LUA" ]]; then
-  # Clean up any old leftover un-marked comments or lines if markers not present yet
-  if ! grep -q '\-\- BEGIN CURSOR CONFIG' "$AUTOSTART_LUA" 2>/dev/null && ! grep -q -- '-- BEGIN CURSOR CONFIG' "$AUTOSTART_LUA"; then
-    sed -i '/-- System-wide cursor theme/d' "$AUTOSTART_LUA"
-    sed -i '/XCURSOR_THEME/d' "$AUTOSTART_LUA"
-    sed -i '/XCURSOR_SIZE/d' "$AUTOSTART_LUA"
-    sed -i '/HYPRCURSOR_THEME/d' "$AUTOSTART_LUA"
-    sed -i '/HYPRCURSOR_SIZE/d' "$AUTOSTART_LUA"
-    sed -i '/hyprctl setcursor/d' "$AUTOSTART_LUA"
-    sed -i '/gsettings set org.gnome.desktop.interface cursor-theme/d' "$AUTOSTART_LUA"
-    sed -i '/gsettings set org.gnome.desktop.interface cursor-size/d' "$AUTOSTART_LUA"
-    sed -i '/dbus-update-activation-environment/d' "$AUTOSTART_LUA"
-  fi
-
   python3 - "$AUTOSTART_LUA" "$THEME" "$SIZE" << 'EOF'
 import sys, re
 
@@ -112,7 +99,6 @@ pattern = r'-- BEGIN CURSOR CONFIG.*?\-\- END CURSOR CONFIG'
 if re.search(pattern, content, re.DOTALL):
     content = re.sub(pattern, new_block, content, flags=re.DOTALL)
 else:
-    # Clean up trailing blank lines before appending
     lines = content.rstrip().split('\n')
     content = '\n'.join(lines) + "\n\n" + new_block + "\n"
 
