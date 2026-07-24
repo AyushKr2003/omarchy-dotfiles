@@ -45,11 +45,11 @@ o.bind("SUPER + SHIFT + N", "VS Code", o.launch("code"))
 hl.unbind("SUPER + W")
 o.bind("SUPER + W", "Default Browser", "omarchy-launch-browser")
 
-hl.unbind("SUPER + B")
-o.bind("SUPER + B", "QuteBrowser", o.launch("qutebrowser"))
-
 hl.unbind("SUPER + ALT + B")
-o.bind("SUPER + ALT + B", "Zen Browser", o.launch("zen-browser"))
+o.bind("SUPER + ALT + B", "QuteBrowser", o.launch("qutebrowser"))
+
+hl.unbind("SUPER + B")
+o.bind("SUPER + B", "Zen Browser", o.launch("zen-browser"))
 
 hl.unbind("SUPER + SHIFT + B")
 o.bind("SUPER + SHIFT + B", "QuteBrowser (Private)", o.launch("bash -c 'qutebrowser --basedir /tmp/qb-private-$(date +%s) --config $HOME/.config/qutebrowser/private.py --target window'"))
