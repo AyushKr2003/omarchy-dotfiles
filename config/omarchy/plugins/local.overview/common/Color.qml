@@ -14,7 +14,7 @@ QtObject {
     readonly property var popups: Shell.Color.popups
     readonly property var tooltip: Shell.Color.tooltip
     readonly property var notifications: Shell.Color.notifications
-    readonly property var launcher: Shell.Color.launcher
+    readonly property var launcher: Shell.Color.menu
     readonly property var menu: Shell.Color.menu
     readonly property var polkit: Shell.Color.polkit
     readonly property var lock: Shell.Color.lock
