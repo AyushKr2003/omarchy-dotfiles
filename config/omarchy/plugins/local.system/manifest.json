@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "local.system",
-  "name": "Local System",
+  "name": "System",
   "version": "1.0.0",
   "author": "AyushKr2003",
   "description": "System telemetry, hardware monitor, and host status panel.",
@@ -12,14 +12,13 @@
     "barWidget": "Panel.qml"
   },
   "barWidget": {
-    "displayName": "Local System Monitor",
+    "displayName": "Local System",
     "description": "Comprehensive system telemetry panel featuring CPU, RAM, Swap, Disk, GPU, and Uptime metrics.",
     "category": "System",
     "allowMultiple": false,
     "defaults": {
       "refreshSeconds": 2,
-      "diskPath": "/",
-      "showGpu": true
+      "diskPath": "/"
     },
     "schema": [
       {
@@ -36,12 +35,6 @@
         "type": "string",
         "label": "Disk path",
         "defaultValue": "/"
-      },
-      {
-        "key": "showGpu",
-        "type": "boolean",
-        "label": "Show GPU row",
-        "defaultValue": true
       }
     ]
   }

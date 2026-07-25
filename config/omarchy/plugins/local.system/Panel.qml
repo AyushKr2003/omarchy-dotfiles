@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import qs.Commons
@@ -9,21 +10,7 @@ Panel {
   moduleName: "local.system"
   ipcTarget: "local.system"
 
-  IpcHandler {
-    target: root.ipcTarget
-
-    function open() { root.openFromHotkey() }
-    function close() { root.close() }
-    function show() { root.openFromHotkey() }
-    function hide() { root.close() }
-    function toggle() { root.toggle() }
-  }
-
   // ── Telemetry State ──────────────────────────────────────────────────────
-  property string hostName: ""
-  property string kernelVer: ""
-  property string uptimeText: ""
-
   property real cpuPercent: 0
   property real memPercent: 0
   property real swapPercent: 0
@@ -33,6 +20,10 @@ Panel {
 
   property real memUsedGb: 0
   property real memTotalGb: 0
+  property real memAvailGb: 0
+  property real memFreeGb: 0
+  property real memCacheGb: 0
+
   property real swapUsedGb: 0
   property real swapTotalGb: 0
   property real diskUsedGb: 0
@@ -40,6 +31,7 @@ Panel {
   property real gpuMemUsedMb: 0
   property real gpuMemTotalMb: 0
   property int gpuTemp: 0
+  property int cpuTemp: 0
   property int cpuCores: 1
   property string gpuName: "GPU"
   property string diskMount: "/"
@@ -48,118 +40,30 @@ Panel {
   property real load5: 0
   property real load15: 0
   property var prevCpu: ({ idle: 0, total: 0 })
+  property var prevCores: ({})
+  property var corePctList: []
+
+  property real prevRxBytes: 0
+  property real prevTxBytes: 0
+  property real rxSpeed: 0
+  property real txSpeed: 0
+  property real totalRxMb: 0
+  property real totalTxMb: 0
 
   readonly property int refreshSeconds: Math.max(1, Number(setting("refreshSeconds", 2)) || 2)
   readonly property string diskPath: String(setting("diskPath", "/") || "/")
-  readonly property bool showGpu: boolSetting("showGpu", true)
-  readonly property color panelFg: bar ? bar.foreground : Color.foreground
-  readonly property string panelFont: bar ? bar.fontFamily : Style.font.family
+
   readonly property url statusScriptUrl: Qt.resolvedUrl("status.sh")
   readonly property string statusScript: decodeURIComponent(String(statusScriptUrl).replace(/^file:\/\//, ""))
 
-  // ── System Health Status ────────────────────────────────────────────────
-  readonly property string systemHealthText: {
-    if (cpuPercent >= 85 || memPercent >= 90 || (gpuPercent >= 0 && gpuTemp >= 82)) return "CRITICAL LOAD"
-    if (cpuPercent >= 70 || memPercent >= 75 || (gpuPercent >= 0 && gpuTemp >= 74)) return "HEAVY LOAD"
-    if (cpuPercent >= 40 || memPercent >= 50) return "MODERATE"
-    return "HEALTHY"
-  }
-
-  readonly property color systemHealthColor: {
-    if (cpuPercent >= 85 || memPercent >= 90 || (gpuPercent >= 0 && gpuTemp >= 82)) return Color.red
-    if (cpuPercent >= 70 || memPercent >= 75 || (gpuPercent >= 0 && gpuTemp >= 74)) return Color.yellow
-    return Color.accent
-  }
-
-  // ── Animated Phrase Generator ────────────────────────────────────────────
-  readonly property var idlePhrases: [
-    "Watching electrons", "Counting cycles", "Minding registers",
-    "Tending clocks", "Nursing circuits", "Herding threads",
-    "Babysitting bits", "Sipping watts", "Chilling cores",
-    "Tickling timers", "Humming quietly", "Breathing easy"
-  ]
-
-  readonly property var cpuBusyPhrases: [
-    "Crunching numbers", "Churning cycles", "Burning silicon",
-    "Grinding cores", "Chewing workloads", "Racing pipelines",
-    "Juggling threads", "Flexing muscles", "Working overtime"
-  ]
-
-  readonly property var cpuHotPhrases: [
-    "Melting cores", "Sweating silicon", "Roasting threads",
-    "Maxing out", "Sprinting hard", "Overclocking dignity",
-    "Blowing fans", "Redlining hard"
-  ]
-
-  readonly property var memHeavyPhrases: [
-    "Hoarding memory", "Swapping secrets", "Squeezing RAM",
-    "Filling buckets", "Juggling pages", "Borrowing headroom",
-    "Cramming heaps", "Evicting pages"
-  ]
-
-  readonly property var diskFullPhrases: [
-    "Running low", "Hoarding inodes", "Packing storage",
-    "Filling shelves", "Begging for space", "Evicting files"
-  ]
-
-  readonly property var gpuBusyPhrases: [
-    "Shading pixels", "Grinding polygons", "Rasterizing madly",
-    "Blasting shaders", "Tracing rays", "Painting frames"
-  ]
-
-  property int phraseIndex: 0
-  readonly property var activePhrases: {
-    if (gpuPercent >= 0 && gpuTemp >= 75) return gpuHotPhrases
-    if (cpuPercent >= 75)                 return cpuHotPhrases
-    if (memPercent >= 75)                 return memHeavyPhrases
-    if (diskPercent >= 75)                return diskFullPhrases
-    if (gpuPercent >= 60)                 return gpuBusyPhrases
-    if (cpuPercent >= 40)                 return cpuBusyPhrases
-    return idlePhrases
-  }
-
-  readonly property string heroPhrase: activePhrases[phraseIndex % activePhrases.length]
-
-  Timer {
-    id: phraseTimer
-    interval: 3200
-    running: root.opened
-    repeat: true
-    onTriggered: phraseSwap.restart()
-  }
-
-  SequentialAnimation {
-    id: phraseSwap
-    PropertyAnimation {
-      target: heroLabel
-      property: "metaOpacity"
-      to: 0
-      duration: 180
-      easing.type: Easing.OutQuad
-    }
-    ScriptAction {
-      script: root.phraseIndex = (root.phraseIndex + 1) % root.activePhrases.length
-    }
-    PropertyAnimation {
-      target: heroLabel
-      property: "metaOpacity"
-      to: 1
-      duration: 260
-      easing.type: Easing.InQuad
-    }
-  }
-
-  // ── Data Processing Helpers ──────────────────────────────────────────────
-  function boolSetting(key, fallback) {
-    var value = setting(key, fallback)
-    if (value === true || value === false) return value
-    var text = String(value).toLowerCase()
-    return text === "true" || text === "1" || text === "yes"
-  }
-
-  function refresh() {
-    if (!statsProc.running) statsProc.running = true
-  }
+  // Native Omarchy Theme Colors
+  readonly property color colorCpu: Color.accent
+  readonly property color colorMem: Color.accent
+  readonly property color colorSwap: Color.accent
+  readonly property color colorDisk: Color.accent
+  readonly property color colorTemp: Color.accent
+  readonly property color colorNet: Color.accent
+  readonly property color colorGpu: Color.accent
 
   function clampPercent(value) {
     if (!isFinite(value)) return 0
@@ -180,16 +84,25 @@ Panel {
     return value.toFixed(value >= 10 ? 0 : 1) + " GB"
   }
 
-  function mbAsGbText(value) {
-    if (!isFinite(value) || value <= 0) return "N/A"
-    var gb = value / 1024
-    return gb.toFixed(gb >= 10 ? 0 : 1) + " GB"
+  function speedText(bytesPerSec) {
+    if (!isFinite(bytesPerSec) || bytesPerSec <= 0) return "0 B/s"
+    if (bytesPerSec >= 1048576) return (bytesPerSec / 1048576).toFixed(1) + " MB/s"
+    if (bytesPerSec >= 1024) return (bytesPerSec / 1024).toFixed(0) + " KB/s"
+    return Math.round(bytesPerSec) + " B/s"
   }
 
-  function statusColorFor(pct) {
-    if (pct >= 85) return Color.red
-    if (pct >= 70) return Color.yellow
-    return Color.accent
+  function mbOrGbText(mb) {
+    if (!isFinite(mb) || mb <= 0) return "0 MB"
+    if (mb >= 1024) return (mb / 1024).toFixed(1) + " GB"
+    return Math.round(mb) + " MB"
+  }
+
+  function statusColorFor(pct, fallbackColor) {
+    var alt = (fallbackColor !== undefined && fallbackColor !== null) ? fallbackColor : Color.accent
+    var n = Number(pct)
+    if (isNaN(n)) return alt
+    if (n >= 85) return Color.urgent
+    return alt
   }
 
   function updateCpuTotals(idle, total, cores) {
@@ -210,24 +123,51 @@ Panel {
     loadPercent = clampPercent((load1 / Math.max(1, cpuCores)) * 100)
   }
 
+  function updateNet(rx, tx) {
+    var r = parseNumber(rx, 0)
+    var t = parseNumber(tx, 0)
+    if (prevRxBytes > 0 && r >= prevRxBytes) {
+      rxSpeed = (r - prevRxBytes) / refreshSeconds
+    }
+    if (prevTxBytes > 0 && t >= prevTxBytes) {
+      txSpeed = (t - prevTxBytes) / refreshSeconds
+    }
+    prevRxBytes = r
+    prevTxBytes = t
+    totalRxMb = r / (1024 * 1024)
+    totalTxMb = t / (1024 * 1024)
+  }
+
   function updateStats(raw) {
     var lines = String(raw || "").split("\n")
+    var newCores = []
     for (var i = 0; i < lines.length; i++) {
       var parts = lines[i].trim().split("\t")
       if (parts.length < 2) continue
-      if (parts[0] === "host") {
-        hostName = parts[1] || ""
-        kernelVer = parts[2] || ""
-        uptimeText = parts[3] || ""
-      } else if (parts[0] === "cpu") {
+      if (parts[0] === "cpu") {
         updateCpuTotals(parseInt(parts[1], 10) || 0, parseInt(parts[2], 10) || 0, parseInt(parts[3], 10) || 1)
+      } else if (parts[0] === "cpucore") {
+        var cId = parts[1]
+        var cIdle = parseInt(parts[2], 10) || 0
+        var cTot = parseInt(parts[3], 10) || 0
+        var pCore = prevCores[cId]
+        var cPct = 0
+        if (pCore && cTot > pCore.total && cTot - pCore.total > 0) {
+          cPct = clampPercent((1 - (cIdle - pCore.idle) / (cTot - pCore.total)) * 100)
+        }
+        prevCores[cId] = { idle: cIdle, total: cTot }
+        var coreNum = cId.replace(/^cpu/, "")
+        newCores.push({ name: "Core " + coreNum, pct: cPct })
       } else if (parts[0] === "memory") {
         memPercent = clampPercent(parseNumber(parts[1], 0))
         memUsedGb = parseNumber(parts[2], 0)
         memTotalGb = parseNumber(parts[3], 0)
-        swapPercent = clampPercent(parseNumber(parts[4], 0))
-        swapUsedGb = parseNumber(parts[5], 0)
-        swapTotalGb = parseNumber(parts[6], 0)
+        memAvailGb = parseNumber(parts[4], 0)
+        memFreeGb = parseNumber(parts[5], 0)
+        memCacheGb = parseNumber(parts[6], 0)
+        swapPercent = clampPercent(parseNumber(parts[7], 0))
+        swapUsedGb = parseNumber(parts[8], 0)
+        swapTotalGb = parseNumber(parts[9], 0)
       } else if (parts[0] === "load") {
         updateLoad(parts[1], parts[2], parts[3])
       } else if (parts[0] === "disk") {
@@ -235,14 +175,24 @@ Panel {
         diskUsedGb = parseNumber(parts[2], 0)
         diskTotalGb = parseNumber(parts[3], 0)
         diskMount = parts[4] || diskPath
+      } else if (parts[0] === "net") {
+        updateNet(parts[1], parts[2])
+      } else if (parts[0] === "temp") {
+        cpuTemp = Math.round(parseNumber(parts[1], 0))
+        if (parts[2]) gpuTemp = Math.round(parseNumber(parts[2], 0))
       } else if (parts[0] === "gpu") {
         gpuPercent = parts[1] === "" ? -1 : clampPercent(parseNumber(parts[1], -1))
         gpuMemUsedMb = parseNumber(parts[2], 0)
         gpuMemTotalMb = parseNumber(parts[3], 0)
-        gpuTemp = Math.round(parseNumber(parts[4], 0))
+        if (parseNumber(parts[4], 0) > 0) gpuTemp = Math.round(parseNumber(parts[4], 0))
         gpuName = parts[5] || "GPU"
       }
     }
+    if (newCores.length > 0) corePctList = newCores
+  }
+
+  function refresh() {
+    if (!statsProc.running) statsProc.running = true
   }
 
   Component.onCompleted: refresh()
@@ -266,23 +216,7 @@ Panel {
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
 
-  property bool launchBusy: false
-
-  function launchBtop() {
-    if (launchBusy) return
-    launchBusy = true
-    launchDebounceTimer.restart()
-    root.close()
-    if (root.bar) root.bar.run("omarchy-launch-or-focus-tui btop")
-  }
-
-  Timer {
-    id: launchDebounceTimer
-    interval: 800
-    onTriggered: root.launchBusy = false
-  }
-
-  // ── Bar Widget Button (Right-click opens btop ONLY) ──────────────────────
+  // ── Bar Widget Button (Only Memory Icon) ─────────────────────────────────
   WidgetButton {
     id: button
     anchors.fill: parent
@@ -294,255 +228,612 @@ Panel {
         root.refresh()
         root.toggle()
       } else {
-        root.launchBtop()
+        root.close()
+        if (root.bar) root.bar.run("omarchy-launch-or-focus-tui btop")
       }
     }
   }
 
-  // ── Clean System Telemetry Panel ──────────────────────────────────────────
+  // ── Popout Panel ────────────────────────────────────────────────────────
   KeyboardPanel {
-    id: panel
+    id: popup
     anchorItem: button
     owner: root
     bar: root.bar
     open: root.opened
     focusTarget: keyCatcher
-    contentWidth: panel.fittedContentWidth(Style.space(380))
-    contentHeight: panel.fittedContentHeight(mainColumn.implicitHeight)
-
-    onOpenChanged: {
-      if (open) root.refresh()
-    }
+    contentWidth: popup.fittedContentWidth(Style.space(560))
+    contentHeight: popup.fittedContentHeight(mainColumn.implicitHeight)
 
     PanelKeyCatcher {
       id: keyCatcher
       anchors.fill: parent
-      onActivateRequested: root.launchBtop()
       onCloseRequested: root.close()
       onTabRequested: function(direction) { root.switchPanel(direction) }
-
-      // Custom key triggers
-      Keys.onPressed: function(event) {
-        if (event.key === Qt.Key_R) {
-          root.refresh()
-          event.accepted = true
-        }
+      onActivateRequested: {
+        root.close()
+        if (root.bar) root.bar.run("omarchy-launch-or-focus-tui btop")
       }
 
       Column {
         id: mainColumn
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: parent.top
-        spacing: Style.space(12)
+        width: parent.width
+        spacing: Style.spacing.panelGap
 
-        // ── 1. Hero Section Header ─────────────────────────────────────────
-        PanelHero {
-          id: heroLabel
+        // ── ROW 1: CPU Card (Full Width) ──────────────────────────────────
+        BorderSurface {
           width: parent.width
-          title: root.hostName !== "" ? root.hostName : "System Monitor"
-          meta: root.heroPhrase
-          detail: root.systemHealthText
-          foreground: root.panelFg
-          fontFamily: root.panelFont
-          iconComponent: Text {
-            text: "󰍛"
-            color: root.systemHealthColor
-            font.family: root.panelFont
-            font.pixelSize: Style.space(32)
-            anchors.verticalCenter: parent.verticalCenter
+          implicitHeight: cpuCol.implicitHeight + Style.spacing.panelPadding * 2
+          color: Color.menu.background
+          border.width: Style.normalBorderWidth
+          border.color: Color.menu.border
+          radius: Style.cornerRadius
+
+          Column {
+            id: cpuCol
+            width: parent.width - Style.spacing.panelPadding * 2
+            anchors.centerIn: parent
+            spacing: Style.spacing.rowGap
+
+            Item {
+              width: parent.width
+              height: cpuHeaderTitle.implicitHeight
+
+              Text {
+                id: cpuHeaderTitle
+                anchors.left: parent.left
+                text: "󰍛  CPU"
+                color: root.colorCpu
+                font.family: Style.font.family
+                font.pixelSize: Style.font.subtitle
+                font.weight: Font.DemiBold
+              }
+              Text {
+                anchors.right: parent.right
+                text: root.percentText(root.cpuPercent)
+                color: root.statusColorFor(root.cpuPercent, root.colorCpu)
+                font.family: Style.font.family
+                font.pixelSize: Style.font.subtitle
+                font.weight: Font.DemiBold
+              }
+            }
+
+            Item {
+              width: parent.width
+              height: Style.space(7)
+              Rectangle {
+                anchors.fill: parent
+                radius: height / 2
+                color: Color.foreground
+                opacity: 0.08
+              }
+              Rectangle {
+                height: parent.height
+                radius: height / 2
+                width: parent.width * (root.cpuPercent / 100)
+                color: root.statusColorFor(root.cpuPercent, root.colorCpu)
+              }
+            }
+
+            // Subtitle for cores
+            Text {
+              text: "PER-CORE USAGE"
+              color: Color.foreground
+              opacity: 0.4
+              font.family: Style.font.family
+              font.pixelSize: Style.space(9)
+              font.weight: Font.Bold
+              visible: root.corePctList.length > 0
+            }
+
+            // Per-Core Grid (2 Columns of Cores, Max 4 Rows Height with Scroll)
+            Flickable {
+              id: coreFlick
+              width: parent.width
+              height: Math.min(coreGrid.implicitHeight, Style.space(80))
+              contentWidth: width
+              contentHeight: coreGrid.implicitHeight
+              clip: true
+              boundsBehavior: Flickable.StopAtBounds
+              flickableDirection: Flickable.VerticalFlick
+              interactive: contentHeight > height
+              visible: root.corePctList.length > 0
+
+              Grid {
+                id: coreGrid
+                width: coreFlick.width
+                columns: 2
+                spacing: Style.space(8)
+
+                Repeater {
+                  model: root.corePctList
+
+                  Item {
+                    width: (parent.width - Style.space(8)) / 2
+                    height: Style.space(14)
+
+                    Row {
+                      anchors.fill: parent
+                      spacing: Style.space(6)
+
+                      Text {
+                        text: modelData.name
+                        color: Color.foreground
+                        opacity: 0.6
+                        font.family: Style.font.family
+                        font.pixelSize: Style.font.bodySmall
+                        width: Style.space(48)
+                      }
+
+                      Item {
+                        width: parent.width - Style.space(48) - Style.space(36) - Style.space(12)
+                        height: Style.space(5)
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        Rectangle {
+                          anchors.fill: parent
+                          radius: height / 2
+                          color: Color.foreground
+                          opacity: 0.08
+                        }
+                        Rectangle {
+                          height: parent.height
+                          radius: height / 2
+                          width: parent.width * (modelData.pct / 100)
+                          color: root.statusColorFor(modelData.pct, root.colorCpu)
+                        }
+                      }
+
+                      Text {
+                        text: Math.round(modelData.pct) + "%"
+                        color: Color.foreground
+                        font.family: Style.font.family
+                        font.pixelSize: Style.font.bodySmall
+                        font.weight: Font.Bold
+                        width: Style.space(36)
+                        horizontalAlignment: Text.AlignRight
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+            Text {
+              width: parent.width
+              text: "Cores: " + root.cpuCores + "  │  Load: " + root.load1 + " (1m)  " + root.load5 + " (5m)  " + root.load15 + " (15m)"
+              color: Color.foreground
+              opacity: 0.6
+              font.family: Style.font.family
+              font.pixelSize: Style.font.bodySmall
+              elide: Text.ElideRight
+            }
           }
         }
 
-        PanelSeparator { foreground: root.panelFg }
-
-        // ── 2. Processing & CPU Section ────────────────────────────────────
-        Column {
+        // ── ROW 2: Memory (Col 1) & Disk (Col 2) ──────────────────────────
+        Row {
           width: parent.width
-          spacing: Style.space(8)
+          spacing: Style.spacing.panelGap
 
-          PanelSectionHeader {
-            text: "PROCESSING & CPU"
-            foreground: root.panelFg
-            fontFamily: root.panelFont
+          // Memory Card (Col 1)
+          BorderSurface {
+            width: (parent.width - Style.spacing.panelGap) / 2
+            implicitHeight: Math.max(memCol.implicitHeight, diskCol.implicitHeight) + Style.spacing.panelPadding * 2
+            color: Color.menu.background
+            border.width: Style.normalBorderWidth
+            border.color: Color.menu.border
+            radius: Style.cornerRadius
+
+            Column {
+              id: memCol
+              width: parent.width - Style.spacing.panelPadding * 2
+              anchors.centerIn: parent
+              spacing: Style.spacing.rowGap
+
+              Item {
+                width: parent.width
+                height: memHeaderTitle.implicitHeight
+
+                Text {
+                  id: memHeaderTitle
+                  anchors.left: parent.left
+                  text: "󰘚  Memory"
+                  color: root.colorMem
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.subtitle
+                  font.weight: Font.DemiBold
+                }
+                Text {
+                  anchors.right: parent.right
+                  text: root.percentText(root.memPercent)
+                  color: root.statusColorFor(root.memPercent, root.colorMem)
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.subtitle
+                  font.weight: Font.DemiBold
+                }
+              }
+
+              Item {
+                width: parent.width
+                height: Style.space(7)
+                Rectangle {
+                  anchors.fill: parent
+                  radius: height / 2
+                  color: Color.foreground
+                  opacity: 0.08
+                }
+                Rectangle {
+                  height: parent.height
+                  radius: height / 2
+                  width: parent.width * (root.memPercent / 100)
+                  color: root.statusColorFor(root.memPercent, root.colorMem)
+                }
+              }
+
+              Text {
+                width: parent.width
+                text: "RAM Used: " + root.gbText(root.memUsedGb) + " / " + root.gbText(root.memTotalGb)
+                color: Color.foreground
+                opacity: 0.7
+                font.family: Style.font.family
+                font.pixelSize: Style.font.bodySmall
+                elide: Text.ElideRight
+              }
+
+              Text {
+                width: parent.width
+                text: "Available: " + root.gbText(root.memAvailGb) + "  │  Free: " + root.gbText(root.memFreeGb)
+                color: Color.foreground
+                opacity: 0.5
+                font.family: Style.font.family
+                font.pixelSize: Style.font.bodySmall
+                elide: Text.ElideRight
+              }
+
+              // Separator for Swap
+              Rectangle {
+                width: parent.width
+                height: 1
+                color: Color.foreground
+                opacity: 0.1
+              }
+
+              // Swap Section
+              Item {
+                width: parent.width
+                height: swapHeaderTitle.implicitHeight
+
+                Text {
+                  id: swapHeaderTitle
+                  anchors.left: parent.left
+                  text: "Swap"
+                  color: Color.foreground
+                  opacity: 0.6
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.bodySmall
+                  font.weight: Font.DemiBold
+                }
+                Text {
+                  anchors.right: parent.right
+                  text: root.percentText(root.swapPercent)
+                  color: root.colorSwap
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.bodySmall
+                  font.weight: Font.DemiBold
+                }
+              }
+
+              Item {
+                width: parent.width
+                height: Style.space(5)
+                Rectangle {
+                  anchors.fill: parent
+                  radius: height / 2
+                  color: Color.foreground
+                  opacity: 0.08
+                }
+                Rectangle {
+                  height: parent.height
+                  radius: height / 2
+                  width: parent.width * (root.swapPercent / 100)
+                  color: root.colorSwap
+                }
+              }
+
+              Text {
+                width: parent.width
+                text: "Swap: " + root.gbText(root.swapUsedGb) + " / " + root.gbText(root.swapTotalGb)
+                color: Color.foreground
+                opacity: 0.6
+                font.family: Style.font.family
+                font.pixelSize: Style.font.bodySmall
+                elide: Text.ElideRight
+              }
+            }
           }
 
-          StatRowItem {
-            width: parent.width
-            label: "Processor (" + root.cpuCores + " Cores)"
-            detail: "Load " + root.load1.toFixed(2) + " · " + root.load5.toFixed(2) + " · " + root.load15.toFixed(2)
-            valueText: root.percentText(root.cpuPercent)
-            percent: root.cpuPercent
-            badgeIcon: "󰍛"
-            accentColor: root.statusColorFor(root.cpuPercent)
+          // Disk Card (Col 2)
+          BorderSurface {
+            width: (parent.width - Style.spacing.panelGap) / 2
+            implicitHeight: Math.max(memCol.implicitHeight, diskCol.implicitHeight) + Style.spacing.panelPadding * 2
+            color: Color.menu.background
+            border.width: Style.normalBorderWidth
+            border.color: Color.menu.border
+            radius: Style.cornerRadius
+
+            Column {
+              id: diskCol
+              width: parent.width - Style.spacing.panelPadding * 2
+              anchors.centerIn: parent
+              spacing: Style.spacing.rowGap
+
+              Item {
+                width: parent.width
+                height: diskHeaderTitle.implicitHeight
+
+                Text {
+                  id: diskHeaderTitle
+                  anchors.left: parent.left
+                  text: "󰋊  Disk (" + root.diskMount + ")"
+                  color: root.colorDisk
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.subtitle
+                  font.weight: Font.DemiBold
+                }
+                Text {
+                  anchors.right: parent.right
+                  text: root.percentText(root.diskPercent)
+                  color: root.statusColorFor(root.diskPercent, root.colorDisk)
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.subtitle
+                  font.weight: Font.DemiBold
+                }
+              }
+
+              Item {
+                width: parent.width
+                height: Style.space(7)
+                Rectangle {
+                  anchors.fill: parent
+                  radius: height / 2
+                  color: Color.foreground
+                  opacity: 0.08
+                }
+                Rectangle {
+                  height: parent.height
+                  radius: height / 2
+                  width: parent.width * (root.diskPercent / 100)
+                  color: root.statusColorFor(root.diskPercent, root.colorDisk)
+                }
+              }
+
+              Text {
+                width: parent.width
+                text: "Used: " + root.gbText(root.diskUsedGb)
+                color: Color.foreground
+                opacity: 0.7
+                font.family: Style.font.family
+                font.pixelSize: Style.font.bodySmall
+                elide: Text.ElideRight
+              }
+
+              Text {
+                width: parent.width
+                text: "Total: " + root.gbText(root.diskTotalGb)
+                color: Color.foreground
+                opacity: 0.7
+                font.family: Style.font.family
+                font.pixelSize: Style.font.bodySmall
+                elide: Text.ElideRight
+              }
+
+              Text {
+                width: parent.width
+                text: "Mount: " + root.diskMount
+                color: Color.foreground
+                opacity: 0.5
+                font.family: Style.font.family
+                font.pixelSize: Style.font.bodySmall
+                elide: Text.ElideRight
+              }
+            }
           }
         }
 
-        PanelSeparator { foreground: root.panelFg }
-
-        // ── 3. Memory & Storage Section ───────────────────────────────────
-        Column {
+        // ── ROW 3: Temperature (Col 1) & Network (Col 2) ───────────────────
+        Row {
           width: parent.width
-          spacing: Style.space(8)
+          spacing: Style.spacing.panelGap
 
-          PanelSectionHeader {
-            text: "MEMORY & STORAGE"
-            foreground: root.panelFg
-            fontFamily: root.panelFont
+          // Temperature Card (Col 1)
+          BorderSurface {
+            width: (parent.width - Style.spacing.panelGap) / 2
+            implicitHeight: Math.max(tempCol.implicitHeight, netCol.implicitHeight) + Style.spacing.panelPadding * 2
+            color: Color.menu.background
+            border.width: Style.normalBorderWidth
+            border.color: Color.menu.border
+            radius: Style.cornerRadius
+
+            Column {
+              id: tempCol
+              width: parent.width - Style.spacing.panelPadding * 2
+              anchors.centerIn: parent
+              spacing: Style.spacing.rowGap
+
+              Item {
+                width: parent.width
+                height: tempHeaderTitle.implicitHeight
+
+                Text {
+                  id: tempHeaderTitle
+                  anchors.left: parent.left
+                  text: "󰔏  Temp"
+                  color: root.colorTemp
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.subtitle
+                  font.weight: Font.DemiBold
+                }
+                Text {
+                  anchors.right: parent.right
+                  text: (root.cpuTemp > 0 ? root.cpuTemp + "°C" : "N/A")
+                  color: root.statusColorFor(root.cpuTemp > 75 ? 85 : 40, root.colorTemp)
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.subtitle
+                  font.weight: Font.DemiBold
+                }
+              }
+
+              Text {
+                width: parent.width
+                text: "CPU Package: " + (root.cpuTemp > 0 ? root.cpuTemp + "°C" : "N/A")
+                color: Color.foreground
+                opacity: 0.7
+                font.family: Style.font.family
+                font.pixelSize: Style.font.bodySmall
+                elide: Text.ElideRight
+              }
+
+              Text {
+                width: parent.width
+                text: root.gpuName + ": " + (root.gpuTemp > 0 ? root.gpuTemp + "°C" : "N/A")
+                color: Color.foreground
+                opacity: 0.7
+                font.family: Style.font.family
+                font.pixelSize: Style.font.bodySmall
+                elide: Text.ElideRight
+              }
+            }
           }
 
-          StatRowItem {
-            width: parent.width
-            label: "Memory (RAM)"
-            detail: root.gbText(root.memUsedGb) + " / " + root.gbText(root.memTotalGb) + " used"
-            valueText: root.percentText(root.memPercent)
-            percent: root.memPercent
-            badgeIcon: "󰘚"
-            accentColor: root.statusColorFor(root.memPercent)
-          }
+          // Network Card (Col 2)
+          BorderSurface {
+            width: (parent.width - Style.spacing.panelGap) / 2
+            implicitHeight: Math.max(tempCol.implicitHeight, netCol.implicitHeight) + Style.spacing.panelPadding * 2
+            color: Color.menu.background
+            border.width: Style.normalBorderWidth
+            border.color: Color.menu.border
+            radius: Style.cornerRadius
 
-          StatRowItem {
-            width: parent.width
-            visible: root.swapTotalGb > 0
-            label: "Swap Memory"
-            detail: root.gbText(root.swapUsedGb) + " / " + root.gbText(root.swapTotalGb) + " used"
-            valueText: root.percentText(root.swapPercent)
-            percent: root.swapPercent
-            badgeIcon: "󰓡"
-            accentColor: root.statusColorFor(root.swapPercent)
-          }
+            Column {
+              id: netCol
+              width: parent.width - Style.spacing.panelPadding * 2
+              anchors.centerIn: parent
+              spacing: Style.spacing.rowGap
 
-          StatRowItem {
-            width: parent.width
-            label: "Storage (" + root.diskMount + ")"
-            detail: root.gbText(root.diskUsedGb) + " / " + root.gbText(root.diskTotalGb) + " used (" + root.gbText(root.diskTotalGb - root.diskUsedGb) + " free)"
-            valueText: root.percentText(root.diskPercent)
-            percent: root.diskPercent
-            badgeIcon: "󰋊"
-            accentColor: root.statusColorFor(root.diskPercent)
+              Item {
+                width: parent.width
+                height: netHeaderTitle.implicitHeight
+
+                Text {
+                  id: netHeaderTitle
+                  anchors.left: parent.left
+                  text: "󰖩  Network"
+                  color: root.colorNet
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.subtitle
+                  font.weight: Font.DemiBold
+                }
+                Text {
+                  anchors.right: parent.right
+                  text: root.speedText(root.rxSpeed + root.txSpeed)
+                  color: root.colorNet
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.subtitle
+                  font.weight: Font.DemiBold
+                }
+              }
+
+              Text {
+                width: parent.width
+                text: "Down (Rx): " + root.speedText(root.rxSpeed) + " (" + root.mbOrGbText(root.totalRxMb) + ")"
+                color: Color.foreground
+                opacity: 0.7
+                font.family: Style.font.family
+                font.pixelSize: Style.font.bodySmall
+                elide: Text.ElideRight
+              }
+
+              Text {
+                width: parent.width
+                text: "Up (Tx): " + root.speedText(root.txSpeed) + " (" + root.mbOrGbText(root.totalTxMb) + ")"
+                color: Color.foreground
+                opacity: 0.7
+                font.family: Style.font.family
+                font.pixelSize: Style.font.bodySmall
+                elide: Text.ElideRight
+              }
+            }
           }
         }
 
-        // ── 4. Graphics & Acceleration Section (Optional) ──────────────────
-        Column {
+        // ── ROW 4: GPU Card (Full Width - Optional) ─────────────────────────
+        BorderSurface {
           width: parent.width
-          visible: root.showGpu
-          spacing: Style.space(8)
+          implicitHeight: gpuCol.implicitHeight + Style.spacing.panelPadding * 2
+          color: Color.menu.background
+          border.width: Style.normalBorderWidth
+          border.color: Color.menu.border
+          radius: Style.cornerRadius
+          visible: root.gpuPercent >= 0 || root.gpuTemp > 0
 
-          PanelSeparator { foreground: root.panelFg }
+          Column {
+            id: gpuCol
+            width: parent.width - Style.spacing.panelPadding * 2
+            anchors.centerIn: parent
+            spacing: Style.spacing.rowGap
 
-          PanelSectionHeader {
-            text: "GRAPHICS & ACCELERATION"
-            foreground: root.panelFg
-            fontFamily: root.panelFont
-          }
+            Item {
+              width: parent.width
+              height: gpuHeaderTitle.implicitHeight
 
-          StatRowItem {
-            width: parent.width
-            label: "Graphics Card"
-            detail: root.gpuName === "Unavailable"
-              ? "Unavailable"
-              : root.gpuName + (root.gpuMemTotalMb > 0 ? " · VRAM " + root.mbAsGbText(root.gpuMemUsedMb) + " / " + root.mbAsGbText(root.gpuMemTotalMb) : "") + (root.gpuTemp > 0 ? " · " + root.gpuTemp + "°C" : "")
-            valueText: root.percentText(root.gpuPercent)
-            percent: root.gpuPercent
-            badgeIcon: "󰢮"
-            accentColor: root.statusColorFor(root.gpuPercent)
-          }
-        }
-      }
-    }
-  }
+              Text {
+                id: gpuHeaderTitle
+                anchors.left: parent.left
+                text: "󰢮  " + root.gpuName + (root.gpuTemp > 0 ? (" (" + root.gpuTemp + "°C)") : "")
+                color: root.colorGpu
+                font.family: Style.font.family
+                font.pixelSize: Style.font.subtitle
+                font.weight: Font.DemiBold
+              }
+              Text {
+                anchors.right: parent.right
+                text: root.percentText(root.gpuPercent)
+                color: root.statusColorFor(root.gpuPercent, root.colorGpu)
+                font.family: Style.font.family
+                font.pixelSize: Style.font.subtitle
+                font.weight: Font.DemiBold
+                visible: root.gpuPercent >= 0
+              }
+            }
 
-  // ── StatRowItem Component ────────────────────────────────────────────────
-  component StatRowItem: Item {
-    id: rowItem
-    property string label: ""
-    property string detail: ""
-    property string valueText: ""
-    property string badgeIcon: ""
-    property real percent: 0
-    property color accentColor: Color.accent
+            Item {
+              width: parent.width
+              height: Style.space(7)
+              visible: root.gpuPercent >= 0
+              Rectangle {
+                anchors.fill: parent
+                radius: height / 2
+                color: Color.foreground
+                opacity: 0.08
+              }
+              Rectangle {
+                height: parent.height
+                radius: height / 2
+                width: parent.width * (root.gpuPercent / 100)
+                color: root.statusColorFor(root.gpuPercent, root.colorGpu)
+              }
+            }
 
-    implicitHeight: Style.space(40)
-
-    Item {
-      anchors.fill: parent
-
-      // Clean Icon
-      Text {
-        id: badge
-        text: rowItem.badgeIcon
-        color: root.panelFg
-        font.family: root.panelFont
-        font.pixelSize: Style.space(24)
-        anchors.left: parent.left
-        anchors.verticalCenter: parent.verticalCenter
-      }
-
-      // Title & Sub-detail Column
-      Column {
-        id: infoCol
-        anchors.left: badge.right
-        anchors.leftMargin: Style.space(12)
-        anchors.right: meterCol.left
-        anchors.rightMargin: Style.space(10)
-        anchors.verticalCenter: parent.verticalCenter
-        spacing: Style.space(1)
-
-        Text {
-          width: parent.width
-          text: rowItem.label
-          color: root.panelFg
-          font.family: root.panelFont
-          font.pixelSize: Style.font.body
-          font.bold: true
-          elide: Text.ElideRight
-        }
-
-        Text {
-          width: parent.width
-          text: rowItem.detail
-          color: Color.muted
-          font.family: root.panelFont
-          font.pixelSize: Style.font.caption
-          elide: Text.ElideRight
-        }
-      }
-
-      // Percentage & Meter Bar Column
-      Column {
-        id: meterCol
-        width: Style.space(80)
-        anchors.right: parent.right
-        anchors.verticalCenter: parent.verticalCenter
-        spacing: Style.space(3)
-
-        Text {
-          width: parent.width
-          text: rowItem.valueText
-          color: rowItem.accentColor
-          font.family: root.panelFont
-          font.pixelSize: Style.font.body
-          font.bold: true
-          horizontalAlignment: Text.AlignRight
-          elide: Text.ElideRight
-        }
-
-        Rectangle {
-          width: parent.width
-          height: Style.space(4)
-          radius: height / 2
-          color: Qt.rgba(root.panelFg.r, root.panelFg.g, root.panelFg.b, 0.14)
-
-          Rectangle {
-            width: parent.width * Math.max(0, Math.min(100, rowItem.percent)) / 100
-            height: parent.height
-            radius: parent.radius
-            color: rowItem.accentColor
-            visible: rowItem.percent >= 0
-
-            Behavior on width {
-              NumberAnimation { duration: 250; easing.type: Easing.OutCubic }
+            Text {
+              width: parent.width
+              text: "VRAM Used: " + Math.round(root.gpuMemUsedMb) + " MB / " + Math.round(root.gpuMemTotalMb) + " MB"
+              color: Color.foreground
+              opacity: 0.7
+              font.family: Style.font.family
+              font.pixelSize: Style.font.bodySmall
+              elide: Text.ElideRight
+              visible: root.gpuMemTotalMb > 0
             }
           }
         }
