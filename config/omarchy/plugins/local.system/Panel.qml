@@ -10,6 +10,73 @@ Panel {
   moduleName: "local.system"
   ipcTarget: "local.system"
 
+  // ── Keyboard Navigation & Cursor Flow ──────────────────────────────────
+  property bool cursorActive: false
+  property int selectedIndex: 0
+
+  onOpenedChanged: {
+    if (!opened) {
+      cursorActive = false
+      selectedIndex = 0
+    }
+  }
+
+  function maxCardIndex() {
+    return (gpuPercent >= 0 || gpuTemp > 0) ? 5 : 4
+  }
+
+  function moveCursor(dx, dy) {
+    if (!cursorActive) {
+      cursorActive = true
+      selectedIndex = 0
+      return
+    }
+    var maxIdx = maxCardIndex()
+    if (dy > 0) {
+      if (selectedIndex === 0) {
+        if (coreFlick.contentHeight > coreFlick.height && coreFlick.contentY + coreFlick.height < coreFlick.contentHeight - 2) {
+          coreFlick.contentY = Math.min(coreFlick.contentHeight - coreFlick.height, coreFlick.contentY + Style.space(28))
+          return
+        }
+        selectedIndex = 1
+      }
+      else if (selectedIndex === 1) selectedIndex = 3
+      else if (selectedIndex === 2) selectedIndex = 4
+      else if (selectedIndex === 3 || selectedIndex === 4) {
+        if (maxIdx >= 5) selectedIndex = 5
+      }
+    } else if (dy < 0) {
+      if (selectedIndex === 5) selectedIndex = 3
+      else if (selectedIndex === 3) selectedIndex = 1
+      else if (selectedIndex === 4) selectedIndex = 2
+      else if (selectedIndex === 1 || selectedIndex === 2) {
+        if (coreFlick.contentHeight > coreFlick.height && coreFlick.contentY > 2) {
+          selectedIndex = 0
+          coreFlick.contentY = Math.max(0, coreFlick.contentY - Style.space(28))
+          return
+        }
+        selectedIndex = 0
+      } else if (selectedIndex === 0) {
+        if (coreFlick.contentHeight > coreFlick.height && coreFlick.contentY > 2) {
+          coreFlick.contentY = Math.max(0, coreFlick.contentY - Style.space(28))
+        }
+      }
+    } else if (dx > 0) {
+      if (selectedIndex === 1) selectedIndex = 2
+      else if (selectedIndex === 3) selectedIndex = 4
+      else if (selectedIndex < maxIdx) selectedIndex++
+    } else if (dx < 0) {
+      if (selectedIndex === 2) selectedIndex = 1
+      else if (selectedIndex === 4) selectedIndex = 3
+      else if (selectedIndex > 0) selectedIndex--
+    }
+  }
+
+  function activateCursor() {
+    root.close()
+    if (root.bar) root.bar.run("omarchy-launch-or-focus-tui btop")
+  }
+
   // ── Telemetry State ──────────────────────────────────────────────────────
   property real cpuPercent: 0
   property real memPercent: 0
@@ -250,24 +317,29 @@ Panel {
       anchors.fill: parent
       onCloseRequested: root.close()
       onTabRequested: function(direction) { root.switchPanel(direction) }
-      onActivateRequested: {
-        root.close()
-        if (root.bar) root.bar.run("omarchy-launch-or-focus-tui btop")
-      }
+      onMoveRequested: function(dx, dy) { root.moveCursor(dx, dy) }
+      onActivateRequested: root.activateCursor()
 
       Column {
         id: mainColumn
         width: parent.width
         spacing: Style.spacing.panelGap
 
-        // ── ROW 1: CPU Card (Full Width) ──────────────────────────────────
+        // ── ROW 1: CPU Card (Full Width - Index 0) ────────────────────────
         BorderSurface {
           width: parent.width
           implicitHeight: cpuCol.implicitHeight + Style.spacing.panelPadding * 2
-          color: Color.menu.background
+          color: (root.cursorActive && root.selectedIndex === 0) ? Style.normalFillFor(Color.menu.background, Color.accent) : Color.menu.background
           border.width: Style.normalBorderWidth
-          border.color: Color.menu.border
+          border.color: (root.cursorActive && root.selectedIndex === 0) ? Color.accent : Color.menu.border
           radius: Style.cornerRadius
+
+          MouseArea {
+            anchors.fill: parent
+            hoverEnabled: true
+            onEntered: { root.cursorActive = true; root.selectedIndex = 0 }
+            onClicked: root.activateCursor()
+          }
 
           Column {
             id: cpuCol
@@ -326,11 +398,11 @@ Panel {
               visible: root.corePctList.length > 0
             }
 
-            // Per-Core Grid (2 Columns of Cores, Max 4 Rows Height with Scroll)
+            // Per-Core Grid (2 Columns of Cores, Max 4 Rows Height with Scroll & Highlight)
             Flickable {
               id: coreFlick
               width: parent.width
-              height: Math.min(coreGrid.implicitHeight, Style.space(80))
+              height: Math.min(coreGrid.implicitHeight, Style.space(104))
               contentWidth: width
               contentHeight: coreGrid.implicitHeight
               clip: true
@@ -338,6 +410,14 @@ Panel {
               flickableDirection: Flickable.VerticalFlick
               interactive: contentHeight > height
               visible: root.corePctList.length > 0
+
+              WheelHandler {
+                target: coreFlick
+                onWheel: function(event) {
+                  var delta = event.angleDelta.y !== 0 ? event.angleDelta.y : event.angleDelta.x
+                  coreFlick.contentY = Math.max(0, Math.min(coreFlick.contentHeight - coreFlick.height, coreFlick.contentY - delta / 2))
+                }
+              }
 
               Grid {
                 id: coreGrid
@@ -348,25 +428,39 @@ Panel {
                 Repeater {
                   model: root.corePctList
 
-                  Item {
+                  Rectangle {
                     width: (parent.width - Style.space(8)) / 2
-                    height: Style.space(14)
+                    height: Style.space(20)
+                    radius: Style.space(4)
+                    color: coreArea.containsMouse ? Style.normalFillFor(Color.menu.background, Color.accent) : Qt.rgba(1, 1, 1, 0.04)
+                    border.width: 1
+                    border.color: coreArea.containsMouse ? Color.accent : Qt.rgba(1, 1, 1, 0.08)
+
+                    MouseArea {
+                      id: coreArea
+                      anchors.fill: parent
+                      hoverEnabled: true
+                    }
 
                     Row {
                       anchors.fill: parent
+                      anchors.leftMargin: Style.space(6)
+                      anchors.rightMargin: Style.space(6)
                       spacing: Style.space(6)
 
                       Text {
                         text: modelData.name
                         color: Color.foreground
-                        opacity: 0.6
+                        opacity: 0.85
                         font.family: Style.font.family
                         font.pixelSize: Style.font.bodySmall
-                        width: Style.space(48)
+                        font.weight: Font.DemiBold
+                        width: Style.space(46)
+                        anchors.verticalCenter: parent.verticalCenter
                       }
 
                       Item {
-                        width: parent.width - Style.space(48) - Style.space(36) - Style.space(12)
+                        width: parent.width - Style.space(46) - Style.space(34) - Style.space(12)
                         height: Style.space(5)
                         anchors.verticalCenter: parent.verticalCenter
 
@@ -374,7 +468,7 @@ Panel {
                           anchors.fill: parent
                           radius: height / 2
                           color: Color.foreground
-                          opacity: 0.08
+                          opacity: 0.12
                         }
                         Rectangle {
                           height: parent.height
@@ -390,8 +484,9 @@ Panel {
                         font.family: Style.font.family
                         font.pixelSize: Style.font.bodySmall
                         font.weight: Font.Bold
-                        width: Style.space(36)
+                        width: Style.space(34)
                         horizontalAlignment: Text.AlignRight
+                        anchors.verticalCenter: parent.verticalCenter
                       }
                     }
                   }
@@ -411,19 +506,26 @@ Panel {
           }
         }
 
-        // ── ROW 2: Memory (Col 1) & Disk (Col 2) ──────────────────────────
+        // ── ROW 2: Memory (Col 1 - Index 1) & Disk (Col 2 - Index 2) ──────
         Row {
           width: parent.width
           spacing: Style.spacing.panelGap
 
-          // Memory Card (Col 1)
+          // Memory Card (Col 1 - Index 1)
           BorderSurface {
             width: (parent.width - Style.spacing.panelGap) / 2
             implicitHeight: Math.max(memCol.implicitHeight, diskCol.implicitHeight) + Style.spacing.panelPadding * 2
-            color: Color.menu.background
+            color: (root.cursorActive && root.selectedIndex === 1) ? Style.normalFillFor(Color.menu.background, Color.accent) : Color.menu.background
             border.width: Style.normalBorderWidth
-            border.color: Color.menu.border
+            border.color: (root.cursorActive && root.selectedIndex === 1) ? Color.accent : Color.menu.border
             radius: Style.cornerRadius
+
+            MouseArea {
+              anchors.fill: parent
+              hoverEnabled: true
+              onEntered: { root.cursorActive = true; root.selectedIndex = 1 }
+              onClicked: root.activateCursor()
+            }
 
             Column {
               id: memCol
@@ -553,14 +655,21 @@ Panel {
             }
           }
 
-          // Disk Card (Col 2)
+          // Disk Card (Col 2 - Index 2)
           BorderSurface {
             width: (parent.width - Style.spacing.panelGap) / 2
             implicitHeight: Math.max(memCol.implicitHeight, diskCol.implicitHeight) + Style.spacing.panelPadding * 2
-            color: Color.menu.background
+            color: (root.cursorActive && root.selectedIndex === 2) ? Style.normalFillFor(Color.menu.background, Color.accent) : Color.menu.background
             border.width: Style.normalBorderWidth
-            border.color: Color.menu.border
+            border.color: (root.cursorActive && root.selectedIndex === 2) ? Color.accent : Color.menu.border
             radius: Style.cornerRadius
+
+            MouseArea {
+              anchors.fill: parent
+              hoverEnabled: true
+              onEntered: { root.cursorActive = true; root.selectedIndex = 2 }
+              onClicked: root.activateCursor()
+            }
 
             Column {
               id: diskCol
@@ -641,19 +750,26 @@ Panel {
           }
         }
 
-        // ── ROW 3: Temperature (Col 1) & Network (Col 2) ───────────────────
+        // ── ROW 3: Temperature (Col 1 - Index 3) & Network (Col 2 - Index 4)
         Row {
           width: parent.width
           spacing: Style.spacing.panelGap
 
-          // Temperature Card (Col 1)
+          // Temperature Card (Col 1 - Index 3)
           BorderSurface {
             width: (parent.width - Style.spacing.panelGap) / 2
             implicitHeight: Math.max(tempCol.implicitHeight, netCol.implicitHeight) + Style.spacing.panelPadding * 2
-            color: Color.menu.background
+            color: (root.cursorActive && root.selectedIndex === 3) ? Style.normalFillFor(Color.menu.background, Color.accent) : Color.menu.background
             border.width: Style.normalBorderWidth
-            border.color: Color.menu.border
+            border.color: (root.cursorActive && root.selectedIndex === 3) ? Color.accent : Color.menu.border
             radius: Style.cornerRadius
+
+            MouseArea {
+              anchors.fill: parent
+              hoverEnabled: true
+              onEntered: { root.cursorActive = true; root.selectedIndex = 3 }
+              onClicked: root.activateCursor()
+            }
 
             Column {
               id: tempCol
@@ -706,14 +822,21 @@ Panel {
             }
           }
 
-          // Network Card (Col 2)
+          // Network Card (Col 2 - Index 4)
           BorderSurface {
             width: (parent.width - Style.spacing.panelGap) / 2
             implicitHeight: Math.max(tempCol.implicitHeight, netCol.implicitHeight) + Style.spacing.panelPadding * 2
-            color: Color.menu.background
+            color: (root.cursorActive && root.selectedIndex === 4) ? Style.normalFillFor(Color.menu.background, Color.accent) : Color.menu.background
             border.width: Style.normalBorderWidth
-            border.color: Color.menu.border
+            border.color: (root.cursorActive && root.selectedIndex === 4) ? Color.accent : Color.menu.border
             radius: Style.cornerRadius
+
+            MouseArea {
+              anchors.fill: parent
+              hoverEnabled: true
+              onEntered: { root.cursorActive = true; root.selectedIndex = 4 }
+              onClicked: root.activateCursor()
+            }
 
             Column {
               id: netCol
@@ -767,15 +890,22 @@ Panel {
           }
         }
 
-        // ── ROW 4: GPU Card (Full Width - Optional) ─────────────────────────
+        // ── ROW 4: GPU Card (Full Width - Index 5 - Optional) ─────────────
         BorderSurface {
           width: parent.width
           implicitHeight: gpuCol.implicitHeight + Style.spacing.panelPadding * 2
-          color: Color.menu.background
+          color: (root.cursorActive && root.selectedIndex === 5) ? Style.normalFillFor(Color.menu.background, Color.accent) : Color.menu.background
           border.width: Style.normalBorderWidth
-          border.color: Color.menu.border
+          border.color: (root.cursorActive && root.selectedIndex === 5) ? Color.accent : Color.menu.border
           radius: Style.cornerRadius
           visible: root.gpuPercent >= 0 || root.gpuTemp > 0
+
+          MouseArea {
+            anchors.fill: parent
+            hoverEnabled: true
+            onEntered: { root.cursorActive = true; root.selectedIndex = 5 }
+            onClicked: root.activateCursor()
+          }
 
           Column {
             id: gpuCol
