@@ -15,7 +15,9 @@ Panel {
   property int selectedIndex: 0
 
   onOpenedChanged: {
-    if (!opened) {
+    if (opened) {
+      root.refresh()
+    } else {
       cursorActive = false
       selectedIndex = 0
     }
@@ -262,8 +264,6 @@ Panel {
     if (!statsProc.running) statsProc.running = true
   }
 
-  Component.onCompleted: refresh()
-
   Process {
     id: statsProc
     command: ["bash", root.statusScript, root.diskPath]
@@ -275,7 +275,7 @@ Panel {
 
   Timer {
     interval: root.refreshSeconds * 1000
-    running: true
+    running: root.opened
     repeat: true
     onTriggered: root.refresh()
   }
@@ -283,13 +283,12 @@ Panel {
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
 
-  // ── Bar Widget Button (Only Memory Icon) ─────────────────────────────────
-  WidgetButton {
+  // ── Bar Widget Button ───────────────────────────────────────────────────
+  BarIconButton {
     id: button
     anchors.fill: parent
     bar: root.bar
     text: "󰍛"
-    horizontalMargin: 7.5
     onPressed: function(mouseButton) {
       if (mouseButton === Qt.LeftButton) {
         root.refresh()
