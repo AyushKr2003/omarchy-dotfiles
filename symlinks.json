@@ -8,7 +8,6 @@
     "mpv": "dir",
     "omarchy": "files",
     "omarchy/plugins": "dir",
-    "omarchy/themes": "dir",
     "omarchy/hooks/theme-set.d": "dir",
     "qutebrowser": "dir",
     "superfile": "files"
