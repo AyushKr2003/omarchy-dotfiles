@@ -59,7 +59,7 @@ hl.config({
   -- FIx the always the popup opening in the first worspace
   misc = {
     initial_workspace_tracking = 0,
-    focus_on_activate = false,
+    -- focus_on_activate = false,
   },
 
   -- Blur style
