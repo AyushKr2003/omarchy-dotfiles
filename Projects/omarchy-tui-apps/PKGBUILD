@@ -1,0 +1,28 @@
+# Maintainer: Ayush <AyushKr2003>
+pkgname=apps
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="A sleek, fast TUI application launcher built with BubbleTea for Omarchy"
+arch=('x86_64' 'aarch64')
+url="https://github.com/AyushKr2003/omarchy-dotfiles"
+license=('MIT')
+depends=('glibc')
+makedepends=('go')
+
+build() {
+  cd "$srcdir/.."
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+  export CGO_LDFLAGS="${LDFLAGS}"
+  export GOFLAGS="-buildmode=pie -trimpath -ldflags=-linkmode=external"
+
+  go build -o bin/apps ./cmd/apps
+}
+
+package() {
+  cd "$srcdir/.."
+  install -Dm755 bin/apps "$pkgdir/usr/bin/apps"
+  install -d "$pkgdir/usr/bin"
+  ln -sf /usr/bin/apps "$pkgdir/usr/bin/a"
+}

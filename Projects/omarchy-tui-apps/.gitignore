@@ -1,0 +1,20 @@
+# Binary outputs
+bin/
+apps
+a
+
+# Go build & test artifacts
+*.out
+*.exe
+
+# Environment & IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# Arch PKGBUILD build directories
+pkg/
+src/
+*.pkg.tar.zst
+*.pkg.tar.xz
