@@ -3,6 +3,7 @@
     "browser-default": "dir",
     "fastfetch": "dir",
     "fish": "files",
+    "herdr": "files",
     "hypr": "files",
     "hypr/shaders": "dir",
     "mpv": "dir",
