@@ -1,3 +1,4 @@
+onboarding = false
 # herdr configuration
 # Place this file at ~/.config/herdr/config.toml
 
@@ -9,7 +10,7 @@
 # Built-in themes: catppuccin, terminal, tokyo-night, dracula, nord,
 #                  gruvbox, one-dark, solarized, kanagawa, rose-pine,
 #                  vesper
-# name = "catppuccin"
+name = "terminal"
 
 # Follow host terminal light/dark appearance and switch Herdr UI themes.
 # Existing manual behavior is unchanged unless this is true.
@@ -55,35 +56,35 @@
 # Prefix key matching tmux.conf (set -g prefix C-Space)
 prefix = "ctrl+space"
 
-# Help, Config Reload, and Detach (tmux: bind ? help, bind q reload, bind d detach)
-help = "prefix+?"
-reload_config = "prefix+q"
-detach = "prefix+d"
+# Help, Config Reload, and Detach (tmux: bind ?, bind q, bind d)
+help = ["prefix+?"]
+reload_config = ["prefix+q"]
+detach = ["prefix+d", "prefix+q"]
 
-# Session / Workspace Controls (tmux: bind C/R/K, M-Up/M-Down)
-new_workspace = "prefix+shift+c"
-rename_workspace = "prefix+shift+r"
-close_workspace = "prefix+shift+k"
-previous_workspace = "alt+up"
-next_workspace = "alt+down"
+# Session / Workspace Controls (tmux: bind C/R/K, bind P/N, M-Up/M-Down)
+new_workspace = ["prefix+shift+c"]
+rename_workspace = ["prefix+shift+r"]
+close_workspace = ["prefix+shift+k"]
+previous_workspace = ["prefix+shift+p", "alt+up"]
+next_workspace = ["prefix+shift+n", "alt+down"]
 
 # Window / Tab Controls (tmux: bind c/r/k, M-1..9, M-Left/M-Right)
-new_tab = "prefix+c"
-rename_tab = "prefix+r"
-close_tab = "prefix+k"
-switch_tab = "alt+1..9"
-previous_tab = "alt+left"
-next_tab = "alt+right"
+new_tab = ["prefix+c"]
+rename_tab = ["prefix+r"]
+close_tab = ["prefix+k"]
+switch_tab = ["alt+1..9"]
+previous_tab = ["alt+left"]
+next_tab = ["alt+right"]
 
-# Pane Controls (tmux: bind h/v/x, C-M-Left/Right/Up/Down)
-split_vertical = "prefix+h"
-split_horizontal = "prefix+v"
-close_pane = "prefix+x"
+# Pane Controls (tmux: bind h/v/x, M-Enter, M-S-Enter, M-Escape, C-M-Left/Right/Up/Down)
+split_vertical = ["prefix+h", "alt+enter"]
+split_horizontal = ["prefix+v", "alt+shift+enter"]
+close_pane = ["prefix+x", "alt+esc"]
 
-focus_pane_left = "ctrl+alt+left"
-focus_pane_right = "ctrl+alt+right"
-focus_pane_up = "ctrl+alt+up"
-focus_pane_down = "ctrl+alt+down"
+focus_pane_left = ["ctrl+alt+left"]
+focus_pane_right = ["ctrl+alt+right"]
+focus_pane_up = ["ctrl+alt+up"]
+focus_pane_down = ["ctrl+alt+down"]
 
 # Navigate-mode movement. These local shortcuts win while navigate mode is open.
 # They are independent from focus_pane_*. Do not include prefix+, esc, enter, tab, or 1..9 here.
