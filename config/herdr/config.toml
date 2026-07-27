@@ -55,9 +55,10 @@
 # Prefix key matching tmux.conf (set -g prefix C-Space)
 prefix = "ctrl+space"
 
-# Help and Config Reload (tmux: bind ? help, bind q reload)
+# Help, Config Reload, and Detach (tmux: bind ? help, bind q reload, bind d detach)
 help = "prefix+?"
 reload_config = "prefix+q"
+detach = "prefix+d"
 
 # Session / Workspace Controls (tmux: bind C/R/K, M-Up/M-Down)
 new_workspace = "prefix+shift+c"
