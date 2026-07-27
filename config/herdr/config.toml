@@ -59,7 +59,7 @@ prefix = "ctrl+space"
 # Help, Config Reload, and Detach (tmux: bind ?, bind q, bind d)
 help = ["prefix+?"]
 reload_config = ["prefix+q"]
-detach = ["prefix+d", "prefix+q"]
+detach = ["prefix+d"]
 
 # Session / Workspace Controls (tmux: bind C/R/K, bind P/N, M-Up/M-Down)
 new_workspace = ["prefix+shift+c"]
