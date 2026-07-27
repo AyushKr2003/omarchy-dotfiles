@@ -178,6 +178,14 @@ echo "    Removing foot (replaced by kitty)"
 omarchy-pkg-drop foot
 
 # ════════════════════════════════════════════════════════════════════════
+# SECTION: shell — set fish as default shell
+# ════════════════════════════════════════════════════════════════════════
+
+gum style --foreground 2 "==> Setting fish as default shell"
+
+chsh -s "$(which fish)"
+
+# ════════════════════════════════════════════════════════════════════════
 # SECTION: drop preinstall package
 # ════════════════════════════════════════════════════════════════════════
 # Remove some preinstall package from default install
