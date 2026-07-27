@@ -2,4 +2,4 @@
 
 # omarchy:summary=Launch or attach to the Work herdr session in a terminal
 
-exec omarchy-launch-terminal bash -c "herdr session attach Work || herdr --session Work"
+exec omarchy-launch-terminal bash -c herdr
