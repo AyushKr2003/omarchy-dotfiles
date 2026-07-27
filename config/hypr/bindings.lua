@@ -17,10 +17,10 @@
 -- ── 1. Terminals & Editors ───────────────────────────────────────────────────
 
 hl.unbind("SUPER + RETURN")
-o.bind("SUPER + RETURN", "Tmux (Work)", o.launch("omarchy-launch-terminal bash -c 'tmux attach -t Work || tmux new -s Work'"))
+o.bind("SUPER + RETURN", "Tmux (Work)", { launch = "omarchy-launch-terminal-tmux" })
 
 hl.unbind("SUPER + SHIFT + RETURN")
-o.bind("SUPER + SHIFT + RETURN", "Floating Tmux", hl.dsp.exec_cmd("omarchy-launch-terminal bash -c 'tmux attach -t Float || tmux new -s Float'", { float = true, size = "875 600" }))
+o.bind("SUPER + SHIFT + RETURN", "Herdr", { launch = "omarchy-launch-terminal-herdr" })
 
 hl.unbind("SUPER + T")
 o.bind("SUPER + T", "Terminal", { omarchy = "terminal" })
@@ -29,30 +29,30 @@ hl.unbind("SUPER + SHIFT + T")
 o.bind("SUPER + SHIFT + T", "Floating Terminal", { launch = "omarchy-launch-float-terminal" })
 
 hl.unbind("SUPER + ALT + T")
-o.bind("SUPER + ALT + T", "TypeTUI", { launch = "omarchy-launch-float-terminal typetui"})
+o.bind("SUPER + ALT + T", "TypeTUI", { launch = "omarchy-launch-float-terminal typetui" })
 
 hl.unbind("SUPER + CTRL + L")
-o.bind("SUPER + CTRL + L", "Terminal Launcher", { launch = "omarchy-launch-float-terminal a -a"})
+o.bind("SUPER + CTRL + L", "Terminal Launcher", { launch = "omarchy-launch-float-terminal a -a" })
 
 o.bind("SUPER + PAUSE", "Full System Info", hl.dsp.exec_cmd("xdg-terminal-exec fish -c full_sys", { float = true, size = "1220 680" }))
 
 hl.unbind("SUPER + SHIFT + N")
-o.bind("SUPER + SHIFT + N", "VS Code", o.launch("code"))
+o.bind("SUPER + SHIFT + N", "VS Code", { launch = "code" })
 
 
 -- ── 2. Browsers & Web Applications ──────────────────────────────────────────
 
 hl.unbind("SUPER + W")
-o.bind("SUPER + W", "Default Browser", "omarchy-launch-browser")
+o.bind("SUPER + W", "Default Browser", { omarchy = "browser" })
 
 hl.unbind("SUPER + ALT + B")
-o.bind("SUPER + ALT + B", "QuteBrowser", { launch = "qutebrowser"})
+o.bind("SUPER + ALT + B", "QuteBrowser", { launch = "qutebrowser" })
 
 hl.unbind("SUPER + B")
-o.bind("SUPER + B", "Zen Browser", {launch="zen-browser"})
+o.bind("SUPER + B", "Zen Browser", { launch = "zen-browser" })
 
 hl.unbind("SUPER + SHIFT + B")
-o.bind("SUPER + SHIFT + B", "QuteBrowser (Private)", {launch="bash -c 'qutebrowser --basedir /tmp/qb-private-$(date +%s) --config $HOME/.config/qutebrowser/private.py --target window'"})
+o.bind("SUPER + SHIFT + B", "QuteBrowser (Private)", { launch = "bash -c 'qutebrowser --basedir /tmp/qb-private-$(date +%s) --config $HOME/.config/qutebrowser/private.py --target window'" })
 
 hl.unbind("SUPER + SHIFT + W")
 o.bind("SUPER + SHIFT + W", "WhatsApp Web", { webapp = "https://web.whatsapp.com/", focus = true })
@@ -65,7 +65,7 @@ o.bind("SUPER + E", "Nautilus File Manager", { omarchy = "nautilus" })
 o.bind("SUPER + ALT + E", "File manager (cwd)", { omarchy = "nautilus-cwd" })
 
 hl.unbind("SUPER + SHIFT + E")
-o.bind("SUPER + SHIFT + E", "Superfile (TUI)", {launch="omarchy-launch-float-terminal spf"})
+o.bind("SUPER + SHIFT + E", "Superfile (TUI)", { launch = "omarchy-launch-float-terminal spf" })
 
 
 -- ── 4. Window Management & Workspaces ───────────────────────────────────────
@@ -99,8 +99,8 @@ o.bind("SUPER + I", "Omarchy Settings", "omarchy-shell shell summon local.settin
 hl.unbind("SUPER + M")
 o.bind("SUPER + M", "Manga Reader", "omarchy-shell shell toggle local.manga")
 
-hl.unbind("SUPER + CTRL + T")
-o.bind("SUPER + CTRL + T", "System Monitor", "omarchy-shell shell toggle local.system")
+-- hl.unbind("SUPER + CTRL + T")
+-- o.bind("SUPER + CTRL + T", "System Monitor", "omarchy-shell shell toggle local.system")
 
 
 -- ── 6. Hardware & Mouse Controls ────────────────────────────────────────────

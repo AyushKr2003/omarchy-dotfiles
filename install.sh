@@ -143,7 +143,8 @@ omarchy-pkg-add "${PACMAN_PACKAGES[@]}"
 gum style --foreground 2 "==> Installing AUR packages"
 
 AUR_PACKAGES=(
-  # example-aur-package
+  herdr-bin       # terminal workspace manager for AI coding agents
+  # Add more aur packages here as you grow this repo.
 )
 
 if ((${#AUR_PACKAGES[@]} > 0)); then
