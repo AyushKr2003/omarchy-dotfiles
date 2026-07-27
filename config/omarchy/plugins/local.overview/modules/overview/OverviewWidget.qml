@@ -13,6 +13,8 @@ import "."
 Item {
     id: root
     required property var panelWindow
+    property var shell: panelWindow?.shell ?? null
+    readonly property var appLibrary: shell?.appLibrary ?? null
     readonly property HyprlandMonitor monitor: Hyprland.monitorFor(panelWindow.screen)
     readonly property var toplevels: ToplevelManager.toplevels
     readonly property int effectiveActiveWorkspaceId: Math.max(1, Math.min(100, monitor?.activeWorkspace?.id ?? 1))
@@ -732,6 +734,7 @@ Item {
                                             property int monitorId: windowData?.monitor
                                             property var monitor: HyprlandData.monitors.find(m => m.id === monitorId)
                                             property Item homeParent: specialWorkspaceContent
+                                            appLibrary: root.appLibrary
                                             windowData: windowByAddress[address]
                                             toplevel: modelData
                                             monitorData: monitor
@@ -1032,6 +1035,7 @@ Item {
                     property int monitorId: windowData?.monitor
                     property var monitor: HyprlandData.monitors.find(m => m.id === monitorId)
                     property var address: `0x${modelData.HyprlandToplevel.address}`
+                    appLibrary: root.appLibrary
                     windowData: windowByAddress[address]
                     toplevel: modelData
                     monitorData: monitor

@@ -80,7 +80,21 @@ Singleton {
             cls === "org.omarchy.screensaver" ||
             cls.indexOf("org.omarchy.") === 0 ||
             cls === "tui.float" ||
-            cls === "tui.tile"
+            cls === "tui.tile" ||
+            cls === "kitty" ||
+            cls === "alacritty" ||
+            cls === "foot" ||
+            cls === "footclient" ||
+            cls === "ghostty" ||
+            cls === "com.mitchellh.ghostty" ||
+            cls === "wezterm" ||
+            cls === "org.wezfurlong.wezterm" ||
+            cls === "st" ||
+            cls === "urxvt" ||
+            cls === "xterm" ||
+            cls === "rio" ||
+            cls === "konsole" ||
+            cls === "gnome-terminal"
     }
 
     function iconForDesktopId(desktopId) {

@@ -13,6 +13,7 @@ Scope {
     id: overviewScope
     property string omarchyPath: Quickshell.env("OMARCHY_PATH")
     property var shell: null
+    readonly property var appLibrary: shell ? shell.appLibrary : null
     property var manifest: null
     property var settings: ({})
     property bool opened: GlobalStates.overviewOpen
@@ -74,6 +75,7 @@ Scope {
         PanelWindow {
             id: root
             required property var modelData
+            readonly property var shell: overviewScope.shell
             readonly property HyprlandMonitor monitor: Hyprland.monitorFor(root.screen)
             property bool monitorIsFocused: (Hyprland.focusedMonitor?.id == monitor?.id)
             property bool blurEnabled: Config.options.overview.effects.enableBlur
@@ -109,6 +111,7 @@ Scope {
                 target: GlobalStates
                 function onOverviewOpenChanged() {
                     if (GlobalStates.overviewOpen) {
+                        if (overviewScope.appLibrary) overviewScope.appLibrary.refreshIcons();
                         delayedGrabTimer.start();
                     }
                 }
@@ -284,6 +287,7 @@ Scope {
                     active: Config?.options.overview.enable ?? true
                     sourceComponent: OverviewWidget {
                         panelWindow: root
+                        shell: overviewScope.shell
                         visible: true
                     }
                 }
