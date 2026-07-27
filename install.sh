@@ -153,20 +153,12 @@ else
 fi
 
 # ════════════════════════════════════════════════════════════════════════
-# SECTION: browser — install Chrome, set as default, drop Chromium
+# SECTION: browser — enable Google Account sign-in for Chromium
 # ════════════════════════════════════════════════════════════════════════
-# omarchy-install-browser pulls google-chrome from the AUR and wires up
-# its policy dir / chromium-flags. omarchy-default-browser then points
-# xdg-settings + xdg-mime at it. Finally we remove Chromium, which Omarchy
-# ships by default, since Chrome replaces it here.
 
-gum style --foreground 2 "==> Installing and setting Chrome as default browser"
+gum style --foreground 2 "==> Enabling Chromium Google Account support"
 
-omarchy-install-browser chrome
-omarchy-default-browser chrome
-
-echo "    Removing chromium (replaced by Chrome)"
-omarchy-pkg-drop chromium
+omarchy-install-chromium-google-account
 
 # ════════════════════════════════════════════════════════════════════════
 # SECTION: terminal — install kitty, set as default, drop foot
