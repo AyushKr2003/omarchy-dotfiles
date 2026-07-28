@@ -91,7 +91,7 @@ o.bind("SUPER + CTRL + LEFT", "Previous workspace", hl.dsp.focus({ workspace = "
 -- ── 5. Shell Plugins & Custom Menus ─────────────────────────────────────────
 
 hl.unbind("SUPER + TAB")
-o.bind("SUPER + TAB", "Overview", "omarchy-shell shell toggle local.overview")
+o.bind("SUPER + TAB", "Overview", "omarchy-shell shell toggle omarchy-overview")
 
 hl.unbind("SUPER + I")
 o.bind("SUPER + I", "Omarchy Settings", "omarchy-shell shell summon local.settings")

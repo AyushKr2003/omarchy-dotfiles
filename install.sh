@@ -15,6 +15,11 @@ set -euo pipefail
 
 export DOTFILES_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Ensure git submodules (e.g. omarchy-overview plugin) are initialized
+if command -v git &>/dev/null && [[ -d "$DOTFILES_ROOT/.git" ]]; then
+  git -C "$DOTFILES_ROOT" submodule update --init --recursive 2>/dev/null || true
+fi
+
 # ════════════════════════════════════════════════════════════════════════
 # SECTION: helpers / presentation
 # ════════════════════════════════════════════════════════════════════════

@@ -89,7 +89,7 @@ o.bind("SUPER + TAB", "Overview", function()
 			hl.plugin.scrolloverview.overview("toggle")
 		end
 	else
-		hl.dispatch(hl.dsp.exec_cmd("omarchy-shell shell toggle local.overview"))
+		hl.dispatch(hl.dsp.exec_cmd("omarchy-shell shell toggle omarchy-overview"))
 	end
 end)
 
