@@ -1,0 +1,3 @@
+[submodule "config/omarchy/plugins/omarchy-overview"]
+	path = config/omarchy/plugins/omarchy-overview
+	url = https://github.com/AyushKr2003/omarchy-overview.git
