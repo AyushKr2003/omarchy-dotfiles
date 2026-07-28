@@ -33,7 +33,7 @@ Item {
           {
             "label": "Launcher",
             "icon": "󰍉",
-            "command": "omarchy-shell shell toggle omarchy.launcher '{}'"
+            "command": "omarchy-shell shell toggle omarchy.menu '{}'"
           },
           {
             "label": "Dictation",
