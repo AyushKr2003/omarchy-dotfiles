@@ -1,3 +1,6 @@
 [submodule "config/omarchy/plugins/omarchy-overview"]
 	path = config/omarchy/plugins/omarchy-overview
 	url = https://github.com/AyushKr2003/omarchy-overview.git
+[submodule "config/omarchy/plugins/shell.settings"]
+	path = config/omarchy/plugins/shell.settings
+	url = https://github.com/AyushKr2003/shell-settings.git

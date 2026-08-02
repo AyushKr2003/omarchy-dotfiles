@@ -152,7 +152,7 @@ Item {
           {
             "label": "Settings",
             "icon": "",
-            "command": "omarchy-shell shell toggle local.settings"
+            "command": "omarchy-shell shell toggle shell.settings"
           },
           {
             "label": "Restart Shell",
