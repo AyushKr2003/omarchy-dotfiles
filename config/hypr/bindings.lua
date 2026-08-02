@@ -94,7 +94,7 @@ hl.unbind("SUPER + TAB")
 o.bind("SUPER + TAB", "Overview", "omarchy-shell shell toggle omarchy-overview")
 
 hl.unbind("SUPER + I")
-o.bind("SUPER + I", "Omarchy Settings", "omarchy-shell shell summon local.settings")
+o.bind("SUPER + I", "Omarchy Settings", "omarchy-shell shell summon shell.settings")
 
 hl.unbind("SUPER + M")
 o.bind("SUPER + M", "Manga Reader", "omarchy-shell shell toggle local.manga")
@@ -146,7 +146,7 @@ end)
 -- ── 8. Window Rules ─────────────────────────────────────────────────────────
 
 -- Omarchy Settings
-o.window({ title = "^(Omarchy Settings)$" }, { no_screen_share = true, tag = "+floating-window" })
+o.window({ title = "^(Omarchy Settings)$" }, { tag = "+floating-window" })
 
 -- Manga Panel
 o.window({ title = "^(Manga)$" }, {
