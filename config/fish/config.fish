@@ -18,5 +18,12 @@ function full_sys
 end
 
 fish_add_path -g ~/.local/bin
-set -gx CHROME_EXECUTABLE google-chrome-stable
+set -gx CHROME_EXECUTABLE chromium
 fish_add_path /home/shadow/.spicetify
+fish_add_path ~/.config/composer/vendor/bin
+fish_add_path -g -p /home/shadow/develop/flutter/bin
+alias php php82
+
+# Qwen Code PATH block begin
+set -gx PATH '/home/shadow/.local/bin' $PATH
+# Qwen Code PATH block end
