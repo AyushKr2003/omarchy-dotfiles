@@ -146,6 +146,11 @@ c.fonts.web.size.default_fixed = 13
 # Scrolling
 c.scrolling.smooth = True
 c.scrolling.bar    = 'overlay'
+# QtWebEngine 6.11 / Chromium 140 stopped honoring the OverlayScrollbar
+# feature (qutebrowser#8970). Passing FluentOverlayScrollbar restores the
+# auto-hiding overlay scrollbar behavior.
+# https://github.com/qutebrowser/qutebrowser/issues/8970
+c.qt.args = ['enable-features=FluentOverlayScrollbar']
 
 # Tabs
 # ── Tabs — match tmux window-status style ─────────────────────────────────────
@@ -557,25 +562,29 @@ config.bind('<Escape>', 'mode-leave',      mode='hint')
 
 
 # =============================================================================
-#  6. User stylesheet — DISABLED
-#     Injecting a stylesheet into every page adds per-page overhead and can
-#     interfere with site rendering. The scrollbar + selection styles below
-#     are kept as a comment so you can opt in per-site if needed.
-#     To re-enable: uncomment the block and run :config-source
+#  6. User stylesheet — minimal scrollbar, kitty-style
+#     Themes the scrollbar via the standard scrollbar-color property only.
+#     We deliberately do NOT use ::-webkit-scrollbar rules here: setting a
+#     width/height on ::-webkit-scrollbar disables Chromium's overlay
+#     scrollbar (the auto-hiding kind) and forces a classic always-visible
+#     scrollbar. c.scrolling.bar = 'overlay' above enables the OverlayScrollbar
+#     feature, which shows the thumb only while scrolling and hides it when
+#     idle — the kitty look. scrollbar-color themes that thumb while keeping
+#     the overlay behavior (track stays transparent).
 # =============================================================================
 
-# _CSS = f"""
-# ::-webkit-scrollbar {{ width: 6px; height: 6px; }}
-# ::-webkit-scrollbar-track {{ background: {BG}; }}
-# ::-webkit-scrollbar-thumb {{ background: {MUTED}; border-radius: 3px; }}
-# ::-webkit-scrollbar-thumb:hover {{ background: {DARK_FG}; }}
-# ::selection {{ background: {SEL_BG}; color: {BRIGHT_FG}; }}
-# """
-# _css_path = os.path.expanduser('~/.config/qutebrowser/omarchy-user.css')
-# os.makedirs(os.path.dirname(_css_path), exist_ok=True)
-# with open(_css_path, 'w') as _f:
-#     _f.write(_CSS)
-# c.content.user_stylesheets = [_css_path]
+_CSS = f"""
+:root {{
+    scrollbar-color: {MUTED} transparent;
+    scrollbar-width: thin;
+}}
+::selection {{ background: {SEL_BG}; color: {BRIGHT_FG}; }}
+"""
+_css_path = os.path.expanduser('~/.config/qutebrowser/omarchy-user.css')
+os.makedirs(os.path.dirname(_css_path), exist_ok=True)
+with open(_css_path, 'w') as _f:
+    _f.write(_CSS)
+c.content.user_stylesheets = [_css_path]
 
 
 # =============================================================================
