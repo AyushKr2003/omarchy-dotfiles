@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "shadow.manual",
+  "name": "Manual",
+  "version": "1.1.0",
+  "author": "Omarchy / Shadow",
+  "description": "Reader window for the Omarchy manual and installed 3rd-party plugin documentation. Summon with: omarchy-shell shell summon omarchy.manual '{}' (or run: omarchy launch manual).",
+  "kinds": [
+    "panel"
+  ],
+  "entryPoints": {
+    "panel": "ManualPanel.qml"
+  },
+  "omarchy": {
+    "clonedFrom": "omarchy.manual"
+  }
+}

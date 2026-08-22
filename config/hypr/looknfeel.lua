@@ -50,18 +50,6 @@
 -- })
 
 hl.config({
-  general = {
-    -- No gaps between windows or borders.
-    gaps_in = 2,
-    gaps_out = 2,
-  },
-
-  -- FIx the always the popup opening in the first worspace
-  misc = {
-    initial_workspace_tracking = 0,
-    -- focus_on_activate = false,
-  },
-
   -- Blur style
   decoration = {
     blur = {

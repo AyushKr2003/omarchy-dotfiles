@@ -79,6 +79,14 @@ enable() {
   cat >"$STATE_FILE" <<-'LUA'
 	-- Managed by omarchy-toggle-niri-mode. Regenerated on every toggle;
 	-- don't hand-edit (edits will be lost the next time you toggle off/on).
+	-- The 3-finger gesture's animation axis is read from the workspace
+	-- render-offset style (UnifiedWorkspaceSwipeGesture.cpp: VERTANIMS =
+	-- style == "slidevert"), so the style MUST be slidevert here or the
+	-- vertical gesture slides horizontally. Caveat (Hyprland <= 0.56.2):
+	-- hl.animation discards style/bezier/speed when enabled = false, so
+	-- enabled MUST be true — which means keybind workspace switches also
+	-- animate vertically (they share the same workspacesIn render-offset
+	-- node). Speed 2 keeps that keybind animation quick.
 	hl.config({
 	  general = { layout = "scrolling" },
 	  scrolling = {
@@ -87,11 +95,36 @@ enable() {
       focus_fit_method = 1
 	  },
 	})
+  -- hl.animation({ leaf = "workspaces", enabled = true, speed = 2, bezier = "easeOutQuint", style = "slidevert" })
+hl.animation({
+	leaf = "workspaces",
+	enabled = true,
+	speed = 3,
+	bezier = "easeOutQuint",
+	style = "slidevert",
+})
+
+
+hl.animation({
+	leaf = "workspacesIn",
+	enabled = true,
+	speed = 3,
+	bezier = "easeOutQuint",
+	style = "slidevert",
+})
+
+hl.animation({
+	leaf = "workspacesOut",
+	enabled = true,
+	speed = 3,
+	bezier = "easeOutQuint",
+	style = "slidevert",
+})
 	LUA
 
   osd "󱒆 " "Scrolling"
   sleep 0.2
-  set_bar_position_if_needed left
+  # set_bar_position_if_needed left
   hyprctl reload >/dev/null 2>&1
 }
 
