@@ -41,7 +41,7 @@ if (( ${#options[@]} == 0 )); then
   exit 1
 fi
 
-selection=$(printf '%s\n' "${options[@]}" | omarchy-menu-select 'Screen Shaders' -- --width 500 --height 400 2>/dev/null || true)
+selection=$(printf '%s\n' "${options[@]}" | omarchy-menu-select 'Screen Shaders' -- --width 360 --height 600 2>/dev/null || true)
 
 if [[ -z $selection ]]; then
   exit 0

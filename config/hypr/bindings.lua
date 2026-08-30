@@ -19,8 +19,6 @@
 hl.unbind("SUPER + RETURN")
 o.bind("SUPER + RETURN", "Tmux (Work)", { launch = "omarchy-launch-terminal-tmux" })
 
-hl.unbind("SUPER + SHIFT + RETURN")
-o.bind("SUPER + SHIFT + RETURN", "Herdr", { launch = "omarchy-launch-terminal-herdr" })
 
 hl.unbind("SUPER + T")
 o.bind("SUPER + T", "Terminal", { omarchy = "terminal" })
@@ -35,6 +33,7 @@ hl.unbind("SUPER + CTRL + L")
 o.bind("SUPER + CTRL + L", "Terminal Launcher", { launch = "omarchy-launch-float-terminal a -a" })
 
 o.bind("SUPER + PAUSE", "Full System Info", hl.dsp.exec_cmd("xdg-terminal-exec fish -c full_sys", { float = true, size = "1220 680" }))
+o.bind("SUPER + KP_Prior", "Full System Info", hl.dsp.exec_cmd("xdg-terminal-exec fish -c full_sys", { float = true, size = "1220 680" }))
 
 hl.unbind("SUPER + SHIFT + N")
 o.bind("SUPER + SHIFT + N", "VS Code", { launch = "code" })
@@ -99,9 +98,11 @@ o.bind("SUPER + I", "Omarchy Settings", "omarchy-shell shell summon shell.settin
 hl.unbind("SUPER + M")
 o.bind("SUPER + M", "Manga Reader", "omarchy-shell shell toggle local.manga")
 
--- hl.unbind("SUPER + CTRL + T")
--- o.bind("SUPER + CTRL + T", "System Monitor", "omarchy-shell shell toggle local.system")
+hl.unbind("SUPER + S")
+o.bind("SUPER + S", "Shaders", "omarchy-menu-shaders")
 
+hl.unbind("SUPER + SHIFT + M")
+o.bind("SUPER + SHIFT + M", "Omarchy Manual", "omarchy-shell shell toggle omarchy.manual")
 
 -- ── 6. Hardware & Mouse Controls ────────────────────────────────────────────
 
@@ -114,7 +115,8 @@ o.bind("mouse:275", "Orbit Release", "~/.config/omarchy/plugins/local.orbit/scri
 
 -- ── 7. Keyboard Mouse Control (Submap) ──────────────────────────────────────
 
-o.bind("SUPER + CTRL + ALT + M", "Enter keyboard cursor mode", function()
+
+o.bind("SUPER + CTRL + M", "Enter keyboard cursor mode", function()
   hl.exec_cmd("omarchy-notification-send --app-name 'cursor-mode' -u critical -g 󰍽 'Cursor Mode' 'Keyboard mouse control: ON'")
   hl.dispatch(hl.dsp.submap("cursor"))
 end)
@@ -126,24 +128,34 @@ hl.define_submap("cursor", function()
   o.bind("K", "Cursor up",    "ydotool mousemove -- 0 -15", { repeating = true })
   o.bind("L", "Cursor right", "ydotool mousemove -- 15 0",  { repeating = true })
 
-  -- Mouse clicks
-  o.bind("S", "Left click",   "ydotool click 0xC0")
+  -- Left click behaves exactly like a real mouse button:
+  -- press = down, release = up. Tap = click, tap-tap = double click,
+  -- hold = drag/selection.
+  o.bind("S", "Left button down", "ydotool click 0x40")
+  o.bind("S", "Left button up",   "ydotool click 0x80", { release = true })
+
+  -- Middle click stays a plain instant click (rarely need middle-drag)
   o.bind("D", "Middle click", "ydotool click 0xC2")
-  o.bind("F", "Right click",  "ydotool click 0xC1")
+
+  -- Right click, same press/release pattern for right-drag
+  o.bind("F", "Right button down", "ydotool click 0x41")
+  o.bind("F", "Right button up",   "ydotool click 0x81", { release = true })
 
   -- Scroll controls
   o.bind("E", "Scroll up",   "ydotool mousemove -w -x 0 -y -5", { repeating = true })
-  o.bind("R", "Scroll down", "ydotool mousemove -w -x 0 -y 5",  { repeating = true })
+  o.bind("X", "Scroll down", "ydotool mousemove -w -x 0 -y 5",  { repeating = true })
 
-  -- Exit submap
+  -- Exit submap — defensively send button-up for both, in case you leave
+  -- the submap while a button is physically still held (Escape while
+  -- dragging, focus loss, etc). Sending "up" on an already-released button
+  -- is a no-op, same as it would be on real hardware.
   o.bind("ESCAPE", "Exit cursor mode", function()
+    hl.exec_cmd("ydotool click 0x80")
+    hl.exec_cmd("ydotool click 0x81")
     hl.exec_cmd("omarchy-shell -q notifications dismiss 'Cursor Mode'")
     hl.dispatch(hl.dsp.submap("reset"))
   end)
-end)
-
-
--- ── 8. Window Rules ─────────────────────────────────────────────────────────
+end)-- ── 8. Window Rules ─────────────────────────────────────────────────────────
 
 -- Omarchy Settings
 o.window({ title = "^(Omarchy Settings)$" }, { tag = "+floating-window" })
