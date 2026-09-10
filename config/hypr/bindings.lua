@@ -86,6 +86,10 @@ o.bind("SUPER + L", "Lock system", "omarchy-system-lock")
 o.bind("SUPER + CTRL + RIGHT", "Next workspace", hl.dsp.focus({ workspace = "e+1" }))
 o.bind("SUPER + CTRL + LEFT", "Previous workspace", hl.dsp.focus({ workspace = "e-1" }))
 
+hl.unbind("SUPER + S")
+o.bind("SUPER + S", "Toggle scratchpad", hl.dsp.workspace.toggle_special("scratch"))
+hl.unbind("SUPER + SHIFT + S")
+o.bind("SUPER + SHIFT + S", "Move window to scratchpad", hl.dsp.window.move({ workspace = "special:scratch", follow = false }))
 
 -- ── 5. Shell Plugins & Custom Menus ─────────────────────────────────────────
 
@@ -98,8 +102,8 @@ o.bind("SUPER + I", "Omarchy Settings", "omarchy-shell shell summon shell.settin
 hl.unbind("SUPER + M")
 o.bind("SUPER + M", "Manga Reader", "omarchy-shell shell toggle local.manga")
 
-hl.unbind("SUPER + S")
-o.bind("SUPER + S", "Shaders", "omarchy-menu-shaders")
+hl.unbind("SUPER + ALT + S")
+o.bind("SUPER + ALT + S", "Shaders", "omarchy-menu-shaders")
 
 hl.unbind("SUPER + SHIFT + M")
 o.bind("SUPER + SHIFT + M", "Omarchy Manual", "omarchy-shell shell toggle omarchy.manual")
