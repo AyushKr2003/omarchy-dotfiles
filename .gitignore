@@ -44,6 +44,7 @@ config/omarchy/hooks/pre-refresh-pacman.d/
 config/omarchy/themed/*
 !config/omarchy/themed/qutebrowser-*.tpl
 config/omarchy/bar.json
+config/omarchy/shell.json
 config/qutebrowser/bookmarks
 config/qutebrowser/quickmarks
 
