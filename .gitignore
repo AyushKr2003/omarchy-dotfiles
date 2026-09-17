@@ -14,6 +14,11 @@ pkg/
 *.log
 *.csv
 
+# Personal reading material, not part of the dotfiles
+/Designing Data-Intensive Applications The Big Ideas Behind Reliable, Scalable, and Maintainable Systems (Martin Kleppmann, Chris Riccomini) (z-library.sk, 1lib.sk, z-lib.sk).pdf
+/Penetration Testing - A hands-on introduction to Hacking.pdf
+/System Design Interview by Alex Xu.pdf
+
 # Personal / machine-specificconfigs
 config/browser-default/colors.css
 config/fastfetchconfig.jsonc
