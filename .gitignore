@@ -41,7 +41,8 @@ config/omarchy/hooks/font-set.d/
 config/omarchy/hooks/post-boot.d/
 config/omarchy/hooks/post-update.d/
 config/omarchy/hooks/pre-refresh-pacman.d/
-config/omarchy/themed/
+config/omarchy/themed/*
+!config/omarchy/themed/qutebrowser-*.tpl
 config/omarchy/bar.json
 config/qutebrowser/bookmarks
 config/qutebrowser/quickmarks
