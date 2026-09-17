@@ -68,6 +68,8 @@ hl.config({
   },
 })
 
+-- o.window(".*", { opacity = "1 1" })
+
 -- Load custom screen shader configuration if present
 pcall(require, "hypr.shader")
 

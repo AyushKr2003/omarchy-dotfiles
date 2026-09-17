@@ -1,7 +1,7 @@
 -- Extra autostart processes.
 -- o.launch_on_start("my-service")
 
-o.launch_on_start("hyprpm reload")
+-- o.launch_on_start("hyprpm reload")
 
 -- BEGIN CURSOR CONFIG
 hl.env("XCURSOR_THEME", "volantes_cursors")

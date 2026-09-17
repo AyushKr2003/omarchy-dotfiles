@@ -94,10 +94,18 @@ o.bind("SUPER + TAB", "Overview", function()
 end)
 
 -- Workspace navigation: normal mode uses LEFT/RIGHT, niri mode uses UP/DOWN
+--
+-- Normal mode reuses bindings.lua's smart cycle (via _G.SmartWorkspace,
+-- set up before this file is required) instead of Hyprland's plain
+-- "e+1"/"e-1", which only ever lands on already-occupied workspaces and
+-- would silently undo the empty-workspace behavior bindings.lua sets up.
 hl.unbind("SUPER + CTRL + RIGHT")
 o.bind("SUPER + CTRL + RIGHT", "Next workspace (normal)", function()
 	if not niriModeEnabled() then
-		hl.dispatch(hl.dsp.focus({ workspace = "e+1" }))
+		local target = _G.SmartWorkspace and _G.SmartWorkspace.next(1)
+		if target ~= nil then
+			hl.dispatch(hl.dsp.focus({ workspace = tostring(target) }))
+		end
 	else
 		hl.dispatch(hl.dsp.layout("consume_or_expel next"))
 	end
@@ -106,7 +114,10 @@ end)
 hl.unbind("SUPER + CTRL + LEFT")
 o.bind("SUPER + CTRL + LEFT", "Previous workspace (normal)", function()
 	if not niriModeEnabled() then
-		hl.dispatch(hl.dsp.focus({ workspace = "e-1" }))
+		local target = _G.SmartWorkspace and _G.SmartWorkspace.next(-1)
+		if target ~= nil then
+			hl.dispatch(hl.dsp.focus({ workspace = tostring(target) }))
+		end
 	else
 		hl.dispatch(hl.dsp.layout("consume_or_expel prev"))
 	end

@@ -83,8 +83,74 @@ o.bind("SUPER + SHIFT + O", "Toggle floating / tiling", hl.dsp.window.float({ ac
 hl.unbind("SUPER + L")
 o.bind("SUPER + L", "Lock system", "omarchy-system-lock")
 
-o.bind("SUPER + CTRL + RIGHT", "Next workspace", hl.dsp.focus({ workspace = "e+1" }))
-o.bind("SUPER + CTRL + LEFT", "Previous workspace", hl.dsp.focus({ workspace = "e-1" }))
+-- o.bind("SUPER + CTRL + RIGHT", "Next workspace", hl.dsp.focus({ workspace = "e+1" }))
+-- o.bind("SUPER + CTRL + LEFT", "Previous workspace", hl.dsp.focus({ workspace = "e-1" }))
+--
+
+-- ===== Smart next/prev workspace (skip repeated empty workspaces) =====
+local TOTAL_WORKSPACES = 10
+
+local function wrap_id(n)
+    return ((n - 1) % TOTAL_WORKSPACES) + 1
+end
+
+local function occupied_set()
+    local occ = {}
+    local workspaces = hl.get_workspaces()
+    if workspaces ~= nil then
+        for _, ws in ipairs(workspaces) do
+            if ws ~= nil and ws.id ~= nil and ws.windows ~= nil and ws.windows > 0 then
+                occ[ws.id] = true
+            end
+        end
+    end
+    return occ
+end
+
+local function next_workspace(direction)
+    local cur = hl.get_active_workspace()
+    if cur == nil or cur.id == nil then
+        return nil
+    end
+
+    local occ = occupied_set()
+    local pos = wrap_id(cur.id + direction)
+
+    if occ[cur.id] then
+        return pos
+    else
+        local steps = 0
+        while not occ[pos] and steps < TOTAL_WORKSPACES do
+            pos = wrap_id(pos + direction)
+            steps = steps + 1
+        end
+        return pos
+    end
+end
+
+-- Shared globally so hyprNiri.lua's non-niri SUPER+CTRL+RIGHT/LEFT branch can
+-- reuse this instead of Hyprland's plain "e+1"/"e-1" (which never lands on
+-- an empty workspace). Hyprland keeps the same Lua VM alive across
+-- `hyprctl reload`, so this survives reloads just like hyprNiri.lua's own
+-- _G.__niriGestureMode does.
+_G.SmartWorkspace = { next = next_workspace }
+
+o.bind("SUPER + CTRL + RIGHT", "Next workspace",
+    function()
+        local target = next_workspace(1)
+        if target ~= nil then
+            hl.dispatch(hl.dsp.focus({ workspace = tostring(target) }))
+        end
+    end)
+
+o.bind("SUPER + CTRL + LEFT", "Previous workspace",
+    function()
+        local target = next_workspace(-1)
+        if target ~= nil then
+            hl.dispatch(hl.dsp.focus({ workspace = tostring(target) }))
+        end
+    end)
+
 
 hl.unbind("SUPER + S")
 o.bind("SUPER + S", "Toggle scratchpad", hl.dsp.workspace.toggle_special("scratch"))
