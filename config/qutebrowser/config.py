@@ -86,10 +86,57 @@ c.colors.webpage.darkmode.policy.images = "never"
 c.colors.webpage.darkmode.enabled = True
 
 # Content & Downloads
-c.content.blocking.method = "auto"
 c.content.notifications.enabled = True
 c.downloads.location.prompt = False
 c.downloads.position = "bottom"
+
+# ------------------------------------------------------------------------------
+# Ad Blocking (uBlock Origin + EasyList + AdGuard + Hosts)
+# ------------------------------------------------------------------------------
+c.content.blocking.enabled = True
+c.content.blocking.method = "both"  # ABP engine (python-adblock) + hosts
+c.content.blocking.hosts.block_subdomains = True
+
+c.content.blocking.adblock.lists = [
+    # ── Core — EasyList + EasyPrivacy ──────────────────────────────────────────
+    "https://easylist.to/easylist/easylist.txt",
+    "https://easylist.to/easylist/easyprivacy.txt",
+
+    # ── uBlock Origin filters ──────────────────────────────────────────────────
+    "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt",
+    "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters-2025.txt",
+    "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters-2026.txt",
+    "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/privacy.txt",
+    "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/privacy-removeparam.txt",
+    "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/unbreak.txt",
+    "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/resource-abuse.txt",
+    "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/badware.txt",
+    "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/quick-fixes.txt",
+    "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters-general.txt",
+
+    # ── uBO Annoyances ─────────────────────────────────────────────────────────
+    "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/annoyances-cookies.txt",
+    "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/annoyances-others.txt",
+
+    # ── Fanboy annoyances ──────────────────────────────────────────────────────
+    "https://secure.fanboy.co.nz/fanboy-cookiemonster.txt",
+    "https://secure.fanboy.co.nz/fanboy-annoyance.txt",
+
+    # ── Malware / phishing ─────────────────────────────────────────────────────
+    "https://malware-filter.gitlab.io/malware-filter/urlhaus-filter-online.txt",
+
+    # ── AdGuard base + tracking + annoyances ──────────────────────────────────
+    "https://filters.adtidy.org/extension/ublock/filters/2.txt",
+    "https://filters.adtidy.org/extension/ublock/filters/3.txt",
+    "https://filters.adtidy.org/extension/ublock/filters/14.txt",
+    "https://filters.adtidy.org/extension/ublock/filters/4.txt",
+]
+
+c.content.blocking.hosts.lists = [
+    "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts",
+]
+
+c.content.blocking.whitelist = []
 
 # ------------------------------------------------------------------------------
 # Keybindings (Vim-style & Omarchy desktop power keys)
