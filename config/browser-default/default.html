@@ -17,10 +17,31 @@
 
         <div class="right-container">
             <div class="head">
-                <p><span class="prompt-symbol">&gt;</span> cd ~/<span class="blinking">_</span></p>
+                <div class="terminal-prompt" id="terminal-prompt">
+                    <span class="prompt-symbol">&gt;</span>
+                    <span class="prompt-cmd">cd</span>
+                    <span class="prompt-path" id="prompt-path">~/</span>
+                    <span class="prompt-input-area" id="prompt-input-area">
+                        <span id="prompt-typed" class="prompt-typed"></span>
+                        <span id="prompt-ghost" class="prompt-ghost"></span>
+                        <span id="terminal-cursor" class="terminal-cursor blinking">_</span>
+                        <input
+                            type="text"
+                            id="terminal-input"
+                            class="terminal-real-input"
+                            autocomplete="off"
+                            autocorrect="off"
+                            autocapitalize="off"
+                            spellcheck="false"
+                            aria-label="Fish shell prompt"
+                            autofocus
+                        />
+                    </span>
+                </div>
             </div>
 
-            <div class="bookmarks">
+            <!-- Default Bookmarks Section (visible at rest) -->
+            <div class="bookmarks" id="bookmarks-section">
                 <div class="category">
                     <ul class="links">
                         <li class="title">work</li>
@@ -61,7 +82,17 @@
                     </ul>
                 </div>
             </div>
+
+            <!-- Terminal Buffer (Direct terminal output and completions, NO CARDS) -->
+            <div class="terminal-view" id="terminal-view" style="display: none;">
+                <div class="terminal-output" id="terminal-output" style="display: none;"></div>
+                <div class="terminal-completions" id="terminal-completions">
+                    <ul class="completions-list" id="completions-list" role="listbox"></ul>
+                </div>
+            </div>
         </div>
     </div>
+
+    <script src="script.js"></script>
 </body>
 </html>

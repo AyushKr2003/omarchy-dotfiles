@@ -8,7 +8,7 @@
   --color-prompt: var(--accent, #89b4fa);
   --color-cursor: var(--accent, #89b4fa);
   --color-link: var(--fg-light, #bac2de);
-  --color-link-visited: var(--fg-dim, #6c7086);
+  --color-link-visited: var(--muted, #585b70);
   --color-link-hover: var(--accent, #89b4fa);
 }
 
@@ -52,8 +52,9 @@ html, body {
 
 .right-container {
   grid-area: right;
-  height: 50%;
+  min-height: 380px;
   width: 100%;
+  max-width: 600px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -73,39 +74,140 @@ html, body {
   object-fit: contain;
 }
 
+/* Terminal prompt - Fish shell styled */
 .head {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  font-size: 40px;
-  font-weight: 500;
-  padding-top: 60px;
-  color: var(--color-fg);
+  align-items: flex-start;
+  margin-bottom: 28px;
+  width: 100%;
 }
 
-.head p {
-  margin: 0;
+.terminal-prompt {
+  display: inline-flex;
+  align-items: center;
+  font-size: 36px;
+  font-weight: 500;
+  color: var(--color-fg);
+  cursor: text;
+  max-width: 100%;
+  user-select: none;
+  line-height: 1.2;
 }
 
 .prompt-symbol {
-  color: var(--color-prompt);
+  color: var(--accent, #89b4fa);
+  margin-right: 12px;
 }
 
+.prompt-cmd {
+  color: var(--green, #a6e3a1);
+  margin-right: 8px;
+}
+
+.prompt-path {
+  color: var(--cyan, #7dcfff);
+  white-space: nowrap;
+  margin-right: 2px;
+}
+
+.prompt-input-area {
+  display: inline-flex;
+  align-items: baseline;
+  position: relative;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  white-space: pre;
+}
+
+.terminal-real-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: text;
+  border: none;
+  outline: none;
+  padding: 0;
+  margin: 0;
+  font-family: inherit;
+  font-size: inherit;
+  z-index: 5;
+}
+
+.prompt-typed {
+  color: var(--color-fg);
+  font-family: inherit;
+  font-size: inherit;
+  white-space: pre;
+}
+
+/* Fish syntax highlighting */
+.syn-cmd {
+  color: var(--green, #a6e3a1);
+  font-weight: 600;
+}
+
+.syn-bang {
+  color: var(--magenta, #f5c2e7);
+  font-weight: 600;
+}
+
+.syn-arg {
+  color: var(--cyan, #7dcfff);
+}
+
+.syn-url {
+  color: var(--yellow, #f9e2af);
+}
+
+.terminal-cursor {
+  color: var(--color-cursor);
+  font-family: inherit;
+  font-size: inherit;
+  user-select: none;
+  line-height: 1;
+}
+
+.blinking {
+  animation: opacity 1s ease-in-out infinite;
+  opacity: 1;
+}
+
+.prompt-ghost {
+  color: var(--muted, #585b70);
+  font-family: inherit;
+  font-size: inherit;
+  user-select: none;
+  white-space: pre;
+}
+
+@keyframes opacity {
+  0% { opacity: 1; }
+  50% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+/* Bookmarks Section - dev work reddit play as they were */
 .bookmarks {
   display: flex;
   justify-content: center;
+  gap: 24px;
 }
 
 .category {
   display: flex;
   flex-direction: column;
-  width: 180px;
+  width: 130px;
 }
 
 .links {
   list-style-type: none;
   margin: 0;
-  padding: 20px 0;
+  padding: 10px 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -113,8 +215,8 @@ html, body {
 
 .title,
 .title a {
-  font-size: 20px;
-  font-weight: 600;
+  font-size: 19px;
+  font-weight: 700;
   color: var(--color-title);
   text-decoration: none;
   transition: color 0.15s ease-in-out;
@@ -125,9 +227,9 @@ html, body {
 }
 
 li {
-  font-size: 16px;
+  font-size: 15px;
   list-style-type: none;
-  padding: 5px;
+  padding: 4px 0;
 }
 
 a:link {
@@ -147,25 +249,142 @@ a:visited:hover {
   color: var(--color-link-hover);
 }
 
-.blinking {
-  animation: opacity 1s ease-in-out infinite;
-  opacity: 1;
-  color: var(--color-cursor);
+/* Pure Terminal Buffer - NO CARDS, NO BOXES, NO BORDERS */
+.terminal-view {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  font-family: inherit;
 }
 
-@keyframes opacity {
-  0% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0;
-  }
-  100% {
-    opacity: 1;
-  }
+.terminal-output {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--color-fg);
+  white-space: pre;
+  font-family: inherit;
 }
 
-/* Responsive adjustments for tiled windows and smaller viewports */
+.out-dir {
+  color: var(--accent, #89b4fa);
+  font-weight: 600;
+}
+
+.out-file {
+  color: var(--color-fg, #cdd6f4);
+}
+
+.out-link {
+  color: var(--cyan, #7dcfff);
+}
+
+.out-key {
+  color: var(--yellow, #f9e2af);
+}
+
+.out-accent {
+  color: var(--magenta, #f5c2e7);
+}
+
+/* Terminal completions - clean terminal text lines */
+.terminal-completions {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.completions-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 250px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--selection, #45475a) transparent;
+}
+
+.completions-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.completions-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.completions-list::-webkit-scrollbar-thumb {
+  background: var(--selection, #45475a);
+  border-radius: 2px;
+}
+
+.completion-item {
+  display: flex;
+  align-items: center;
+  padding: 5px 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--muted, #585b70);
+  cursor: pointer;
+  font-family: inherit;
+  user-select: none;
+  transition: color 0.08s ease;
+}
+
+.completion-item .comp-prefix {
+  width: 24px;
+  color: var(--muted, #585b70);
+  font-weight: bold;
+  flex-shrink: 0;
+  text-align: left;
+}
+
+.completion-item .comp-name {
+  color: var(--color-fg, #cdd6f4);
+}
+
+.completion-item .comp-desc {
+  color: var(--muted, #585b70);
+  margin-left: auto;
+  font-size: 13px;
+  padding-left: 20px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 280px;
+}
+
+/* Active selected line in terminal */
+.completion-item.selected,
+.completion-item:hover {
+  color: var(--color-title, #ffffff);
+}
+
+.completion-item.selected .comp-prefix,
+.completion-item:hover .comp-prefix {
+  color: var(--accent, #89b4fa);
+}
+
+.completion-item.selected .comp-name,
+.completion-item:hover .comp-name {
+  color: var(--accent, #89b4fa);
+  font-weight: 600;
+}
+
+.completion-item.selected .comp-desc,
+.completion-item:hover .comp-desc {
+  color: var(--fg-light, #bac2de);
+}
+
+/* Responsive adjustments */
 @media (max-width: 1200px) {
   .container {
     grid-template-columns: 1fr;
@@ -184,29 +403,29 @@ a:visited:hover {
 
   .right-container {
     height: auto;
+    min-height: auto;
   }
 
-  .head {
-    padding-top: 0;
-    font-size: 32px;
+  .terminal-prompt {
+    font-size: 28px;
   }
 
   .category {
-    width: 150px;
+    width: 130px;
   }
 }
 
 @media (max-width: 680px) {
   .bookmarks {
     flex-wrap: wrap;
-    gap: 20px;
+    gap: 15px;
   }
 
   .category {
-    width: 130px;
+    width: 120px;
   }
 
-  .head {
-    font-size: 26px;
+  .terminal-prompt {
+    font-size: 22px;
   }
 }
