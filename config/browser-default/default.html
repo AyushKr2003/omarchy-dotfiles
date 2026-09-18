@@ -1,91 +1,67 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="initial-scale=1, width=device-width">
-  <title>Home</title>
-
-  <link rel="stylesheet" href="reset.css">
-  <link rel="stylesheet" href="colors.css">
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>~/startpage</title>
+    <link rel="stylesheet" type="text/css" href="colors.css">
+    <link rel="stylesheet" type="text/css" href="style.css">
 </head>
 <body>
-  <div class="scene">
-    <header class="brand">
-      <span class="brand__mark">&gt;</span>
-      <span>Omarchy</span>
-    </header>
-
-    <main class="hero">
-      <p class="clock" id="clock" aria-live="off">00:00</p>
-      <p class="greeting" id="greeting"></p>
-
-      <form class="search" action="https://duckduckgo.com/" method="get" role="search" id="search-form">
-        <label for="search-input" class="visually-hidden">Search the web</label>
-        <input
-          class="search__input"
-          id="search-input"
-          type="text"
-          name="q"
-          placeholder="Search the web"
-          autocomplete="off"
-          spellcheck="false"
-          autofocus
-        >
-        <button class="search__submit" type="submit" aria-label="Search">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="7"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-        </button>
-        <!-- Search suggestions dropdown -->
-        <ul class="search__suggestions" id="search-suggestions" role="listbox" aria-label="Search suggestions"></ul>
-      </form>
-
-      <p class="search__engine">
-        Searching <button type="button" id="engine-toggle" aria-label="Change search engine">DuckDuckGo</button>
-      </p>
-
-      <nav class="quicklinks" id="quicklinks" aria-label="Omarchy links">
-        <button type="button" class="quicklink-add" id="quicklink-add-btn" aria-label="Add website pin">
-          <svg viewBox="0 0 32 32"><path d="M15 5h2v10h10v2H17v10h-2V17H5v-2h10V5z" fill="currentColor"/></svg>
-          <span>Add Pin</span>
-        </button>
-      </nav>
-    </main>
-
-    <footer class="meta">
-      <span id="date">Loading…</span>
-      <span class="meta__dot">·</span>
-      <span class="meta__theme"></span>
-    </footer>
-  </div>
-
-  <!-- Glassmorphic Add Pin Modal -->
-  <div id="add-pin-modal" class="modal" aria-hidden="true" role="dialog" aria-labelledby="modal-title">
-    <div class="modal__backdrop" id="modal-backdrop"></div>
-    <div class="modal__container" role="document">
-      <div class="modal__header">
-        <h2 class="modal__title" id="modal-title">Add Website Pin</h2>
-        <button class="modal__close" aria-label="Close modal" type="button" id="close-modal-btn">&times;</button>
-      </div>
-      <form id="add-pin-form" class="modal__form">
-        <div class="modal__field">
-          <label for="pin-url" class="modal__label">Website URL</label>
-          <input type="text" id="pin-url" class="modal__input" placeholder="e.g. youtube.com or https://example.com" required autocomplete="off">
+    <div class="container">
+        <div class="left-container">
+            <div class="gif">
+                <img src="cat.gif" alt="Cat illustration">
+            </div>
         </div>
-        <div class="modal__field">
-          <label for="pin-name" class="modal__label">Display Name</label>
-          <input type="text" id="pin-name" class="modal__input" placeholder="e.g. YouTube" required autocomplete="off">
+
+        <div class="right-container">
+            <div class="head">
+                <p><span class="prompt-symbol">&gt;</span> cd ~/<span class="blinking">_</span></p>
+            </div>
+
+            <div class="bookmarks">
+                <div class="category">
+                    <ul class="links">
+                        <li class="title">work</li>
+                        <li><a href="https://gmail.com">gmail</a></li>
+                        <li><a href="https://outlook.office.com">outlook</a></li>
+                        <li><a href="https://linkedin.com">linkedin</a></li>
+                        <li><a href="https://vim.rtorr.com/">vim</a></li>
+                    </ul>
+                </div>
+
+                <div class="category">
+                    <ul class="links">
+                        <li class="title">dev</li>
+                        <li><a href="https://github.com/">github</a></li>
+                        <li><a href="https://lobste.rs/">lobste.rs</a></li>
+                        <li><a href="https://mankier.com/">mankier</a></li>
+                        <li><a href="https://devdocs.io/">devdocs</a></li>
+                    </ul>
+                </div>
+
+                <div class="category">
+                    <ul class="links">
+                        <li class="title"><a href="https://reddit.com">reddit</a></li>
+                        <li><a href="https://reddit.com/r/programming/">programming</a></li>
+                        <li><a href="https://reddit.com/r/selfhosted/">selfhosted</a></li>
+                        <li><a href="https://reddit.com/r/unixporn/">unixporn</a></li>
+                        <li><a href="https://reddit.com/r/mechanicalkeyboards/">mk</a></li>
+                    </ul>
+                </div>
+
+                <div class="category">
+                    <ul class="links">
+                        <li class="title">play</li>
+                        <li><a href="https://monkeytype.com/">monkeytype</a></li>
+                        <li><a href="https://youtube.com/">youtube</a></li>
+                        <li><a href="https://twitch.tv/">twitch</a></li>
+                        <li><a href="https://netflix.com/">netflix</a></li>
+                    </ul>
+                </div>
+            </div>
         </div>
-        <div class="modal__actions">
-          <button type="button" class="modal__btn modal__btn--cancel" id="cancel-modal-btn">Cancel</button>
-          <button type="submit" class="modal__btn modal__btn--submit">Add Pin</button>
-        </div>
-      </form>
     </div>
-  </div>
-
-  <script src="script.js"></script>
 </body>
 </html>
