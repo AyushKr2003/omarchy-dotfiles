@@ -128,11 +128,6 @@ local function next_workspace(direction)
     end
 end
 
--- Shared globally so hyprNiri.lua's non-niri SUPER+CTRL+RIGHT/LEFT branch can
--- reuse this instead of Hyprland's plain "e+1"/"e-1" (which never lands on
--- an empty workspace). Hyprland keeps the same Lua VM alive across
--- `hyprctl reload`, so this survives reloads just like hyprNiri.lua's own
--- _G.__niriGestureMode does.
 _G.SmartWorkspace = { next = next_workspace }
 
 o.bind("SUPER + CTRL + RIGHT", "Next workspace",
@@ -239,6 +234,44 @@ o.window({ title = "^(Manga)$" }, {
 })
 
 
--- ── 9. Sub-Modules ──────────────────────────────────────────────────────────
 
-require("hypr.hyprNiri")
+
+
+-- ╭─────────────────────────────────────────────────────────────────────────╮
+-- │  Omacale keybindings — paste into ~/.config/hypr/bindings.lua           │
+-- │  Each action is an IPC call into the running Omarchy shell:             │
+-- │    omarchy-shell omacale <launcher|dashboard|session|settings|close>    │
+-- │  Keys below are unbound in a stock Omarchy install. Check yours with:   │
+-- │    omarchy menu keybindings --print                                     │
+-- ╰─────────────────────────────────────────────────────────────────────────╯
+
+-- ── Drawers ─────────────────────────────────────────────────────────────────
+
+o.bind("SUPER + A", "Omacale launcher", "omarchy-shell omacale launcher")
+o.bind("SUPER + D", "Omacale dashboard", "omarchy-shell omacale dashboard")
+o.bind("SUPER + N", "Omacale notifications sidebar", "omarchy-shell omacale sidebar")
+o.bind("SUPER + U", "Omacale quick toggles", "omarchy-shell omacale utilities")
+-- o.bind("SUPER + SHIFT + ESCAPE", "Omacale session menu", "omarchy-shell omacale session")
+o.bind("SUPER + SHIFT + I", "Omacale settings", "omarchy-shell omacale settings")
+
+-- ── Dashboard tabs ──────────────────────────────────────────────────────────
+
+o.bind("SUPER + ALT + D", "Omacale media", "omarchy-shell omacale dashboardTab media")
+o.bind("SUPER + ALT + P", "Omacale performance", "omarchy-shell omacale dashboardTab performance")
+
+-- ── Frame ───────────────────────────────────────────────────────────────────
+-- SUPER + SHIFT + SPACE ("Toggle top bar") already hides/shows Omacale's
+-- frame too; Omacale follows Omarchy's bar-off toggle.
+
+-- ── Optional: make Omacale the main launcher ────────────────────────────────
+-- These replace Omarchy defaults, so they are commented out. Remove the
+-- leading "--" to use them. The picker binds open the launcher's carousel, or
+-- Omarchy's own menu when Settings › Keybinds › Picker says "Omarchy default".
+o.rebind("SUPER + SPACE", "Omacale launcher", "omarchy-shell omacale launcher")           -- was: Omarchy menu
+o.rebind("SUPER + ESCAPE", "Omacale session menu", "omarchy-shell omacale session")      -- was: System menu
+o.rebind("SUPER + CTRL + SPACE", "Omacale wallpaper picker", "omarchy-shell omacale wallpapers")       -- was: Background switcher
+o.rebind("SUPER + SHIFT + CTRL + SPACE", "Omacale theme picker", "omarchy-shell omacale themes")       -- was: Theme menu
+o.rebind("SUPER + TAB", "Omacale workspace overview", "omarchy-shell omacale overview")                -- was: Next workspace
+
+-- Omacale look'n'feel (Caelestia styling). Keep your own tweaks below it.
+pcall(dofile, os.getenv("HOME") .. "/.config/omarchy/plugins/omacale.bar/omacale.lua")
