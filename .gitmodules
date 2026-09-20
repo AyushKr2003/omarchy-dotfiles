@@ -4,3 +4,6 @@
 [submodule "config/omarchy/plugins/shell.settings"]
 	path = config/omarchy/plugins/shell.settings
 	url = https://github.com/AyushKr2003/shell-settings.git
+[submodule "shell/omacale"]
+	path = shell/omacale
+	url = https://github.com/AyushKr2003/omacale.git

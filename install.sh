@@ -15,9 +15,15 @@ set -euo pipefail
 
 export DOTFILES_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Ensure git submodules (e.g. omarchy-overview plugin) are initialized
+# Ensure git submodules (omarchy-overview, shell-settings, omacale) are
+# initialized. shell/omacale is its own repo (AyushKr2003/omacale); it is not
+# symlinked into ~/.config. Install it with shell/omacale/install.sh, or for
+# development sync shell/omacale/omacale.bar into ~/.config/omarchy/plugins.
 if command -v git &>/dev/null && [[ -d "$DOTFILES_ROOT/.git" ]]; then
   git -C "$DOTFILES_ROOT" submodule update --init --recursive 2>/dev/null || true
+  if [[ ! -f "$DOTFILES_ROOT/shell/omacale/install.sh" ]]; then
+    echo "warning: shell/omacale submodule is missing; run: git submodule update --init shell/omacale" >&2
+  fi
 fi
 
 # ════════════════════════════════════════════════════════════════════════
