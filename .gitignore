@@ -52,4 +52,6 @@ config/omarchy/bar.json
 config/omarchy/shell.json
 config/qutebrowser/bookmarks
 config/qutebrowser/quickmarks
+config/qutebrowser/startpage.html
+config/qutebrowser/theme.py
 
