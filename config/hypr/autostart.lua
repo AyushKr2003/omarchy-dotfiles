@@ -3,6 +3,11 @@
 
 -- o.launch_on_start("hyprpm reload")
 
+-- daz.toggl-track logs into its own plugin folder by default; the shell
+-- watches that folder and reloads every plugin (and the whole Omacale bar)
+-- on each write, so the bar flickers forever. Keep its log out of there.
+hl.env("OMARCHY_TOGGL_LOG_DIR", os.getenv("HOME") .. "/.local/state/omarchy/toggl-track")
+
 -- BEGIN CURSOR CONFIG
 hl.env("XCURSOR_THEME", "volantes_cursors")
 hl.env("XCURSOR_SIZE", "28")
