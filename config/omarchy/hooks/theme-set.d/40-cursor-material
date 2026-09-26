@@ -1,0 +1,7 @@
+#!/bin/bash
+# Recolour the Bibata-Material-Omarchy cursor to the new theme accent.
+# No-op unless that cursor is selected (cursor_theme in hypr/autostart.lua).
+
+if command -v omarchy-cursor-material >/dev/null; then
+  omarchy-cursor-material || true
+fi

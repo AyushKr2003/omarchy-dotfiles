@@ -1,0 +1,205 @@
+#!/usr/bin/env python3
+
+# omarchy:summary=Rebuild the Bibata-Material-Omarchy cursor in the theme accent
+# omarchy:args=[--force] [--full] [#hex]
+
+"""Recolour the Material Bibata pointer to the current Omarchy theme accent.
+
+Adapted from Ryoku's ryoku-cursor-material-recolor (GPL-3.0-or-later,
+github.com/Ryoku-dev/ryoku); the cursors are Bibata (GPL-3.0-or-later), built
+from github.com/rtgiskard/bibata_cursor.
+
+The theme-set hook calls this on every theme change. It only acts when
+Bibata-Material-Omarchy is the selected cursor (the gsettings cursor-theme
+that hypr/autostart.lua sets), so other cursors cost nothing.
+
+The Hyprland pointer (hyprcursor, SVG) rebuilds in ~0.2s and applies at once;
+the X11 bitmaps for XWayland/GTK are slow, so they rebuild in a detached
+background pass. --full builds both synchronously (first install).
+--force builds even when another cursor is selected.
+"""
+
+import colorsys
+import fcntl
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import tomllib
+from pathlib import Path
+
+THEME = "Bibata-Material-Omarchy"
+HOME = Path.home()
+SRC = Path(os.environ.get("OMARCHY_CURSOR_BIBATA_SRC",
+                          HOME / ".local/share/omarchy-cursor-material/bibata"))
+INSTALL = HOME / ".local/share/icons"
+COLORS = HOME / ".local/state/omarchy/current/theme/colors.toml"
+LOCK = HOME / ".cache/omarchy-cursor-material.lock"
+INDEX = ("[Icon Theme]\nName=Material Bibata Cursor Omarchy\n"
+         "Comment=Material Bibata Cursor, Omarchy theme accent\nInherits=Adwaita\n")
+
+
+def gsetting(key, default):
+    try:
+        out = subprocess.run(["gsettings", "get", "org.gnome.desktop.interface", key],
+                             capture_output=True, text=True, check=True).stdout
+        return out.strip().strip("'") or default
+    except Exception:
+        return default
+
+
+def active_theme():
+    return gsetting("cursor-theme", "")
+
+
+def cursor_size():
+    # Both come from cursor_size in hypr/autostart.lua.
+    try:
+        return int(gsetting("cursor-size", os.environ.get("XCURSOR_SIZE", "24")))
+    except ValueError:
+        return 24
+
+
+def hexval(h):
+    h = str(h).strip().lstrip("#")
+    if len(h) == 3:
+        h = "".join(c * 2 for c in h)
+    if len(h) != 6:
+        return None
+    try:
+        return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+    except ValueError:
+        return None
+
+
+def tohex(rgb):
+    return "#%02x%02x%02x" % tuple(max(0, min(255, round(c))) for c in rgb)
+
+
+def relit(rgb, lightness, sat_cap):
+    r, g, b = (c / 255 for c in rgb)
+    hh, _, ss = colorsys.rgb_to_hls(r, g, b)
+    return tohex(tuple(c * 255 for c in colorsys.hls_to_rgb(hh, lightness, min(ss, sat_cap))))
+
+
+def accent():
+    for a in sys.argv[1:]:
+        if not a.startswith("-") and hexval(a):
+            return tohex(hexval(a))
+    try:
+        p = tomllib.loads(COLORS.read_text()).get("accent")
+    except Exception:
+        p = None
+    return tohex(hexval(p)) if p and hexval(p) else "#e2342a"
+
+
+def colors_from(acc):
+    # body = dark container in the accent hue, outline = accent, spinner = darker
+    rgb = hexval(acc)
+    return relit(rgb, 0.16, 0.35), acc, relit(rgb, 0.06, 0.40)
+
+
+def compile_theme(flags, body, primary, watch):
+    """Compile the recoloured theme; returns (workdir, compiled_dir)."""
+    if not (SRC / "src/cursor_utils.py").is_file():
+        sys.exit(f"bibata source missing at {SRC} (run install.sh)")
+    work = Path(tempfile.mkdtemp(prefix="omarchy-cursor-"))
+    for sub in ("src", "svg", "config"):
+        shutil.copytree(SRC / sub, work / sub)
+    render = work / "config/render.json"
+    d = json.loads(render.read_text())
+    t = "Bibata-Modern-Classic"
+    d[t]["colors"][0]["replace"] = body
+    d[t]["colors"][1]["replace"] = primary
+    d[t]["colors"][2]["replace"] = watch
+    render.write_text(json.dumps(d, indent=2))
+    # --out-dir must be relative: the builder symlinks resources under it.
+    subprocess.run([sys.executable, "src/cursor_utils.py", *flags,
+                    "--theme", t, "--out-dir", "out"],
+                   cwd=work, check=True,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return work, work / "out" / t
+
+
+def install_parts(compiled, parts):
+    """Replace only the named parts, so a hypr pass keeps the X11 cursors/."""
+    final = INSTALL / THEME
+    final.mkdir(parents=True, exist_ok=True)
+    (final / "index.theme").write_text(INDEX)
+    for name in parts:
+        src = compiled / name
+        if not src.exists():
+            continue
+        dst = final / name
+        if dst.is_dir():
+            shutil.rmtree(dst, ignore_errors=True)
+        elif dst.exists():
+            dst.unlink()
+        shutil.move(str(src), str(dst))
+
+
+def build(flags, parts, colors):
+    work, compiled = compile_theme(flags, *colors)
+    try:
+        install_parts(compiled, parts)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def build_hypr(colors):
+    build(["--hypr"], ["hyprcursors", "manifest.hl"], colors)
+
+
+def build_x11(colors):
+    build(["--x11"], ["cursors"], colors)
+
+
+def apply_live():
+    subprocess.run(["hyprctl", "setcursor", THEME, str(cursor_size())],
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def x11_locked(fn):
+    """Skip if an X11 build already runs: the builder renders through a fixed
+    /tmp path, so two at once would collide."""
+    LOCK.parent.mkdir(parents=True, exist_ok=True)
+    with open(LOCK, "w") as fh:
+        try:
+            fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            return
+        fn()
+
+
+def main():
+    args = sys.argv[1:]
+    colors = colors_from(accent())
+
+    # internal: background X11-only pass spawned by the fast path
+    if "--x11only" in args:
+        x11_locked(lambda: build_x11(colors))
+        return
+
+    # --force builds even when another cursor is selected, but only switches
+    # the live pointer when this theme is the selected one.
+    live = active_theme() == THEME
+    if not live and "--force" not in args:
+        return
+
+    build_hypr(colors)
+    if live:
+        apply_live()
+    if "--full" in args:
+        x11_locked(lambda: build_x11(colors))
+        if live:
+            apply_live()
+    else:
+        subprocess.Popen([sys.executable, os.path.abspath(__file__), "--x11only", colors[1]],
+                         start_new_session=True,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+if __name__ == "__main__":
+    main()

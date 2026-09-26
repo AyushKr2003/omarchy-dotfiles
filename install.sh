@@ -137,6 +137,8 @@ PACMAN_PACKAGES=(
   qutebrowser     # keyboard-driven browser
   python-adblock  # adblock backend for qutebrowser
   socat           # fievel-notify listens on Hyprland's event socket
+  librsvg         # omarchy-cursor-material renders Bibata SVGs
+  xorg-xcursorgen # omarchy-cursor-material builds the X11 cursor set
   superfile       # GUI like file manager in termianl
   qt6-imageformats # quickshell webP image support
   python-curl_cffi # for manga quickshell plugin backend
@@ -328,6 +330,30 @@ else
     find "$DEST_LOCAL/bin" -maxdepth 1 -type f -exec chmod +x {} \; 2>/dev/null || true
   fi
 fi
+
+# ════════════════════════════════════════════════════════════════════════
+# SECTION: Material Bibata cursor (follows the theme accent)
+# ════════════════════════════════════════════════════════════════════════
+# omarchy-cursor-material rebuilds Bibata-Material-Omarchy from the Bibata
+# SVG source on every theme change (hooks/theme-set.d/40-cursor-material).
+# Pinned to the commit Ryoku builds from. Select it via cursor_theme in
+# hypr/autostart.lua. Runs after .local/ so the tool is on PATH.
+
+gum style --foreground 2 "==> Installing Material Bibata cursor"
+
+BIBATA_COMMIT="f4ccfe8abb63fddc7b3ce51a866fd8378395cb3d"
+BIBATA_SRC="$HOME/.local/share/omarchy-cursor-material/bibata"
+
+if [[ $(git -C "$BIBATA_SRC" rev-parse HEAD 2>/dev/null) == "$BIBATA_COMMIT" ]]; then
+  echo "    Bibata source already at pinned commit, skipping clone."
+else
+  rm -rf "$BIBATA_SRC"
+  git clone -q https://github.com/rtgiskard/bibata_cursor.git "$BIBATA_SRC"
+  git -C "$BIBATA_SRC" checkout -q "$BIBATA_COMMIT"
+fi
+
+"$HOME/.local/bin/omarchy-cursor-material" --force --full
+echo "    Built Bibata-Material-Omarchy in the current theme accent."
 
 # ════════════════════════════════════════════════════════════════════════
 # SECTION: fievel (keyboard-driven mouse)
