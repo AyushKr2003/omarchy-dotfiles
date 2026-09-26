@@ -178,49 +178,12 @@ o.bind("mouse:275", "Orbit Press", "~/.config/omarchy/plugins/local.orbit/script
 o.bind("mouse:275", "Orbit Release", "~/.config/omarchy/plugins/local.orbit/scripts/orbit-release.sh", { locked = true, release = true })
 
 
--- ── 7. Keyboard Mouse Control (Submap) ──────────────────────────────────────
+-- ── 7. Keyboard Mouse Control ─────────────────────────────────────────────
 
+-- Handled by fievel (~/.config/fievel/fievel.config), not Hyprland:
+-- SUPER + CTRL + M toggles mouse mode. fievel reads the keyboard directly.
 
-o.bind("SUPER + CTRL + M", "Enter keyboard cursor mode", function()
-  hl.exec_cmd("omarchy-notification-send --app-name 'cursor-mode' -u critical -g 󰍽 'Cursor Mode' 'Keyboard mouse control: ON'")
-  hl.dispatch(hl.dsp.submap("cursor"))
-end)
-
-hl.define_submap("cursor", function()
-  -- Directional movement
-  o.bind("H", "Cursor left",  "ydotool mousemove -- -15 0", { repeating = true })
-  o.bind("J", "Cursor down",  "ydotool mousemove -- 0 15",  { repeating = true })
-  o.bind("K", "Cursor up",    "ydotool mousemove -- 0 -15", { repeating = true })
-  o.bind("L", "Cursor right", "ydotool mousemove -- 15 0",  { repeating = true })
-
-  -- Left click behaves exactly like a real mouse button:
-  -- press = down, release = up. Tap = click, tap-tap = double click,
-  -- hold = drag/selection.
-  o.bind("S", "Left button down", "ydotool click 0x40")
-  o.bind("S", "Left button up",   "ydotool click 0x80", { release = true })
-
-  -- Middle click stays a plain instant click (rarely need middle-drag)
-  o.bind("D", "Middle click", "ydotool click 0xC2")
-
-  -- Right click, same press/release pattern for right-drag
-  o.bind("F", "Right button down", "ydotool click 0x41")
-  o.bind("F", "Right button up",   "ydotool click 0x81", { release = true })
-
-  -- Scroll controls
-  o.bind("E", "Scroll up",   "ydotool mousemove -w -x 0 -y -5", { repeating = true })
-  o.bind("X", "Scroll down", "ydotool mousemove -w -x 0 -y 5",  { repeating = true })
-
-  -- Exit submap — defensively send button-up for both, in case you leave
-  -- the submap while a button is physically still held (Escape while
-  -- dragging, focus loss, etc). Sending "up" on an already-released button
-  -- is a no-op, same as it would be on real hardware.
-  o.bind("ESCAPE", "Exit cursor mode", function()
-    hl.exec_cmd("ydotool click 0x80")
-    hl.exec_cmd("ydotool click 0x81")
-    hl.exec_cmd("omarchy-shell -q notifications dismiss 'Cursor Mode'")
-    hl.dispatch(hl.dsp.submap("reset"))
-  end)
-end)-- ── 8. Window Rules ─────────────────────────────────────────────────────────
+-- ── 8. Window Rules ─────────────────────────────────────────────────────────
 
 -- Omarchy Settings
 o.window({ title = "^(Omarchy Settings)$" }, { tag = "+floating-window" })

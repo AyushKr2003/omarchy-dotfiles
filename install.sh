@@ -136,7 +136,7 @@ PACMAN_PACKAGES=(
   yazi            # terminal file manager
   qutebrowser     # keyboard-driven browser
   python-adblock  # adblock backend for qutebrowser
-  ydotool         # uinput-based input automation (keyboard-driven cursor)
+  socat           # fievel-notify listens on Hyprland's event socket
   superfile       # GUI like file manager in termianl
   qt6-imageformats # quickshell webP image support
   python-curl_cffi # for manga quickshell plugin backend
@@ -205,11 +205,11 @@ chsh -s "$(which fish)"
 omarchy-pkg-drop 1password-beta 1password-cli
 
 # ════════════════════════════════════════════════════════════════════════
-# SECTION: input group + uinput (required for ydotool)
+# SECTION: input group + uinput (required for fievel)
 # ════════════════════════════════════════════════════════════════════════
 # Mirrors Omarchy's own install/config/input-group.sh pattern exactly.
 
-gum style --foreground 2 "==> Configuring uinput access for ydotool"
+gum style --foreground 2 "==> Configuring uinput access for fievel"
 
 echo "    Loading uinput kernel module"
 sudo modprobe uinput
@@ -223,23 +223,6 @@ if groups "$USER" | grep -qw input; then
 else
   sudo usermod -aG input "$USER"
   echo "    Added. NOTE: log out and back in (or reboot) for this to take effect."
-fi
-
-# ════════════════════════════════════════════════════════════════════════
-# SECTION: ydotool service
-# ════════════════════════════════════════════════════════════════════════
-# Backs the keyboard-driven cursor binds in ~/.config/hypr/bindings.lua.
-# If the user was JUST added to the 'input' group above, this may still
-# fail until they log out/in — that's expected, not a bug.
-
-gum style --foreground 2 "==> Enabling ydotool service"
-
-systemctl --user enable --now ydotool 2>&1 || true
-
-if systemctl --user is-active --quiet ydotool; then
-  echo "    ydotool service is active."
-else
-  gum style --foreground 3 "ydotool service did not start. If you were just added to the 'input' group, log out/in and run:  systemctl --user restart ydotool"
 fi
 
 # ════════════════════════════════════════════════════════════════════════
@@ -344,6 +327,52 @@ else
     # Only affects actual files, resolving through symlinks where necessary
     find "$DEST_LOCAL/bin" -maxdepth 1 -type f -exec chmod +x {} \; 2>/dev/null || true
   fi
+fi
+
+# ════════════════════════════════════════════════════════════════════════
+# SECTION: fievel (keyboard-driven mouse)
+# ════════════════════════════════════════════════════════════════════════
+# Not in the AUR — pinned release binary into ~/.local/bin. Runs after the
+# .config/ section so fievel.config and fievel.service are already linked.
+# To update: bump FIEVEL_VERSION and FIEVEL_SHA256 (sha256 of the tarball).
+
+gum style --foreground 2 "==> Installing fievel"
+
+FIEVEL_VERSION="1.1.0"
+FIEVEL_SHA256="2ab24467951084c278bb3e5a07f8e27b8a367a149be4606289834e3113d14de5"
+FIEVEL_BIN="$HOME/.local/bin/fievel"
+
+if [[ -x $FIEVEL_BIN && -f $HOME/.local/state/fievel/installed-version && $(<"$HOME/.local/state/fievel/installed-version") == "$FIEVEL_VERSION" ]]; then
+  echo "    fievel $FIEVEL_VERSION already installed, skipping download."
+else
+  FIEVEL_TMP=$(mktemp -d)
+  FIEVEL_TAR="$FIEVEL_TMP/fievel.tar.gz"
+  curl -fsSL -o "$FIEVEL_TAR" \
+    "https://github.com/MontyTheSoftwareEngineer/fievel/releases/download/$FIEVEL_VERSION/fievel-$FIEVEL_VERSION-linux-x64.tar.gz"
+  if ! echo "$FIEVEL_SHA256  $FIEVEL_TAR" | sha256sum -c --quiet -; then
+    gum style --foreground 1 "fievel checksum mismatch, not installing."
+    rm -rf "$FIEVEL_TMP"
+    exit 1
+  fi
+  tar -xzf "$FIEVEL_TAR" -C "$FIEVEL_TMP" fievel
+  install -Dm755 "$FIEVEL_TMP/fievel" "$FIEVEL_BIN"
+  mkdir -p "$HOME/.local/state/fievel"
+  echo "$FIEVEL_VERSION" >"$HOME/.local/state/fievel/installed-version"
+  rm -rf "$FIEVEL_TMP"
+  echo "    Installed fievel $FIEVEL_VERSION to $FIEVEL_BIN"
+fi
+
+# Replaced ydotool's cursor submap; stop its daemon if an older install left it on.
+systemctl --user disable --now ydotool 2>/dev/null || true
+
+systemctl --user daemon-reload
+systemctl --user enable fievel fievel-notify 2>&1 || true
+systemctl --user restart fievel fievel-notify 2>&1 || true
+
+if systemctl --user is-active --quiet fievel; then
+  echo "    fievel service is active (Super+Ctrl+M toggles mouse mode)."
+else
+  gum style --foreground 3 "fievel did not start. If you were just added to the 'input' group, log out/in and run:  systemctl --user restart fievel"
 fi
 
 # ════════════════════════════════════════════════════════════════════════

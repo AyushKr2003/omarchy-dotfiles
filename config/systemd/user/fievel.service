@@ -1,0 +1,12 @@
+[Unit]
+Description=fievel keyboard-driven mouse
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+ExecStart=%h/.local/bin/fievel
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

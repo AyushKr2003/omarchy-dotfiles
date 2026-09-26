@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+# Show a critical "Cursor Mode" notification while fievel's Free Mouse Mode is on.
+# fievel has no hooks, but it maps a "fievel-indicator" layer surface exactly
+# while the mode is active, so follow that in Hyprland's event socket.
+
+socket="$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock"
+
+socat -U - "UNIX-CONNECT:$socket" | while IFS= read -r event; do
+  case "$event" in
+    "openlayer>>fievel-indicator")
+      omarchy-notification-send --app-name 'cursor-mode' -u critical -g 󰍽 'Cursor Mode' 'Keyboard mouse control: ON'
+      ;;
+    "closelayer>>fievel-indicator")
+      omarchy-shell -q notifications dismiss 'Cursor Mode'
+      ;;
+  esac
+done

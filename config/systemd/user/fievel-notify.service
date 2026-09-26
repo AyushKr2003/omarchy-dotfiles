@@ -1,0 +1,12 @@
+[Unit]
+Description=Cursor Mode notification for fievel
+PartOf=fievel.service
+After=fievel.service
+
+[Service]
+ExecStart=%h/.local/bin/fievel-notify
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=fievel.service

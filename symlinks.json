@@ -2,6 +2,7 @@
   "config": {
     "browser-default": "dir",
     "fastfetch": "dir",
+    "fievel": "dir",
     "fish": "files",
     "herdr": "files",
     "hypr": "files",
@@ -11,7 +12,8 @@
     "omarchy/plugins": "dir",
     "omarchy/hooks/theme-set.d": "dir",
     "qutebrowser": "dir",
-    "superfile": "files"
+    "superfile": "files",
+    "systemd": "files"
   },
   "local": {
     "bin": "files"
