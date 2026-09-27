@@ -51,7 +51,7 @@ hl.unbind("SUPER + B")
 o.bind("SUPER + B", "Zen Browser", { launch = "zen-browser" })
 
 hl.unbind("SUPER + SHIFT + B")
-o.bind("SUPER + SHIFT + B", "QuteBrowser (Private)", { launch = "bash -c 'qutebrowser --basedir /tmp/qb-private-$(date +%s) --config $HOME/.config/qutebrowser/private.py --target window'" })
+o.bind("SUPER + SHIFT + B", "QuteBrowser (Private)", { launch = "bash -c 'qutebrowser --target private-window file://$HOME/.config/qutebrowser/startpage.html'" })
 
 hl.unbind("SUPER + SHIFT + W")
 o.bind("SUPER + SHIFT + W", "WhatsApp Web", { webapp = "https://web.whatsapp.com/", focus = true })
