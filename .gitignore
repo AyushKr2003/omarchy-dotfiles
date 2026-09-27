@@ -32,7 +32,6 @@ config/hypr/hyprlock.conf
 config/hypr/hyprsunset.conf
 config/hypr/monitors.lua
 config/hypr/xdph.conf
-config/superfile/theme/
 config/fish/completions/
 config/fish/conf.d/
 config/fish/functions/

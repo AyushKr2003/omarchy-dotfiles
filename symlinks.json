@@ -12,7 +12,6 @@
     "omarchy/plugins": "dir",
     "omarchy/hooks/theme-set.d": "dir",
     "qutebrowser": "dir",
-    "superfile": "files",
     "systemd": "files"
   },
   "local": {

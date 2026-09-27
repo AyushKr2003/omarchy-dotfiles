@@ -139,7 +139,6 @@ PACMAN_PACKAGES=(
   socat           # fievel-notify listens on Hyprland's event socket
   librsvg         # omarchy-cursor-material renders Bibata SVGs
   xorg-xcursorgen # omarchy-cursor-material builds the X11 cursor set
-  superfile       # GUI like file manager in termianl
   qt6-imageformats # quickshell webP image support
   python-curl_cffi # for manga quickshell plugin backend
   # Add more pacman packages here as you grow this repo.
@@ -157,6 +156,7 @@ gum style --foreground 2 "==> Installing AUR packages"
 
 AUR_PACKAGES=(
   herdr-bin       # terminal workspace manager for AI coding agents
+  flea-bin        # keyboard-first file manager for Omarchy (Quickshell UI + Rust backend)
   # Add more aur packages here as you grow this repo.
 )
 
