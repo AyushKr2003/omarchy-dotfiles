@@ -32,9 +32,6 @@ config/hypr/hyprlock.conf
 config/hypr/hyprsunset.conf
 config/hypr/monitors.lua
 config/hypr/xdph.conf
-config/fish/completions/
-config/fish/conf.d/
-config/fish/functions/
 config/fish/fish_variables
 config/omarchy/current
 config/omarchy/backgrounds/
@@ -54,3 +51,9 @@ config/qutebrowser/quickmarks
 config/qutebrowser/startpage.html
 config/qutebrowser/theme.py
 
+
+# Local shell experiments (not tracked)
+shell/caelestia-kde/
+shell/caelestia_shell/
+shell/ruixen-shell/
+shell/Shibumi-Shell/

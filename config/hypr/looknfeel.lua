@@ -62,8 +62,8 @@ hl.config({
     },
 
     -- Apply opacity + blur to all windows
-    active_opacity = 0.9,
-    inactive_opacity = 0.9,
+    -- active_opacity = 0.9,
+    -- inactive_opacity = 0.9,
 
   },
 })

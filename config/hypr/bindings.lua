@@ -188,7 +188,7 @@ o.bind("mouse:275", "Orbit Release", "~/.config/omarchy/plugins/local.orbit/scri
 -- Omarchy Settings
 o.window({ title = "^(Omarchy Settings)$" }, { tag = "+floating-window" })
 
--- Flea
+-- Flea 
 o.window("com.thisisgm.flea", { tag = "+floating-window" })
 
 -- Manga Panel
@@ -213,12 +213,13 @@ o.window({ title = "^(Manga)$" }, {
 
 -- ── Drawers ─────────────────────────────────────────────────────────────────
 
-o.bind("SUPER + A", "Omacale launcher", "omarchy-shell omacale launcher")
+o.bind("SUPER + CTRL + 0", "Omacale bar focus", "omarchy-shell omacale barFocus")
 o.bind("SUPER + D", "Omacale dashboard", "omarchy-shell omacale dashboard")
 o.bind("SUPER + N", "Omacale notifications sidebar", "omarchy-shell omacale sidebar")
 o.bind("SUPER + U", "Omacale quick toggles", "omarchy-shell omacale utilities")
 -- o.bind("SUPER + SHIFT + ESCAPE", "Omacale session menu", "omarchy-shell omacale session")
 o.bind("SUPER + SHIFT + I", "Omacale settings", "omarchy-shell omacale settings")
+o.rebind("SUPER + CTRL + V", "Omacale clipboard", "omarchy-shell omacale clipboard")                    -- was: Clipboard manager
 
 -- ── Dashboard tabs ──────────────────────────────────────────────────────────
 
@@ -234,6 +235,7 @@ o.bind("SUPER + ALT + P", "Omacale performance", "omarchy-shell omacale dashboar
 -- leading "--" to use them. The picker binds open the launcher's carousel, or
 -- Omarchy's own menu when Settings › Keybinds › Picker says "Omarchy default".
 o.rebind("SUPER + SPACE", "Omacale launcher", "omarchy-shell omacale launcher")           -- was: Omarchy menu
+o.rebind("SUPER + ALT + SPACE", "Omacale menu", "omarchy-shell omacale menu")
 o.rebind("SUPER + ESCAPE", "Omacale session menu", "omarchy-shell omacale session")      -- was: System menu
 o.rebind("SUPER + CTRL + SPACE", "Omacale wallpaper picker", "omarchy-shell omacale wallpapers")       -- was: Background switcher
 o.rebind("SUPER + SHIFT + CTRL + SPACE", "Omacale theme picker", "omarchy-shell omacale themes")       -- was: Theme menu
