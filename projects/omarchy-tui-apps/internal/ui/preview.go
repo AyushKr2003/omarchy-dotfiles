@@ -1,85 +1,77 @@
 package ui
 
 import (
-	"fmt"
+	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
+	"omarchy-tui-apps/internal/desktop"
 )
 
-func (m Model) BuildPreviewLines(contentW, bodyH int) []string {
-	th := m.th
-	mkCol := func(hex string) lipgloss.Style {
-		return lipgloss.NewStyle().Foreground(lipgloss.Color(hex))
-	}
-	accentS := mkCol(th.Accent).Bold(true)
-	mutedS := mkCol(th.Muted)
-	fgS := mkCol(th.Fg)
+// previewBox renders the details box, the same height as the list box.
+func (m Model) previewBox(l Layout) []string {
+	st := m.st
+	inner := l.PrevW - 2
+	edge := st.border.Render(boxV)
 
-	lbl := func(k string) string { return mutedS.Render(fmt.Sprintf("%-10s", k)) }
-	val := func(v string) string {
-		if v == "" {
-			v = "-"
-		}
-		return fgS.Render(Truncate(v, Max(0, contentW-10)))
+	lines := make([]string, 0, l.BodyH+4)
+	lines = append(lines, m.topBorder(l.PrevW, "Details", ""))
+	for _, line := range m.previewLines(inner-2, l.BodyH+2) {
+		lines = append(lines, edge+" "+fit(line, inner-2)+" "+edge)
 	}
-	block := func(v string) []string {
-		if v == "" {
-			v = "-"
-		}
-		var out []string
-		for _, l := range WrapToLines(v, contentW) {
-			out = append(out, fgS.Render(l))
-		}
-		return out
-	}
+	lines = append(lines, st.border.Render(boxBL+strings.Repeat(boxH, inner)+boxBR))
+	return lines
+}
 
+// previewLines returns exactly h lines describing the selected app.
+func (m Model) previewLines(w, h int) []string {
+	st := m.st
 	var lines []string
 	add := func(s string) { lines = append(lines, s) }
-	adds := func(ss []string) { lines = append(lines, ss...) }
-
-	if len(m.visible) == 0 || m.cursor >= len(m.visible) {
-		add(mutedS.Render("no selection"))
-		for len(lines) < bodyH {
-			lines = append(lines, "")
+	section := func(label, value string) {
+		if value == "" {
+			return
 		}
-		return lines
+		add("")
+		add(st.label.Render(label))
+		for _, l := range wrap(value, w) {
+			add(st.fg.Render(l))
+		}
 	}
 
-	sel := m.visible[m.cursor]
-	typeVal := sel.RawType
-	if typeVal == "" {
-		typeVal = "Application"
-	}
-	termVal := "false"
-	if sel.Terminal {
-		termVal = "true"
-	}
-	comment := sel.RawComment
-	if comment == "" {
-		comment = sel.SubTitle
+	if m.cursor < len(m.visible) && w > 0 {
+		sel := m.visible[m.cursor]
+		icon := IconPad(sel.Icon, 2) + " "
+		indent := spaces(ansi.StringWidth(icon))
+		textW := max(0, w-ansi.StringWidth(icon))
+
+		kind := "Desktop app"
+		switch {
+		case sel.Flatpak:
+			kind = "Flatpak"
+		case sel.Icon == desktop.IconTerminal:
+			kind = "Terminal app"
+		}
+
+		add("")
+		add(st.icon(sel).Render(icon) + st.accent.Render(ansi.Truncate(sel.Name, textW, "…")))
+		if sel.SubTitle != "" {
+			add(indent + st.muted.Render(ansi.Truncate(sel.SubTitle, textW, "…")))
+		}
+		add(indent + st.icon(sel).Render(ansi.Truncate(kind, textW, "…")))
+
+		if sel.RawComment != sel.SubTitle {
+			section("Comment", sel.RawComment)
+		}
+		section("Exec", sel.Exec)
+		section("ID", sel.ID)
+		section("Desktop file", sel.DesktopFile)
+	} else {
+		add("")
+		add(st.muted.Render("No selection"))
 	}
 
-	add("")
-	add(accentS.Render(Truncate(sel.Name, contentW)))
-	if sel.SubTitle != "" {
-		add(mutedS.Render(Truncate(sel.SubTitle, contentW)))
+	for len(lines) < h {
+		add("")
 	}
-	add("")
-	add(lbl("Type") + val(typeVal))
-	add(lbl("Terminal") + val(termVal))
-	add(lbl("ID") + val(sel.ID))
-	add("")
-	add(mutedS.Render("Exec"))
-	adds(block(sel.Exec))
-	add("")
-	add(mutedS.Render("Comment"))
-	adds(block(comment))
-	add("")
-	add(mutedS.Render("Desktop file"))
-	adds(block(sel.DesktopFile))
-
-	for len(lines) < bodyH {
-		lines = append(lines, "")
-	}
-	return lines
+	return lines[:h]
 }

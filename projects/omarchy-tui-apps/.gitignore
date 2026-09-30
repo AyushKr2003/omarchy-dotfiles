@@ -1,7 +1,7 @@
-# Binary outputs
-bin/
-apps
-a
+# Binary outputs (anchored, so cmd/apps/ is not ignored)
+/bin/
+/apps
+/a
 
 # Go build & test artifacts
 *.out
@@ -14,7 +14,7 @@ a
 *~
 
 # Arch PKGBUILD build directories
-pkg/
-src/
+/pkg/
+/src/
 *.pkg.tar.zst
 *.pkg.tar.xz

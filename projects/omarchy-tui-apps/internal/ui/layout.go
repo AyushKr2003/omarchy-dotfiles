@@ -2,149 +2,135 @@ package ui
 
 import (
 	"strings"
+	"unicode"
 
-	"github.com/mattn/go-runewidth"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 const (
-	Gap       = 2 // blank columns between the two inner boxes
-	ListPad   = 1 // horizontal padding inside list box (each side)
-	PrevPad   = 1 // horizontal padding inside preview box (each side)
-	FixedRows = 8
+	gap             = 1  // blank columns between the list and preview boxes
+	chromeRows      = 5  // top border, search, separator, bottom border, footer
+	minWidth        = 24 // below this the UI is replaced by a notice
+	minHeight       = 7
+	previewMinWidth = 76 // narrower terminals show the list only
 )
 
+// Layout holds the outer widths of the two boxes and the number of list rows.
+// PrevW is 0 when the preview is hidden.
 type Layout struct {
-	InnerW, ListBW, ListBodyW, PrevBW, PrevBodyW, BodyH int
+	ListW, PrevW, BodyH int
 }
 
 func ComputeLayout(w, h int) Layout {
-	innerW := Max(0, w-2)
-	prevBW := int(float64(innerW) * 0.46)
-	listBW := Max(0, innerW-prevBW-Gap)
-	return Layout{
-		InnerW:    innerW,
-		ListBW:    listBW,
-		ListBodyW: Max(0, listBW-2-2*ListPad),
-		PrevBW:    prevBW,
-		PrevBodyW: Max(0, prevBW-2-2*PrevPad),
-		BodyH:     Max(0, h-FixedRows),
+	inner := max(0, w-2)
+	l := Layout{ListW: inner, BodyH: max(0, h-chromeRows)}
+	if w >= previewMinWidth {
+		l.PrevW = inner * 42 / 100
+		l.ListW = inner - gap - l.PrevW
 	}
+	return l
+}
+
+func spaces(n int) string {
+	return strings.Repeat(" ", max(0, n))
+}
+
+// fit truncates or pads s (which may contain ANSI styling) to exactly w cells.
+func fit(s string, w int) string {
+	if w <= 0 {
+		return ""
+	}
+	if ansi.StringWidth(s) > w {
+		s = ansi.Truncate(s, w, "…")
+	}
+	return s + spaces(w-ansi.StringWidth(s))
+}
+
+// tail keeps the end of s when it is wider than w, for text being typed.
+func tail(s string, w int) string {
+	over := ansi.StringWidth(s) - w
+	if over <= 0 {
+		return s
+	}
+	return ansi.TruncateLeft(s, over+1, "…")
 }
 
 func IconPad(icon string, w int) string {
-	cur := runewidth.StringWidth(icon)
-	if cur >= w {
+	pad := w - ansi.StringWidth(icon)
+	if pad <= 0 {
 		return icon
 	}
-	pad := w - cur
-	return strings.Repeat(" ", pad/2) + icon + strings.Repeat(" ", pad-pad/2)
+	return spaces(pad/2) + icon + spaces(pad-pad/2)
 }
 
-func Truncate(s string, maxW int) string {
-	if maxW <= 0 {
-		return ""
-	}
-	if runewidth.StringWidth(s) <= maxW {
-		return s
-	}
-	budget := maxW - 1
-	cur := 0
-	var out []rune
-	for _, r := range s {
-		rw := runewidth.RuneWidth(r)
-		if cur+rw > budget {
-			break
-		}
-		out = append(out, r)
-		cur += rw
-	}
-	return string(out) + "…"
-}
-
-func WrapToLines(s string, maxW int) []string {
-	if maxW <= 0 {
-		return []string{s}
+// wrap breaks s into lines of at most w cells, preferring to break after a
+// space or a path separator.
+func wrap(s string, w int) []string {
+	if w <= 0 {
+		return nil
 	}
 	var lines []string
-	for {
-		if runewidth.StringWidth(s) <= maxW {
-			lines = append(lines, s)
-			break
-		}
-		cut := -1
-		cur := 0
+	for ansi.StringWidth(s) > w {
+		cut, soft, cur := 0, 0, 0
 		for i, r := range s {
-			rw := runewidth.RuneWidth(r)
-			if cur+rw > maxW {
+			rw := ansi.StringWidth(string(r))
+			if cur+rw > w {
+				cut = i
 				break
-			}
-			if r == '/' && i > 0 {
-				cut = i + 1
 			}
 			cur += rw
-		}
-		if cut <= 0 {
-			cut = 0
-			cur = 0
-			for i, r := range s {
-				rw := runewidth.RuneWidth(r)
-				if cur+rw > maxW {
-					cut = i
-					break
-				}
-				cur += rw
+			if r == ' ' || r == '/' {
+				soft = i + 1
 			}
-			if cut == 0 {
+		}
+		if soft > 0 {
+			cut = soft
+		}
+		if cut == 0 {
+			break
+		}
+		lines = append(lines, strings.TrimRight(s[:cut], " "))
+		s = strings.TrimLeft(s[cut:], " ")
+	}
+	return append(lines, s)
+}
+
+// highlight renders s in base, with the first occurrence of each query token
+// rendered in hi.
+func highlight(s string, tokens []string, base, hi lipgloss.Style) string {
+	if len(tokens) == 0 || s == "" {
+		return base.Render(s)
+	}
+	rs := []rune(s)
+	low := make([]rune, len(rs))
+	for i, r := range rs {
+		low[i] = unicode.ToLower(r)
+	}
+	mark := make([]bool, len(rs))
+	for _, t := range tokens {
+		tr := []rune(t)
+		for i := 0; i+len(tr) <= len(low); i++ {
+			if string(low[i:i+len(tr)]) == t {
+				for j := range tr {
+					mark[i+j] = true
+				}
 				break
 			}
 		}
-		lines = append(lines, s[:cut])
-		s = s[cut:]
 	}
-	return lines
-}
-
-func StripANSI(s string) string {
-	var out []rune
-	inESC := false
-	for _, r := range s {
-		if inESC {
-			if r == 'm' {
-				inESC = false
-			}
-			continue
+	var sb strings.Builder
+	for i := 0; i < len(rs); {
+		j := i
+		for j < len(rs) && mark[j] == mark[i] {
+			j++
 		}
-		if r == '\x1b' {
-			inESC = true
-			continue
+		if mark[i] {
+			sb.WriteString(hi.Render(string(rs[i:j])))
+		} else {
+			sb.WriteString(base.Render(string(rs[i:j])))
 		}
-		out = append(out, r)
+		i = j
 	}
-	return string(out)
-}
-
-func Vw(s string) int {
-	return runewidth.StringWidth(StripANSI(s))
-}
-
-func Pad(s string, w int) string {
-	n := w - Vw(s)
-	if n <= 0 {
-		return s
-	}
-	return s + strings.Repeat(" ", n)
-}
-
-func Max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-func Min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
+	return sb.String()
 }

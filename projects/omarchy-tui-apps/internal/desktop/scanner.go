@@ -24,6 +24,7 @@ type AppItem struct {
 	SearchText  string
 	Exec        string
 	Terminal    bool
+	Flatpak     bool
 	RawType     string
 	RawComment  string
 }
@@ -154,15 +155,21 @@ func IsTerminalExec(exec string) bool {
 }
 
 func ScanDir(dir string, cfg ScanCfg, seenAll, seenFilt map[string]bool) (all, filt []AppItem) {
+	return scanDir(dir, dir, cfg, seenAll, seenFilt)
+}
+
+// scanDir walks dir, deriving desktop IDs relative to root so entries in
+// subdirectories keep their prefix (kde/foo.desktop -> kde-foo).
+func scanDir(root, dir string, cfg ScanCfg, seenAll, seenFilt map[string]bool) (all, filt []AppItem) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return
 	}
-	isFP := IsFlatpakDir(dir)
+	isFP := IsFlatpakDir(root)
 	var paths []string
 	for _, e := range entries {
 		if e.IsDir() {
-			a, f := ScanDir(filepath.Join(dir, e.Name()), cfg, seenAll, seenFilt)
+			a, f := scanDir(root, filepath.Join(dir, e.Name()), cfg, seenAll, seenFilt)
 			all = append(all, a...)
 			filt = append(filt, f...)
 			continue
@@ -177,10 +184,15 @@ func ScanDir(dir string, cfg ScanCfg, seenAll, seenFilt map[string]bool) (all, f
 		if !ok || (e.EntryType != "" && e.EntryType != "Application") {
 			continue
 		}
-		if e.Name == "" || e.Exec == "" {
+		id := DesktopID(root, path)
+		// The first file found for an ID wins, so an override in a
+		// higher-precedence dir masks the system copy even when it only
+		// hides the entry.
+		firstAll, firstFilt := !seenAll[id], !seenFilt[id]
+		seenAll[id], seenFilt[id] = true, true
+		if e.Hidden || e.Name == "" || e.Exec == "" {
 			continue
 		}
-		id := DesktopID(dir, path)
 		icon := IconApp
 		if isFP {
 			icon = IconFlatpak
@@ -197,19 +209,17 @@ func ScanDir(dir string, cfg ScanCfg, seenAll, seenFilt map[string]bool) (all, f
 			SubTitle:    sub,
 			ID:          id,
 			DesktopFile: path,
-			SearchText:  strings.TrimSpace(e.Name + " " + sub + " " + e.Comment + " " + id),
+			SearchText:  strings.ToLower(strings.TrimSpace(e.Name + " " + sub + " " + e.Comment + " " + id)),
 			Exec:        e.Exec,
 			Terminal:    e.Terminal,
+			Flatpak:     isFP,
 			RawType:     e.EntryType,
 			RawComment:  e.Comment,
 		}
-		if !seenAll[id] {
-			seenAll[id] = true
-			if cfg.IncludeTerminal || !e.Terminal {
-				all = append(all, item)
-			}
+		if firstAll && (cfg.IncludeTerminal || !e.Terminal) {
+			all = append(all, item)
 		}
-		if seenFilt[id] || cfg.HiddenIDs[id] || e.Hidden || e.NoDisplay {
+		if !firstFilt || cfg.HiddenIDs[id] || e.NoDisplay {
 			continue
 		}
 		if len(e.OnlyShowIn) > 0 && !MatchesDesktop(e.OnlyShowIn, cfg.CurrentDesktops) {
@@ -221,7 +231,6 @@ func ScanDir(dir string, cfg ScanCfg, seenAll, seenFilt map[string]bool) (all, f
 		if !cfg.IncludeTerminal && e.Terminal {
 			continue
 		}
-		seenFilt[id] = true
 		filt = append(filt, item)
 	}
 	return
@@ -236,8 +245,8 @@ func ReadHides(path string) map[string]bool {
 	defer f.Close()
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
-		id := strings.TrimSuffix(strings.TrimRight(sc.Text(), "\r\n"), ".desktop")
-		if id != "" {
+		id := strings.TrimSuffix(strings.TrimSpace(sc.Text()), ".desktop")
+		if id != "" && !strings.HasPrefix(id, "#") {
 			out[id] = true
 		}
 	}

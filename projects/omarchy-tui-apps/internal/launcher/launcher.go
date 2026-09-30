@@ -1,57 +1,81 @@
 package launcher
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 	"syscall"
+	"time"
+
+	"omarchy-tui-apps/internal/desktop"
 )
 
-func LaunchApp(id, desktopFile string) error {
+// LaunchApp starts app detached from the launcher's terminal, so it keeps
+// running after the launcher (and the window hosting it) closes.
+func LaunchApp(app desktop.AppItem) error {
 	if p, err := exec.LookPath("gtk-launch"); err == nil {
-		if exec.Command(p, id).Start() == nil {
+		if runHelper(p, app.ID) == nil {
 			return nil
 		}
 	}
 	if p, err := exec.LookPath("gio"); err == nil {
-		if exec.Command(p, "launch", desktopFile).Start() == nil {
+		if runHelper(p, "launch", app.DesktopFile) == nil {
 			return nil
 		}
 	}
-	line := RawExec(desktopFile)
+
+	line := stripFieldCodes(app.Exec)
 	if line == "" {
-		return fmt.Errorf("no Exec= in %s", desktopFile)
+		return fmt.Errorf("no Exec= in %s", app.DesktopFile)
 	}
-	var parts []string
-	for _, p := range strings.Fields(line) {
-		if len(p) == 2 && p[0] == '%' {
-			continue
+	cmd := detached("sh", "-c", line)
+	if app.Terminal {
+		term, err := exec.LookPath("xdg-terminal-exec")
+		if err != nil {
+			return fmt.Errorf("%s needs a terminal but xdg-terminal-exec is missing", app.Name)
 		}
-		parts = append(parts, p)
+		cmd = detached(term, "sh", "-c", line)
 	}
-	if len(parts) == 0 {
-		return fmt.Errorf("empty exec")
-	}
-	cmd := exec.Command(parts[0], parts[1:]...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	return cmd.Start()
 }
 
-func RawExec(desktopFile string) string {
-	f, err := os.Open(desktopFile)
-	if err != nil {
-		return ""
-	}
-	defer f.Close()
+func detached(name string, args ...string) *exec.Cmd {
+	cmd := exec.Command(name, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	return cmd
+}
 
-	sc := bufio.NewScanner(f)
-	for sc.Scan() {
-		line := strings.TrimRight(sc.Text(), "\r")
-		if strings.HasPrefix(line, "Exec=") {
-			return strings.TrimPrefix(line, "Exec=")
-		}
+// runHelper runs a launch helper that is expected to spawn the app and exit.
+// A helper still running after the grace period counts as a success.
+func runHelper(name string, args ...string) error {
+	cmd := detached(name, args...)
+	if err := cmd.Start(); err != nil {
+		return err
 	}
-	return ""
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(2 * time.Second):
+		return nil
+	}
+}
+
+// stripFieldCodes drops the %f/%U/... placeholders from an Exec line and
+// unescapes %%.
+func stripFieldCodes(line string) string {
+	var sb strings.Builder
+	rs := []rune(line)
+	for i := 0; i < len(rs); i++ {
+		if rs[i] == '%' && i+1 < len(rs) {
+			i++
+			if rs[i] == '%' {
+				sb.WriteRune('%')
+			}
+			continue
+		}
+		sb.WriteRune(rs[i])
+	}
+	return strings.TrimSpace(sb.String())
 }
