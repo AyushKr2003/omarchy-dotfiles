@@ -52,6 +52,8 @@ config/qutebrowser/startpage.html
 config/qutebrowser/theme.py
 
 
+config/omarchy/hooks/theme-set.d/10-owe-sync
+
 # Local shell experiments (not tracked)
 shell/caelestia-kde/
 shell/caelestia_shell/
