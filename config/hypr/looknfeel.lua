@@ -1,5 +1,9 @@
 -- Change the default Omarchy look'n'feel.
 
+-- Omacale's look'n'feel (jelly window animations, gaps, shadow, ...), loaded
+-- first so the tweaks below still win. pcall keeps Hyprland starting without it.
+pcall(dofile, os.getenv("HOME") .. "/.config/omarchy/plugins/omacale.bar/omacale.lua")
+
 -- https://wiki.hypr.land/Configuring/Basics/Variables/#general
 -- hl.config({
 --   general = {
