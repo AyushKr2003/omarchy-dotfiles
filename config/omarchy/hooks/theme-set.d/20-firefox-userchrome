@@ -70,6 +70,13 @@ tab_selected_bg=$(mix_hex "$bg" "$fg" 20)
 # Push the accent line toward fg brightness too, so it reads as a
 # distinct highlight even when a theme's accent is fairly desaturated.
 tab_line=$(mix_hex "$accent" "$fg" 35)
+# Half-way step for hovered (not selected) tabs, so hover never gets
+# mistaken for the selected tab.
+tab_hover_bg=$(mix_hex "$bg" "$fg" 10)
+# Resting surface for Zen's toolbar elements (unfocused URL bar,
+# essentials tiles, Glance mini-tab). Not dark_bg: many themes don't define
+# it, and the bg fallback would make those elements invisible.
+element_bg=$(mix_hex "$bg" "$fg" 6)
 
 # Calculate if background is dark or light to set correct color-scheme
 bg_color="${bg#\#}"
@@ -157,39 +164,42 @@ apply_theme_to_profile() {
   --toolbar-field-focus-border-color: $muted !important;
 }
 
-#TabsToolbar, #nav-bar, #titlebar {
-  background-color: $bg !important;
+/* Tab colors. Current Gecko (Firefox, LibreWolf, Zen alike) reads
+   --tab-background-color-selected / --tab-text-color-selected /
+   --tab-background-color-hover; --tab-selected-bgcolor above is the
+   pre-2024 name, kept for older builds. Zen re-declares these on its
+   <zen-workspace> elements with !important, which beats anything that
+   only inherits from :root, so set them on the tab itself. */
+.tabbrowser-tab {
+  --tab-background-color-selected: $tab_selected_bg !important;
+  --tab-text-color-selected: $fg !important;
+  --tab-background-color-hover: $tab_hover_bg !important;
+  --tab-box-shadow-selected: none !important;
 }
 
-.tab-background {
-  background-color: $bg !important;
+/* The tab's selection state is a *boolean* attribute (tab.js calls
+   toggleAttribute("selected" / "visuallyselected")), so it's
+   selected="" -- never selected="true". Matching [selected="true"]
+   silently matched nothing, which is why the active tab wasn't
+   highlighted at all.
+
+   "> .tab-stack >" keeps this to the tab's own background: Zen nests a
+   Glance tab inside its parent .tabbrowser-tab, and a plain descendant
+   selector would paint that one too.
+
+   The ring is an inset box-shadow, not a border, so it adds no layout
+   size and doesn't shift the tab's label/icon. */
+.tabbrowser-tab:is([selected], [visuallyselected], [multiselected]) > .tab-stack > .tab-background {
+  background: $tab_selected_bg !important;
+  box-shadow: inset 0 0 0 1px $tab_line !important;
 }
 
-/* Firefox has used both [selected="true"] and [visuallyselected="true"]
-   across versions/forks -- cover both so this doesn't silently stop
-   working after an update.
+.tabbrowser-tab:not([selected], [visuallyselected], [multiselected]):hover > .tab-stack > .tab-background {
+  background: $tab_hover_bg !important;
+}
 
-   .tab-background fills its parent tab's full hitbox edge-to-edge
-   (position: absolute; inset: 0 in Firefox's own stylesheet), which is
-   why a background-color change alone -- or a box-shadow limited to
-   just the top/bottom edges -- doesn't read as a distinct shape: there
-   was never any visible boundary on the left/right sides at all.
-
-   Overriding *inset* itself (rather than adding margin to the tab, which
-   risks fighting Firefox's JS-driven tab-width layout) pulls the
-   decorative background away from all four edges of the tab's hitbox
-   without changing the hitbox/click target itself. Combined with a full
-   border and border-radius, the active tab reads as a distinct floating
-   chip -- the same treatment Arc, Chrome, Safari, and Edge all use for
-   their active-tab affordance -- rather than depending on background
-   contrast alone. */
-.tabbrowser-tab[selected="true"] .tab-background,
-.tabbrowser-tab[visuallyselected="true"] .tab-background {
-  background-color: $tab_selected_bg !important;
-  inset: 3px 4px !important;
-  border: 1px solid $tab_line !important;
-  border-radius: 8px !important;
-  box-shadow: inset 0 1px 0 0 $tab_line !important;
+.tabbrowser-tab:is([selected], [visuallyselected], [multiselected]) {
+  color: $fg !important;
 }
 
 /* Color theme overrides for all menus, popups, context menus, and panels */
@@ -303,7 +313,13 @@ menu[_moz-menuactive="true"] {
   color: $fg !important;
 }
 
-.urlbarView-url {
+/* Zen forces every descendant of the selected row to white, which
+   disappears on light themes. */
+.urlbarView-row[selected] * {
+  color: $fg !important;
+}
+
+.urlbarView-row .urlbarView-url {
   color: $accent !important;
 }
 
@@ -311,7 +327,7 @@ menu[_moz-menuactive="true"] {
   color: $fg !important;
 }
 
-.urlbarView-title-strong {
+.urlbarView-row .urlbarView-title-strong {
   color: $accent !important;
 }
 
@@ -391,17 +407,71 @@ textarea::selection {
   background-color: $selection !important;
   color: $fg !important;
 }
+CSSEOF
 
-/* Zen Browser Sidebar and Navbar styling to match Omarchy theme */
-#zen-appcontent-navbar-container,
-#zen-sidebar-top-buttons,
-#zen-sidebar-top-buttons-separator,
-#zen-sidebar-web-views-wrapper,
-#zen-sidebar-web-views {
-  background-color: $bg !important;
-  background: $bg !important;
+  if [[ $label == Zen ]]; then
+    cat >>"$chrome_dir/userChrome.css" <<CSSEOF
+
+/* --- Zen ------------------------------------------------------------------
+   Zen paints its window from its workspace gradient: JS writes
+   --zen-main-browser-background(-toolbar) (plus "-old" copies used while
+   cross-fading between workspaces) onto <html>, and each <zen-workspace>
+   gets its own inline --zen-primary-color / --toolbox-textcolor. Inline
+   styles are author-origin, so user !important wins -- but only on the
+   element that declares them, hence the explicit zen-workspace target. */
+:root,
+#main-window,
+#browser,
+zen-workspace {
+  --zen-main-browser-background: $bg !important;
+  --zen-main-browser-background-toolbar: $bg !important;
+  --zen-main-browser-background-old: $bg !important;
+  --zen-main-browser-background-toolbar-old: $bg !important;
+  --zen-primary-color: $accent !important;
+  --toolbox-textcolor: $fg !important;
+  --toolbox-textcolor-inactive: $fg !important;
+  --toolbar-color: $fg !important;
+  --toolbar-field-color: $fg !important;
+  --toolbar-field-background-color: $dark_bg !important;
+  --toolbar-color-scheme: $scheme !important;
+  --zen-toolbar-element-bg: $element_bg !important;
+  --zen-toolbar-element-bg-hover: $tab_hover_bg !important;
+  --toolbarbutton-background-color-hover: $tab_hover_bg !important;
+  --toolbarbutton-background-color-active: $tab_selected_bg !important;
+  --zen-colors-border: $muted !important;
+  --zen-dialog-background: $bg !important;
+  --zen-urlbar-background: $element_bg !important;
+  /* Zen picks light/dark from its own pref (or the workspace gradient),
+     and its light-dark() overlays only match our colors if the scheme
+     agrees with the Omarchy theme. */
+  color-scheme: $scheme !important;
+}
+
+/* Essential (pinned-grid) tabs: unselected ones already follow
+   --zen-toolbar-element-bg above. With zen.theme.essentials-favicon-bg
+   on, Zen draws the selected one's background on ::before from vars it
+   declares on the .tab-background itself, so override them there. */
+.tabbrowser-tab[zen-essential] > .tab-stack > .tab-background {
+  --zen-essential-tab-selected-bg: $tab_selected_bg !important;
+  --zen-essential-tab-selected-bg-hover: $tab_selected_bg !important;
+}
+
+/* Workspace switcher and new-tab button text follow --toolbox-textcolor
+   above; the sidebar splitter uses the accent button color. */
+#zen-sidebar-splitter {
+  --zen-accent-button-background: $accent !important;
 }
 CSSEOF
+  else
+    # Zen draws its toolbars on top of its own window background (and rounds
+    # their corners); a solid fill here would only fight that.
+    cat >>"$chrome_dir/userChrome.css" <<CSSEOF
+
+#TabsToolbar, #nav-bar, #titlebar {
+  background-color: $bg !important;
+}
+CSSEOF
+  fi
 
   cat >"$chrome_dir/userContent.css" <<CSSEOF
 /* Generated by ~/.config/omarchy/hooks/theme-set.d/20-firefox-userchrome
