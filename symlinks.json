@@ -4,15 +4,15 @@
     "fastfetch": "dir",
     "fievel": "dir",
     "fish": "files",
-    "herdr": "files",
     "hypr": "files",
     "hypr/shaders": "dir",
     "mpv": "dir",
     "omarchy": "files",
-    "omarchy/plugins": "dir",
+    "omarchy/plugins": "children",
     "omarchy/hooks/theme-set.d": "dir",
     "qutebrowser": "dir",
-    "systemd": "files"
+    "systemd": "files",
+    "omarchy/shell.json": "skip"
   },
   "local": {
     "bin": "files"

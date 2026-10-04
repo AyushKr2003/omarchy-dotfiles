@@ -74,6 +74,12 @@ fi
 QUALITY_LABEL=$(gum choose --header "Choose WebP quality (higher = larger file, better quality)" \
   "100 (lossless)" "95 (near-lossless)" "90 (recommended)" "80 (smaller, still sharp)" "70 (max savings)")
 QUALITY_VALUE=$(echo "$QUALITY_LABEL" | grep -oE '^[0-9]+')
+# -q 100 is still lossy; true lossless needs cwebp's -lossless mode.
+if [[ $QUALITY_VALUE == 100 ]]; then
+  CWEBP_MODE=-lossless
+else
+  CWEBP_MODE=
+fi
 
 DELETE_ORIGINALS=false
 if gum confirm "Delete original files after successful conversion?" --default=false; then
@@ -106,7 +112,7 @@ gum style --foreground 39 "Found $TOTAL image(s). Converting at quality $QUALITY
 
 # --- Convert (with a gum spinner wrapping the whole batch) --------------------
 
-export QUALITY_VALUE DELETE_ORIGINALS RESULTS FILE_LIST
+export QUALITY_VALUE CWEBP_MODE DELETE_ORIGINALS RESULTS FILE_LIST
 
 gum spin --spinner dot --title "Converting $TOTAL image(s)..." -- bash -c '
   while IFS= read -r -d "" src; do
@@ -120,7 +126,7 @@ gum spin --spinner dot --title "Converting $TOTAL image(s)..." -- bash -c '
     before_size=$(stat -c%s "$src")
 
     # Capture stderr instead of discarding it, so failures are diagnosable
-    err_output=$(cwebp -q "$QUALITY_VALUE" "$src" -o "$dest" 2>&1 1>/dev/null)
+    err_output=$(cwebp $CWEBP_MODE -q "$QUALITY_VALUE" "$src" -o "$dest" 2>&1 1>/dev/null)
     status=$?
 
     if [[ $status -eq 0 && -f "$dest" ]]; then

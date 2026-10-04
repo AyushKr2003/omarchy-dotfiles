@@ -15,7 +15,7 @@ set -euo pipefail
 
 export DOTFILES_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Ensure git submodules (omarchy-overview, shell-settings, omacale) are
+# Ensure git submodules (omacale) are
 # initialized. shell/omacale is its own repo (AyushKr2003/omacale); it is not
 # symlinked into ~/.config. Install it with shell/omacale/install.sh, or for
 # development sync shell/omacale/omacale.bar into ~/.config/omarchy/plugins.
@@ -93,7 +93,26 @@ process_symlink() {
     fi
   fi
   
-  if [[ "$link_type" == "dir" ]]; then
+  if [[ "$link_type" == "skip" ]]; then
+    echo "    [Skip] $rel_path"
+  elif [[ "$link_type" == "children" ]]; then
+    # Link each child as a whole (e.g. one symlink per plugin), and never
+    # displace a child that already exists: a ".bak" copy left inside a
+    # plugins folder would be discovered as a second plugin with the same id.
+    mkdir -p "$dest"
+    for child in "$src"/*; do
+      [[ -e "$child" ]] || continue
+      local name="$(basename "$child")"
+      if [[ -L "$dest/$name" && "$(readlink "$dest/$name")" == "$child" ]]; then
+        continue
+      elif [[ -e "$dest/$name" || -L "$dest/$name" ]]; then
+        echo "    [Keep] $rel_path/$name (already exists, not replaced)"
+      else
+        ln -s "$child" "$dest/$name"
+        echo "    [Dir]  $rel_path/$name"
+      fi
+    done
+  elif [[ "$link_type" == "dir" ]]; then
     backup_target "$dest" "$src"
     if [[ -e "$dest" || -L "$dest" ]]; then
       rm -rf "$dest"
@@ -117,7 +136,7 @@ process_symlink() {
   fi
 }
 
-clear
+clear 2>/dev/null || true
 gum style --foreground 6 --border rounded --padding "1 2" --align center \
   "omarchy-dotfiles installer" "$(whoami)@$(hostname)"
 echo ""
@@ -137,6 +156,8 @@ PACMAN_PACKAGES=(
   qutebrowser     # keyboard-driven browser
   python-adblock  # adblock backend for qutebrowser
   socat           # fievel-notify listens on Hyprland's event socket
+  inotify-tools   # rsw (fish) watches for file changes
+  libwebp-utils   # cwebp for omarchy-webp-convert
   librsvg         # omarchy-cursor-material renders Bibata SVGs
   xorg-xcursorgen # omarchy-cursor-material builds the X11 cursor set
   qt6-imageformats # quickshell webP image support

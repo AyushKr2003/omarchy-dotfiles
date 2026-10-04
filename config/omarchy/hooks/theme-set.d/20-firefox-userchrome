@@ -30,6 +30,28 @@ get() {
     fi
     val=$(sed -n "s/^$alt_key = \"//p" "$COLORS" | sed 's/"$//' | head -1)
   fi
+  if [[ -z $val ]]; then
+    # Older themes only define the terminal palette (color0-15) and
+    # selection_*; map the named keys onto it instead of falling back to
+    # Tokyo Night defaults.
+    local legacy_key=""
+    case $key in
+      red) legacy_key=color1 ;;
+      green) legacy_key=color2 ;;
+      yellow | orange) legacy_key=color3 ;;
+      blue) legacy_key=color4 ;;
+      magenta) legacy_key=color5 ;;
+      cyan) legacy_key=color6 ;;
+      lighter_bg) legacy_key=color0 ;;
+      light_fg) legacy_key=color7 ;;
+      muted | dark_fg) legacy_key=color8 ;;
+      bright_fg) legacy_key=color15 ;;
+      selection) legacy_key=selection_background ;;
+    esac
+    if [[ -n $legacy_key ]]; then
+      val=$(sed -n "s/^$legacy_key = \"//p" "$COLORS" | sed 's/"$//' | head -1)
+    fi
+  fi
   if [[ -n $val ]]; then
     echo "$val"
   else

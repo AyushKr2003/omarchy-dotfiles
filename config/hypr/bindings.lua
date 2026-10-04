@@ -26,8 +26,6 @@ o.bind("SUPER + T", "Terminal", { omarchy = "terminal" })
 hl.unbind("SUPER + SHIFT + T")
 o.bind("SUPER + SHIFT + T", "Floating Terminal", { launch = "omarchy-launch-float-terminal" })
 
-hl.unbind("SUPER + ALT + T")
-o.bind("SUPER + ALT + T", "TypeTUI", { launch = "omarchy-launch-float-terminal typetui" })
 
 hl.unbind("SUPER + CTRL + L")
 o.bind("SUPER + CTRL + L", "Terminal Launcher", { launch = "omarchy-launch-float-terminal a -a" })
@@ -88,6 +86,11 @@ o.bind("SUPER + L", "Lock system", "omarchy-system-lock")
 --
 
 -- ===== Smart next/prev workspace (skip repeated empty workspaces) =====
+-- Omarchy binds these to "Move grouped window focus"; without the unbind
+-- both actions fire on every press.
+hl.unbind("SUPER + CTRL + RIGHT")
+hl.unbind("SUPER + CTRL + LEFT")
+
 local TOTAL_WORKSPACES = 10
 
 local function wrap_id(n)
@@ -154,11 +157,6 @@ o.bind("SUPER + SHIFT + S", "Move window to scratchpad", hl.dsp.window.move({ wo
 
 -- ── 5. Shell Plugins & Custom Menus ─────────────────────────────────────────
 
-hl.unbind("SUPER + TAB")
-o.bind("SUPER + TAB", "Overview", "omarchy-shell shell toggle omarchy-overview")
-
-hl.unbind("SUPER + I")
-o.bind("SUPER + I", "Omarchy Settings", "omarchy-shell shell summon shell.settings")
 
 hl.unbind("SUPER + M")
 o.bind("SUPER + M", "Manga Reader", "omarchy-shell shell toggle local.manga")
@@ -166,8 +164,6 @@ o.bind("SUPER + M", "Manga Reader", "omarchy-shell shell toggle local.manga")
 hl.unbind("SUPER + ALT + S")
 o.bind("SUPER + ALT + S", "Shaders", "omarchy-menu-shaders")
 
-hl.unbind("SUPER + SHIFT + M")
-o.bind("SUPER + SHIFT + M", "Omarchy Manual", "omarchy-shell shell toggle omarchy.manual")
 
 -- ── 6. Hardware & Mouse Controls ────────────────────────────────────────────
 
@@ -240,6 +236,3 @@ o.rebind("SUPER + ESCAPE", "Omacale session menu", "omarchy-shell omacale sessio
 o.rebind("SUPER + CTRL + SPACE", "Omacale wallpaper picker", "omarchy-shell omacale wallpapers")       -- was: Background switcher
 o.rebind("SUPER + SHIFT + CTRL + SPACE", "Omacale theme picker", "omarchy-shell omacale themes")       -- was: Theme menu
 o.rebind("SUPER + TAB", "Omacale workspace overview", "omarchy-shell omacale overview")                -- was: Next workspace
-
--- Omacale look'n'feel (Caelestia styling). Keep your own tweaks below it.
-pcall(dofile, os.getenv("HOME") .. "/.config/omarchy/plugins/omacale.bar/omacale.lua")

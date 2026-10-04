@@ -150,9 +150,9 @@ Item {
             "command": "omarchy-launch-terminal bash -c 'tmux attach -t Work || tmux new -s Work'"
           },
           {
-            "label": "Settings",
+            "label": "Setup",
             "icon": "",
-            "command": "omarchy-shell shell toggle shell.settings"
+            "command": "omarchy menu toggle setup"
           },
           {
             "label": "Restart Shell",

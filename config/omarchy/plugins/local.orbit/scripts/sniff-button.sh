@@ -25,8 +25,8 @@ wev -f wl_pointer:button | while IFS= read -r line; do
         [[ -n "$name" ]] && printf ' (%s)' "$name"
         printf '\nHyprland token: mouse:%s\n\n' "$button"
         printf 'Use it in ~/.config/hypr/bindings.lua, for example:\n'
-        printf '  o.bind("mouse:%s", "Orbit press", "~/.config/omarchy/plugins/orbit/scripts/orbit-press.sh --button %s", { locked = true })\n' "$button" "$button"
-        printf '  o.bind("mouse:%s", "Orbit release fallback", "~/.config/omarchy/plugins/orbit/scripts/orbit-release.sh", { locked = true, release = true })\n' "$button"
+        printf '  o.bind("mouse:%s", "Orbit press", "~/.config/omarchy/plugins/local.orbit/scripts/orbit-press.sh --button %s", { locked = true })\n' "$button" "$button"
+        printf '  o.bind("mouse:%s", "Orbit release fallback", "~/.config/omarchy/plugins/local.orbit/scripts/orbit-release.sh", { locked = true, release = true })\n' "$button"
         exit 0
       fi
       ;;

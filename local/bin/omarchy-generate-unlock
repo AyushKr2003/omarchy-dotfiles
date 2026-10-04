@@ -31,8 +31,10 @@ fi
 logo_svg=""
 if [[ -n "$OMARCHY_PATH" && -f "$OMARCHY_PATH/logo.svg" ]]; then
   logo_svg="$OMARCHY_PATH/logo.svg"
-elif [[ -f "/home/shadow/omarchy-dotfiles/omarchy-repo/logo.svg" ]]; then
-  logo_svg="/home/shadow/omarchy-dotfiles/omarchy-repo/logo.svg"
+elif [[ -f "/usr/share/omarchy/logo.svg" ]]; then
+  logo_svg="/usr/share/omarchy/logo.svg"
+elif [[ -f "${DOTFILES_ROOT:-$HOME/omarchy-dotfiles}/omarchy-repo/logo.svg" ]]; then
+  logo_svg="${DOTFILES_ROOT:-$HOME/omarchy-dotfiles}/omarchy-repo/logo.svg"
 else
   echo "Error: Could not find base logo.svg to generate from." >&2
   exit 1

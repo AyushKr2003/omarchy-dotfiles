@@ -5,7 +5,9 @@ After=fievel.service
 
 [Service]
 ExecStart=%h/.local/bin/fievel-notify
-Restart=on-failure
+# The listener exits cleanly when Hyprland restarts (its socket closes),
+# so restart on any exit, not just failures.
+Restart=always
 RestartSec=2
 
 [Install]
