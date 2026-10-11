@@ -181,58 +181,59 @@ o.bind("mouse:275", "Orbit Release", "~/.config/omarchy/plugins/local.orbit/scri
 
 -- ── 8. Window Rules ─────────────────────────────────────────────────────────
 
--- Omarchy Settings
-o.window({ title = "^(Omarchy Settings)$" }, { tag = "+floating-window" })
-
 -- Flea 
 o.window("com.thisisgm.flea", { tag = "+floating-window" })
+function o.rebind(keys, description, dispatcher, options)
+  hl.unbind(keys)
+  o.bind(keys, description, dispatcher, options)
+end
 
--- Manga Panel
-o.window({ title = "^(Manga)$" }, {
-  float = true,
-  size = { 560, 1043 },
-  move = { 5, 31 },
-  tag = "+manga-window",
-})
+-- ── 9. Bar-specific binds ───────────────────────────────────────────────────
+-- Follows bar.id in ~/.config/omarchy/shell.json, so only the active bar's
+-- keys are bound. Switch bars with omarchy-bar-switch (it runs hyprctl reload).
 
+-- "omacale", "hanko" or "default". looknfeel.lua uses it too.
+function o.active_bar()
+  local f = io.open(os.getenv("HOME") .. "/.config/omarchy/shell.json")
+  if not f then return "default" end
+  local json = f:read("*a")
+  f:close()
+  local id = json:match('"id"%s*:%s*"([%w_-]+)%.bar"')
+  if id == "omacale" or id == "hanko" then return id end
+  return "default"
+end
 
+o.bind("SUPER + SHIFT + CTRL + B", "Cycle bar (Omacale / Hanko / Omarchy)", "omarchy-bar-switch next")
 
+local bar = o.active_bar()
 
+if bar == "hanko" then
+  o.rebind("SUPER + TAB", "Hanko overview", "omarchy-shell hanko overview")          -- was: Next workspace
+  o.bind("SUPER + D", "Hanko scroll", "omarchy-shell hanko scroll")
+  o.bind("SUPER + SHIFT + I", "Hanko settings", "omarchy-shell hanko settings")
 
--- ╭─────────────────────────────────────────────────────────────────────────╮
--- │  Omacale keybindings — paste into ~/.config/hypr/bindings.lua           │
--- │  Each action is an IPC call into the running Omarchy shell:             │
--- │    omarchy-shell omacale <launcher|dashboard|session|settings|close>    │
--- │  Keys below are unbound in a stock Omarchy install. Check yours with:   │
--- │    omarchy menu keybindings --print                                     │
--- ╰─────────────────────────────────────────────────────────────────────────╯
+elseif bar == "omacale" then
+  -- Drawers
+  o.bind("SUPER + CTRL + 0", "Omacale bar focus", "omarchy-shell omacale barFocus")
+  o.bind("SUPER + D", "Omacale dashboard", "omarchy-shell omacale dashboard")
+  o.bind("SUPER + N", "Omacale notifications sidebar", "omarchy-shell omacale sidebar")
+  o.bind("SUPER + U", "Omacale quick toggles", "omarchy-shell omacale utilities")
+  -- o.bind("SUPER + SHIFT + ESCAPE", "Omacale session menu", "omarchy-shell omacale session")
+  o.bind("SUPER + SHIFT + I", "Omacale settings", "omarchy-shell omacale settings")
+  o.rebind("SUPER + CTRL + V", "Omacale clipboard", "omarchy-shell omacale clipboard")                 -- was: Clipboard manager
 
--- ── Drawers ─────────────────────────────────────────────────────────────────
+  -- Dashboard tabs
+  o.bind("SUPER + ALT + D", "Omacale media", "omarchy-shell omacale dashboardTab media")
+  o.bind("SUPER + ALT + P", "Omacale performance", "omarchy-shell omacale dashboardTab performance")
 
-o.bind("SUPER + CTRL + 0", "Omacale bar focus", "omarchy-shell omacale barFocus")
-o.bind("SUPER + D", "Omacale dashboard", "omarchy-shell omacale dashboard")
-o.bind("SUPER + N", "Omacale notifications sidebar", "omarchy-shell omacale sidebar")
-o.bind("SUPER + U", "Omacale quick toggles", "omarchy-shell omacale utilities")
--- o.bind("SUPER + SHIFT + ESCAPE", "Omacale session menu", "omarchy-shell omacale session")
-o.bind("SUPER + SHIFT + I", "Omacale settings", "omarchy-shell omacale settings")
-o.rebind("SUPER + CTRL + V", "Omacale clipboard", "omarchy-shell omacale clipboard")                    -- was: Clipboard manager
+  -- Frame: SUPER + SHIFT + SPACE ("Toggle top bar") already hides/shows
+  -- Omacale's frame too.
 
--- ── Dashboard tabs ──────────────────────────────────────────────────────────
-
-o.bind("SUPER + ALT + D", "Omacale media", "omarchy-shell omacale dashboardTab media")
-o.bind("SUPER + ALT + P", "Omacale performance", "omarchy-shell omacale dashboardTab performance")
-
--- ── Frame ───────────────────────────────────────────────────────────────────
--- SUPER + SHIFT + SPACE ("Toggle top bar") already hides/shows Omacale's
--- frame too; Omacale follows Omarchy's bar-off toggle.
-
--- ── Optional: make Omacale the main launcher ────────────────────────────────
--- These replace Omarchy defaults, so they are commented out. Remove the
--- leading "--" to use them. The picker binds open the launcher's carousel, or
--- Omarchy's own menu when Settings › Keybinds › Picker says "Omarchy default".
-o.rebind("SUPER + SPACE", "Omacale launcher", "omarchy-shell omacale launcher")           -- was: Omarchy menu
-o.rebind("SUPER + ALT + SPACE", "Omacale menu", "omarchy-shell omacale menu")
-o.rebind("SUPER + ESCAPE", "Omacale session menu", "omarchy-shell omacale session")      -- was: System menu
-o.rebind("SUPER + CTRL + SPACE", "Omacale wallpaper picker", "omarchy-shell omacale wallpapers")       -- was: Background switcher
-o.rebind("SUPER + SHIFT + CTRL + SPACE", "Omacale theme picker", "omarchy-shell omacale themes")       -- was: Theme menu
-o.rebind("SUPER + TAB", "Omacale workspace overview", "omarchy-shell omacale overview")                -- was: Next workspace
+  -- Omacale as the main launcher
+  o.rebind("SUPER + SPACE", "Omacale launcher", "omarchy-shell omacale launcher")                      -- was: Omarchy menu
+  o.rebind("SUPER + ALT + SPACE", "Omacale menu", "omarchy-shell omacale menu")
+  o.rebind("SUPER + ESCAPE", "Omacale session menu", "omarchy-shell omacale session")                  -- was: System menu
+  o.rebind("SUPER + CTRL + SPACE", "Omacale wallpaper picker", "omarchy-shell omacale wallpapers")     -- was: Background switcher
+  o.rebind("SUPER + SHIFT + CTRL + SPACE", "Omacale theme picker", "omarchy-shell omacale themes")     -- was: Theme menu
+  o.rebind("SUPER + TAB", "Omacale workspace overview", "omarchy-shell omacale overview")              -- was: Next workspace
+end
