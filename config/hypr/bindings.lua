@@ -14,6 +14,13 @@
 -- │    { webapp = "url", focus=true } → focus or launch                     │
 -- ╰─────────────────────────────────────────────────────────────────────────╯
 
+
+function o.rebind(keys, description, dispatcher, options)
+  hl.unbind(keys)
+  o.bind(keys, description, dispatcher, options)
+end
+
+
 -- ── 1. Terminals & Editors ───────────────────────────────────────────────────
 
 hl.unbind("SUPER + RETURN")
@@ -62,8 +69,8 @@ o.bind("SUPER + E", "Nautilus File Manager", { omarchy = "nautilus" })
 o.bind("SUPER + ALT + E", "File manager (cwd)", { omarchy = "nautilus-cwd" })
 
 hl.unbind("SUPER + SHIFT + E")
-o.bind("SUPER + SHIFT + E", "Flea", { launch = "flea" })
-
+-- o.bind("SUPER + SHIFT + E", "Flea", { launch = "flea" })
+o.bind("SUPER + SHIFT + E", "Flea", { launch = "strata" })
 
 -- ── 4. Window Management & Workspaces ───────────────────────────────────────
 
@@ -167,6 +174,7 @@ o.bind("SUPER + ALT + S", "Shaders", "omarchy-menu-shaders")
 
 -- ── 6. Hardware & Mouse Controls ────────────────────────────────────────────
 
+o.bind("XF86Launch6", "Mute microphone", "omarchy-audio-input-mute", { locked = true })
 o.bind("SUPER + Prior", "Brightness +5%", "omarchy-brightness-display +5%", { locked = true, repeating = true })
 o.bind("SUPER + Next", "Brightness -5%", "omarchy-brightness-display 5%-", { locked = true, repeating = true })
 
@@ -183,57 +191,4 @@ o.bind("mouse:275", "Orbit Release", "~/.config/omarchy/plugins/local.orbit/scri
 
 -- Flea 
 o.window("com.thisisgm.flea", { tag = "+floating-window" })
-function o.rebind(keys, description, dispatcher, options)
-  hl.unbind(keys)
-  o.bind(keys, description, dispatcher, options)
-end
-
--- ── 9. Bar-specific binds ───────────────────────────────────────────────────
--- Follows bar.id in ~/.config/omarchy/shell.json, so only the active bar's
--- keys are bound. Switch bars with omarchy-bar-switch (it runs hyprctl reload).
-
--- "omacale", "hanko" or "default". looknfeel.lua uses it too.
-function o.active_bar()
-  local f = io.open(os.getenv("HOME") .. "/.config/omarchy/shell.json")
-  if not f then return "default" end
-  local json = f:read("*a")
-  f:close()
-  local id = json:match('"id"%s*:%s*"([%w_-]+)%.bar"')
-  if id == "omacale" or id == "hanko" then return id end
-  return "default"
-end
-
-o.bind("SUPER + SHIFT + CTRL + B", "Cycle bar (Omacale / Hanko / Omarchy)", "omarchy-bar-switch next")
-
-local bar = o.active_bar()
-
-if bar == "hanko" then
-  o.rebind("SUPER + TAB", "Hanko overview", "omarchy-shell hanko overview")          -- was: Next workspace
-  o.bind("SUPER + D", "Hanko scroll", "omarchy-shell hanko scroll")
-  o.bind("SUPER + SHIFT + I", "Hanko settings", "omarchy-shell hanko settings")
-
-elseif bar == "omacale" then
-  -- Drawers
-  o.bind("SUPER + CTRL + 0", "Omacale bar focus", "omarchy-shell omacale barFocus")
-  o.bind("SUPER + D", "Omacale dashboard", "omarchy-shell omacale dashboard")
-  o.bind("SUPER + N", "Omacale notifications sidebar", "omarchy-shell omacale sidebar")
-  o.bind("SUPER + U", "Omacale quick toggles", "omarchy-shell omacale utilities")
-  -- o.bind("SUPER + SHIFT + ESCAPE", "Omacale session menu", "omarchy-shell omacale session")
-  o.bind("SUPER + SHIFT + I", "Omacale settings", "omarchy-shell omacale settings")
-  o.rebind("SUPER + CTRL + V", "Omacale clipboard", "omarchy-shell omacale clipboard")                 -- was: Clipboard manager
-
-  -- Dashboard tabs
-  o.bind("SUPER + ALT + D", "Omacale media", "omarchy-shell omacale dashboardTab media")
-  o.bind("SUPER + ALT + P", "Omacale performance", "omarchy-shell omacale dashboardTab performance")
-
-  -- Frame: SUPER + SHIFT + SPACE ("Toggle top bar") already hides/shows
-  -- Omacale's frame too.
-
-  -- Omacale as the main launcher
-  o.rebind("SUPER + SPACE", "Omacale launcher", "omarchy-shell omacale launcher")                      -- was: Omarchy menu
-  o.rebind("SUPER + ALT + SPACE", "Omacale menu", "omarchy-shell omacale menu")
-  o.rebind("SUPER + ESCAPE", "Omacale session menu", "omarchy-shell omacale session")                  -- was: System menu
-  o.rebind("SUPER + CTRL + SPACE", "Omacale wallpaper picker", "omarchy-shell omacale wallpapers")     -- was: Background switcher
-  o.rebind("SUPER + SHIFT + CTRL + SPACE", "Omacale theme picker", "omarchy-shell omacale themes")     -- was: Theme menu
-  o.rebind("SUPER + TAB", "Omacale workspace overview", "omarchy-shell omacale overview")              -- was: Next workspace
-end
+o.window("io.github.lgse.Strata", { tag = "+floating-window" })

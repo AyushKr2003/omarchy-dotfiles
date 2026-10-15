@@ -1,15 +1,5 @@
 -- Change the default Omarchy look'n'feel.
 
--- The active bar's look'n'feel (o.active_bar() is defined in bindings.lua and
--- follows bar.id in shell.json; switch with omarchy-bar-switch).
-local bar = o.active_bar and o.active_bar() or "default"
-
--- Omacale's look'n'feel (jelly window animations, gaps, shadow, ...), loaded
--- first so the tweaks below still win. pcall keeps Hyprland starting without it.
-if bar == "omacale" then
-  pcall(dofile, os.getenv("HOME") .. "/.config/omarchy/plugins/omacale.bar/omacale.lua")
-end
-
 -- https://wiki.hypr.land/Configuring/Basics/Variables/#general
 -- hl.config({
 --   general = {
@@ -81,11 +71,6 @@ hl.config({
 -- o.window(".*", { opacity = "1 1" })
 
 -- Load custom screen shader configuration if present
--- Hanko's hard print shadow on every window.
-if bar == "hanko" then
-  pcall(dofile, os.getenv("HOME") .. "/.config/omarchy/plugins/hanko.bar/style.lua")
-end
-
 pcall(require, "hypr.shader")
 
 
@@ -93,3 +78,4 @@ pcall(require, "hypr.shader")
 -- Find its class with: hyprctl clients
 -- o.transparent_window("my-app")
 -- o.transparent_window("my-app", "0.9 0.85") -- Custom active/inactive opacity.
+

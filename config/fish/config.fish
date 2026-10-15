@@ -17,6 +17,7 @@ function full_sys
   fastfetch -c  ~/.config/fastfetch/full_sys.jsonc; printf '\e[?25l'; stty -icanon -echo; dd bs=1 count=1 >/dev/null 2>&1; stty icanon echo; printf '\e[?25h'  # size 1120, 680
 end
 
+alias clauda="CLAUDE_CONFIG_DIR=~/.claude-fillip claude"
 alias claude-work="CLAUDE_CONFIG_DIR=~/.claude-second claude"
 abbr md tsuzuri
 
