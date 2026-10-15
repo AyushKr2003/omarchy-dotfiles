@@ -59,3 +59,7 @@ shell/caelestia-kde/
 shell/caelestia_shell/
 shell/ruixen-shell/
 shell/Shibumi-Shell/
+
+# third-party clones
+shell/Vitreus/
+shell/pleamar/
