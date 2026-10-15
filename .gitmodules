@@ -1,3 +1,6 @@
 [submodule "shell/omacale"]
 	path = shell/omacale
 	url = https://github.com/AyushKr2003/omacale.git
+[submodule "shell/hanko"]
+	path = shell/hanko
+	url = https://github.com/AyushKr2003/hanko.git
