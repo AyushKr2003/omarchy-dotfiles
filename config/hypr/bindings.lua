@@ -69,8 +69,8 @@ o.bind("SUPER + E", "Nautilus File Manager", { omarchy = "nautilus" })
 o.bind("SUPER + ALT + E", "File manager (cwd)", { omarchy = "nautilus-cwd" })
 
 hl.unbind("SUPER + SHIFT + E")
--- o.bind("SUPER + SHIFT + E", "Flea", { launch = "flea" })
-o.bind("SUPER + SHIFT + E", "Flea", { launch = "strata" })
+o.bind("SUPER + SHIFT + E", "Flea", { launch = "flea" })
+-- o.bind("SUPER + SHIFT + E", "Flea", { launch = "strata" })
 
 -- ── 4. Window Management & Workspaces ───────────────────────────────────────
 
@@ -88,9 +88,7 @@ o.bind("SUPER + SHIFT + O", "Toggle floating / tiling", hl.dsp.window.float({ ac
 hl.unbind("SUPER + L")
 o.bind("SUPER + L", "Lock system", "omarchy-system-lock")
 
--- o.bind("SUPER + CTRL + RIGHT", "Next workspace", hl.dsp.focus({ workspace = "e+1" }))
--- o.bind("SUPER + CTRL + LEFT", "Previous workspace", hl.dsp.focus({ workspace = "e-1" }))
---
+o.rebind("SUPER + TAB", "Omarchy overview", "omarchy-shell shell toggle omarchy-overview")
 
 -- ===== Smart next/prev workspace (skip repeated empty workspaces) =====
 -- Omarchy binds these to "Move grouped window focus"; without the unbind
@@ -157,16 +155,12 @@ o.bind("SUPER + CTRL + LEFT", "Previous workspace",
     end)
 
 
-hl.unbind("SUPER + S")
-o.bind("SUPER + S", "Toggle scratchpad", hl.dsp.workspace.toggle_special("scratch"))
-hl.unbind("SUPER + SHIFT + S")
-o.bind("SUPER + SHIFT + S", "Move window to scratchpad", hl.dsp.window.move({ workspace = "special:scratch", follow = false }))
+-- hl.unbind("SUPER + S")
+-- o.bind("SUPER + S", "Toggle scratchpad", hl.dsp.workspace.toggle_special("scratch"))
+-- hl.unbind("SUPER + SHIFT + S")
+-- o.bind("SUPER + SHIFT + S", "Move window to scratchpad", hl.dsp.window.move({ workspace = "special:scratch", follow = false }))
 
 -- ── 5. Shell Plugins & Custom Menus ─────────────────────────────────────────
-
-
-hl.unbind("SUPER + M")
-o.bind("SUPER + M", "Manga Reader", "omarchy-shell shell toggle local.manga")
 
 hl.unbind("SUPER + ALT + S")
 o.bind("SUPER + ALT + S", "Shaders", "omarchy-menu-shaders")
@@ -192,3 +186,30 @@ o.bind("mouse:275", "Orbit Release", "~/.config/omarchy/plugins/local.orbit/scri
 -- Flea 
 o.window("com.thisisgm.flea", { tag = "+floating-window" })
 o.window("io.github.lgse.Strata", { tag = "+floating-window" })
+
+
+-- Drawers
+o.bind("SUPER + CTRL + 0", "Omacale bar focus", "omarchy-shell omacale barFocus")
+o.bind("SUPER + D", "Omacale dashboard", "omarchy-shell omacale dashboard")
+o.bind("SUPER + N", "Omacale notifications sidebar", "omarchy-shell omacale sidebar")
+o.bind("SUPER + U", "Omacale quick toggles", "omarchy-shell omacale utilities")
+-- o.bind("SUPER + SHIFT + ESCAPE", "Omacale session menu", "omarchy-shell omacale session")
+o.bind("SUPER + SHIFT + I", "Omacale settings", "omarchy-shell omacale settings")
+o.rebind("SUPER + CTRL + V", "Omacale clipboard", "omarchy-shell omacale clipboard")                 -- was: Clipboard manager
+
+-- Dashboard tabs
+o.bind("SUPER + ALT + D", "Omacale media", "omarchy-shell omacale dashboardTab media")
+o.bind("SUPER + ALT + P", "Omacale performance", "omarchy-shell omacale dashboardTab performance")
+
+-- Frame: SUPER + SHIFT + SPACE ("Toggle top bar") already hides/shows
+-- Omacale's frame too.
+
+-- Omacale as the main launcher
+o.rebind("SUPER + SPACE", "Omacale launcher", "omarchy-shell omacale launcher")                      -- was: Omarchy menu
+o.rebind("SUPER + ALT + SPACE", "Omacale menu", "omarchy-shell omacale menu")
+o.rebind("SUPER + ESCAPE", "Omacale session menu", "omarchy-shell omacale session")                  -- was: System menu
+o.rebind("SUPER + CTRL + SPACE", "Omacale wallpaper picker", "omarchy-shell omacale wallpapers")     -- was: Background switcher
+o.rebind("SUPER + SHIFT + CTRL + SPACE", "Omacale theme picker", "omarchy-shell omacale themes")     -- was: Theme menu
+o.rebind("SUPER + TAB", "Omacale workspace overview", "omarchy-shell omacale overview")              -- was: Next workspace
+
+pcall(dofile, os.getenv("HOME") .. "/.config/omarchy/plugins/omacale.bar/omacale.lua")
