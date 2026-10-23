@@ -2,6 +2,7 @@
 -- │  Custom bindings — loaded after omarchy defaults.                       │
 -- │  Uses helpers from default/hypr/helpers.lua:                            │
 -- │    o.bind(keys, description, dispatcher, opts?)                         │
+-- │    o.rebind(keys|{keys...}, ...)  → unbind first, then o.bind (below)   │
 -- │    o.launch(cmd)                  → "uwsm-app -- cmd"                   │
 -- │    o.launch_sole(match, cmd)      → focus if open, else launch          │
 -- │    o.launch_webapp(url)           → omarchy-launch-webapp               │
@@ -15,51 +16,51 @@
 -- ╰─────────────────────────────────────────────────────────────────────────╯
 
 
+-- Replaces Omarchy's o.rebind (helpers.lua). o is global and this file loads
+-- before looknfeel.lua, autostart.lua and the bar plugins, so they get it too.
+--   o.rebind("SUPER + X", desc, dispatcher, opts?)
+--   o.rebind({ "SUPER + X", "SUPER + Y" }, desc, dispatcher, opts?)  -- same action on several keys
+-- Unbinding a key nothing holds is harmless, so it works as a plain bind too.
+-- Don't use it for a key with separate press/release binds (it'd drop the press).
 function o.rebind(keys, description, dispatcher, options)
-  hl.unbind(keys)
-  o.bind(keys, description, dispatcher, options)
+  if type(keys) == "string" then keys = { keys } end
+  for _, key in ipairs(keys) do
+    local opts = {}
+    for k, v in pairs(options or {}) do opts[k] = v end
+    hl.unbind(key)
+    o.bind(key, description, dispatcher, opts)
+  end
 end
 
 
 -- ── 1. Terminals & Editors ───────────────────────────────────────────────────
 
-hl.unbind("SUPER + RETURN")
-o.bind("SUPER + RETURN", "Tmux (Work)", { launch = "omarchy-launch-terminal-tmux" })
+o.rebind("SUPER + RETURN", "Tmux (Work)", { launch = "omarchy-launch-terminal-tmux" })
 
 
-hl.unbind("SUPER + T")
-o.bind("SUPER + T", "Terminal", { omarchy = "terminal" })
+o.rebind("SUPER + T", "Terminal", { omarchy = "terminal" })
 
-hl.unbind("SUPER + SHIFT + T")
-o.bind("SUPER + SHIFT + T", "Floating Terminal", { launch = "omarchy-launch-float-terminal" })
+o.rebind("SUPER + SHIFT + T", "Floating Terminal", { launch = "omarchy-launch-float-terminal" })
 
 
-hl.unbind("SUPER + CTRL + L")
-o.bind("SUPER + CTRL + L", "Terminal Launcher", { launch = "omarchy-launch-float-terminal a -a" })
+o.rebind("SUPER + CTRL + L", "Terminal Launcher", { launch = "omarchy-launch-float-terminal a -a" })
 
-o.bind("SUPER + PAUSE", "Full System Info", hl.dsp.exec_cmd("xdg-terminal-exec fish -c full_sys", { float = true, size = "1220 680" }))
-o.bind("SUPER + KP_Prior", "Full System Info", hl.dsp.exec_cmd("xdg-terminal-exec fish -c full_sys", { float = true, size = "1220 680" }))
+o.rebind({ "SUPER + PAUSE", "SUPER + KP_Prior" }, "Full System Info", hl.dsp.exec_cmd("xdg-terminal-exec fish -c full_sys", { float = true, size = "1220 680" }))
 
-hl.unbind("SUPER + SHIFT + N")
-o.bind("SUPER + SHIFT + N", "VS Code", { launch = "code" })
+o.rebind("SUPER + SHIFT + N", "VS Code", { launch = "code" })
 
 
 -- ── 2. Browsers & Web Applications ──────────────────────────────────────────
 
-hl.unbind("SUPER + W")
-o.bind("SUPER + W", "Default Browser", { omarchy = "browser" })
+o.rebind("SUPER + W", "Default Browser", { omarchy = "browser" })
 
-hl.unbind("SUPER + ALT + B")
-o.bind("SUPER + ALT + B", "QuteBrowser", { launch = "qutebrowser" })
+o.rebind("SUPER + ALT + B", "QuteBrowser", { launch = "qutebrowser" })
 
-hl.unbind("SUPER + B")
-o.bind("SUPER + B", "Zen Browser", { launch = "zen-browser" })
+o.rebind("SUPER + B", "Zen Browser", { launch = "zen-browser" })
 
-hl.unbind("SUPER + SHIFT + B")
-o.bind("SUPER + SHIFT + B", "QuteBrowser (Incognito)", { launch = "bash -c 'd=$(mktemp -d /dev/shm/qb-incognito.XXXXXX); mkdir -p \"$d/config\"; cp ~/.config/qutebrowser/{config.py,theme.py,startpage.html} \"$d/config/\" 2>/dev/null; qutebrowser --basedir \"$d\" -s content.private_browsing true file://$HOME/.config/qutebrowser/startpage.html; rm -rf \"$d\"'" })
+o.rebind("SUPER + SHIFT + B", "QuteBrowser (Incognito)", { launch = "bash -c 'd=$(mktemp -d /dev/shm/qb-incognito.XXXXXX); mkdir -p \"$d/config\"; cp ~/.config/qutebrowser/{config.py,theme.py,startpage.html} \"$d/config/\" 2>/dev/null; qutebrowser --basedir \"$d\" -s content.private_browsing true file://$HOME/.config/qutebrowser/startpage.html; rm -rf \"$d\"'" })
 
-hl.unbind("SUPER + SHIFT + W")
-o.bind("SUPER + SHIFT + W", "WhatsApp Web", { webapp = "https://web.whatsapp.com/", focus = true })
+o.rebind("SUPER + SHIFT + W", "WhatsApp Web", { webapp = "https://web.whatsapp.com/", focus = true })
 
 
 -- ── 3. File Managers ────────────────────────────────────────────────────────
@@ -68,33 +69,88 @@ o.bind("SUPER + E", "Nautilus File Manager", { omarchy = "nautilus" })
 
 o.bind("SUPER + ALT + E", "File manager (cwd)", { omarchy = "nautilus-cwd" })
 
-hl.unbind("SUPER + SHIFT + E")
-o.bind("SUPER + SHIFT + E", "Flea", { launch = "flea" })
+o.rebind("SUPER + SHIFT + E", "Flea", { launch = "flea" })
 -- o.bind("SUPER + SHIFT + E", "Flea", { launch = "strata" })
 
 -- ── 4. Window Management & Workspaces ───────────────────────────────────────
 
-hl.unbind("SUPER + Q")
-o.bind("SUPER + Q", "Close window", hl.dsp.window.close())
+o.rebind("SUPER + Q", "Close window", hl.dsp.window.close())
 
-o.bind("SUPER + SHIFT + Q", "Force kill window", hl.dsp.exec_cmd("hyprctl kill"))
+o.rebind("SUPER + SHIFT + Q", "Force kill window", hl.dsp.exec_cmd("hyprctl kill"))
 
-hl.unbind("SUPER + Z")
-o.bind("SUPER + Z", "Resize window", hl.dsp.window.resize(), { mouse = true })
+o.rebind("SUPER + Z", "Resize window", hl.dsp.window.resize(), { mouse = true })
 
-hl.unbind("SUPER + SHIFT + O")
-o.bind("SUPER + SHIFT + O", "Toggle floating / tiling", hl.dsp.window.float({ action = "toggle" }))
+o.rebind("SUPER + SHIFT + O", "Toggle floating / tiling", hl.dsp.window.float({ action = "toggle" }))
 
-hl.unbind("SUPER + L")
-o.bind("SUPER + L", "Lock system", "omarchy-system-lock")
+-- float at 875x600, centred and pinned; press again to unpin and tile it
+-- into the workspace you are on
+o.rebind("SUPER + O", "Pop window out (float & pin)", function()
+  local window = hl.get_active_window()
+  if window == nil or window.address == nil then return end
+  local target = "address:" .. window.address
+
+  if window.pinned then
+    -- unpin, then tile on whatever workspace is active now
+    local ws = hl.get_active_workspace()
+    hl.dispatch(hl.dsp.window.pin({ window = target }))
+    if ws ~= nil and ws.id ~= nil then
+      hl.dispatch(hl.dsp.window.move({ workspace = tostring(ws.id), follow = false, window = target }))
+    end
+    if window.floating then
+      hl.dispatch(hl.dsp.window.float({ window = target, action = "toggle" }))
+    end
+  else
+    if not window.floating then
+      hl.dispatch(hl.dsp.window.float({ window = target, action = "toggle" }))
+    end
+    hl.dispatch(hl.dsp.window.resize({ window = target, x = 875, y = 600, exact = true }))
+    hl.dispatch(hl.dsp.window.center({ window = target }))
+    hl.dispatch(hl.dsp.window.pin({ window = target }))
+    hl.dispatch(hl.dsp.window.alter_zorder({ window = target, mode = "top" }))
+  end
+end)
+
+-- SUPER + R on a floating (or pinned) window enters a move mode:
+-- h/j/k/l nudge it 40px (CTRL for 10px), SHIFT + h/l narrower / wider and
+-- SHIFT + k/j shorter / taller by 40px, Escape / Return / SUPER + R leave.
+local function nudge(x, y)
+  return hl.dsp.window.move({ x = x, y = y, relative = true })
+end
+
+local function grow(x, y)
+  return hl.dsp.window.resize({ x = x, y = y, relative = true })
+end
+
+o.rebind("SUPER + R", "Move floating window (hjkl)", function()
+  local window = hl.get_active_window()
+  if window ~= nil and window.floating then
+    hl.dispatch(hl.dsp.submap("float-move"))
+    hl.exec_cmd("omarchy-notification-send -u critical -g 󰆾 'Move mode' 'hjkl move · CTRL fine · SHIFT resize · Esc exit'")
+  end
+end)
+
+-- after the rebind above, which would also clear SUPER + R inside the submap
+hl.define_submap("float-move", function()
+  for key, dir in pairs({ H = { -1, 0 }, J = { 0, 1 }, K = { 0, -1 }, L = { 1, 0 } }) do
+    o.bind(key, "Move floating window", nudge(dir[1] * 40, dir[2] * 40), { repeating = true })
+    o.bind("CTRL + " .. key, "Move floating window (fine)", nudge(dir[1] * 10, dir[2] * 10), { repeating = true })
+    o.bind("SHIFT + " .. key, "Resize floating window", grow(dir[1] * 40, dir[2] * 40), { repeating = true })
+  end
+  for _, key in ipairs({ "ESCAPE", "RETURN", "SUPER + R" }) do
+    o.bind(key, "Leave move mode", function()
+      hl.dispatch(hl.dsp.submap("reset"))
+      hl.exec_cmd("omarchy-notification-dismiss 'Move mode'")
+    end)
+  end
+end)
+
+o.rebind("SUPER + L", "Lock system", "omarchy-system-lock")
 
 o.rebind("SUPER + TAB", "Omarchy overview", "omarchy-shell shell toggle omarchy-overview")
 
 -- ===== Smart next/prev workspace (skip repeated empty workspaces) =====
--- Omarchy binds these to "Move grouped window focus"; without the unbind
--- both actions fire on every press.
-hl.unbind("SUPER + CTRL + RIGHT")
-hl.unbind("SUPER + CTRL + LEFT")
+-- Omarchy binds these to "Move grouped window focus"; o.rebind drops that,
+-- otherwise both actions fire on every press.
 
 local TOTAL_WORKSPACES = 10
 
@@ -138,7 +194,7 @@ end
 
 _G.SmartWorkspace = { next = next_workspace }
 
-o.bind("SUPER + CTRL + RIGHT", "Next workspace",
+o.rebind("SUPER + CTRL + RIGHT", "Next workspace",
     function()
         local target = next_workspace(1)
         if target ~= nil then
@@ -146,7 +202,7 @@ o.bind("SUPER + CTRL + RIGHT", "Next workspace",
         end
     end)
 
-o.bind("SUPER + CTRL + LEFT", "Previous workspace",
+o.rebind("SUPER + CTRL + LEFT", "Previous workspace",
     function()
         local target = next_workspace(-1)
         if target ~= nil then
@@ -155,15 +211,12 @@ o.bind("SUPER + CTRL + LEFT", "Previous workspace",
     end)
 
 
--- hl.unbind("SUPER + S")
--- o.bind("SUPER + S", "Toggle scratchpad", hl.dsp.workspace.toggle_special("scratch"))
--- hl.unbind("SUPER + SHIFT + S")
--- o.bind("SUPER + SHIFT + S", "Move window to scratchpad", hl.dsp.window.move({ workspace = "special:scratch", follow = false }))
+-- o.rebind("SUPER + S", "Toggle scratchpad", hl.dsp.workspace.toggle_special("scratch"))
+-- o.rebind("SUPER + SHIFT + S", "Move window to scratchpad", hl.dsp.window.move({ workspace = "special:scratch", follow = false }))
 
 -- ── 5. Shell Plugins & Custom Menus ─────────────────────────────────────────
 
-hl.unbind("SUPER + ALT + S")
-o.bind("SUPER + ALT + S", "Shaders", "omarchy-menu-shaders")
+o.rebind("SUPER + ALT + S", "Shaders", "omarchy-menu-shaders")
 
 
 -- ── 6. Hardware & Mouse Controls ────────────────────────────────────────────
@@ -186,30 +239,62 @@ o.bind("mouse:275", "Orbit Release", "~/.config/omarchy/plugins/local.orbit/scri
 -- Flea 
 o.window("com.thisisgm.flea", { tag = "+floating-window" })
 o.window("io.github.lgse.Strata", { tag = "+floating-window" })
+o.window("org.gnome.Nautilus", {
+    float  = true,
+    size   = { "min(1500, monitor_w * 0.92)", "min(850, monitor_h * 0.88)" },
+    center = true,
+})
 
 
--- Drawers
-o.bind("SUPER + CTRL + 0", "Omacale bar focus", "omarchy-shell omacale barFocus")
-o.bind("SUPER + D", "Omacale dashboard", "omarchy-shell omacale dashboard")
-o.bind("SUPER + N", "Omacale notifications sidebar", "omarchy-shell omacale sidebar")
-o.bind("SUPER + U", "Omacale quick toggles", "omarchy-shell omacale utilities")
--- o.bind("SUPER + SHIFT + ESCAPE", "Omacale session menu", "omarchy-shell omacale session")
-o.bind("SUPER + SHIFT + I", "Omacale settings", "omarchy-shell omacale settings")
-o.rebind("SUPER + CTRL + V", "Omacale clipboard", "omarchy-shell omacale clipboard")                 -- was: Clipboard manager
 
--- Dashboard tabs
-o.bind("SUPER + ALT + D", "Omacale media", "omarchy-shell omacale dashboardTab media")
-o.bind("SUPER + ALT + P", "Omacale performance", "omarchy-shell omacale dashboardTab performance")
+-- ── 9. Bar-specific binds ───────────────────────────────────────────────────
+-- Follows bar.id in ~/.config/omarchy/shell.json, so only the active bar's
+-- keys are bound. Switch bars with omarchy-bar-switch (it runs hyprctl reload).
 
--- Frame: SUPER + SHIFT + SPACE ("Toggle top bar") already hides/shows
--- Omacale's frame too.
+-- "omacale", "hanko" or "default". looknfeel.lua uses it too.
+function o.active_bar()
+  local f = io.open(os.getenv("HOME") .. "/.config/omarchy/shell.json")
+  if not f then return "default" end
+  local json = f:read("*a")
+  f:close()
+  local id = json:match('"id"%s*:%s*"([%w_-]+)%.bar"')
+  if id == "omacale" or id == "hanko" then return id end
+  return "default"
+end
 
--- Omacale as the main launcher
-o.rebind("SUPER + SPACE", "Omacale launcher", "omarchy-shell omacale launcher")                      -- was: Omarchy menu
-o.rebind("SUPER + ALT + SPACE", "Omacale menu", "omarchy-shell omacale menu")
-o.rebind("SUPER + ESCAPE", "Omacale session menu", "omarchy-shell omacale session")                  -- was: System menu
-o.rebind("SUPER + CTRL + SPACE", "Omacale wallpaper picker", "omarchy-shell omacale wallpapers")     -- was: Background switcher
-o.rebind("SUPER + SHIFT + CTRL + SPACE", "Omacale theme picker", "omarchy-shell omacale themes")     -- was: Theme menu
-o.rebind("SUPER + TAB", "Omacale workspace overview", "omarchy-shell omacale overview")              -- was: Next workspace
+o.bind("SUPER + SHIFT + CTRL + B", "Pick bar (Omacale / Hanko / Omarchy)", "omarchy-launch-floating-terminal-with-presentation omarchy-bar-switch pick")
 
-pcall(dofile, os.getenv("HOME") .. "/.config/omarchy/plugins/omacale.bar/omacale.lua")
+local bar = o.active_bar()
+
+if bar == "hanko" then
+  o.rebind("SUPER + TAB", "Hanko overview", "omarchy-shell hanko overview")          -- was: Next workspace
+  o.rebind("SUPER + SHIFT + I", "Hanko settings", "omarchy-shell hanko settings")
+  -- Bar focus: the bar takes the keyboard. Left/Right walk it, Enter clicks,
+  -- Menu right-clicks, Up/Down volume, 1-9 workspace, Esc lets go.
+  o.bind("SUPER + CTRL + 0", "Hanko bar focus", "omarchy-shell hanko barFocus")
+
+elseif bar == "omacale" then
+  -- Drawers
+  o.bind("SUPER + CTRL + 0", "Omacale bar focus", "omarchy-shell omacale barFocus")
+  o.bind("SUPER + D", "Omacale dashboard", "omarchy-shell omacale dashboard")
+  o.bind("SUPER + N", "Omacale notifications sidebar", "omarchy-shell omacale sidebar")
+  o.bind("SUPER + U", "Omacale quick toggles", "omarchy-shell omacale utilities")
+  -- o.bind("SUPER + SHIFT + ESCAPE", "Omacale session menu", "omarchy-shell omacale session")
+  o.rebind("SUPER + SHIFT + I", "Omacale settings", "omarchy-shell omacale settings")
+  o.rebind("SUPER + CTRL + V", "Omacale clipboard", "omarchy-shell omacale clipboard")                 -- was: Clipboard manager
+
+  -- Dashboard tabs
+  o.bind("SUPER + ALT + D", "Omacale media", "omarchy-shell omacale dashboardTab media")
+  o.bind("SUPER + ALT + P", "Omacale performance", "omarchy-shell omacale dashboardTab performance")
+
+  -- Frame: SUPER + SHIFT + SPACE ("Toggle top bar") already hides/shows
+  -- Omacale's frame too.
+
+  -- Omacale as the main launcher
+  o.rebind("SUPER + SPACE", "Omacale launcher", "omarchy-shell omacale launcher")                      -- was: Omarchy menu
+  o.rebind("SUPER + ALT + SPACE", "Omacale menu", "omarchy-shell omacale menu")
+  o.rebind("SUPER + ESCAPE", "Omacale session menu", "omarchy-shell omacale session")                  -- was: System menu
+  o.rebind("SUPER + CTRL + SPACE", "Omacale wallpaper picker", "omarchy-shell omacale wallpapers")     -- was: Background switcher
+  o.rebind("SUPER + SHIFT + CTRL + SPACE", "Omacale theme picker", "omarchy-shell omacale themes")     -- was: Theme menu
+  o.rebind("SUPER + TAB", "Omacale workspace overview", "omarchy-shell omacale overview")              -- was: Next workspace
+end

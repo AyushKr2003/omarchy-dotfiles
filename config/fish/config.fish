@@ -19,7 +19,7 @@ end
 
 alias clauda="CLAUDE_CONFIG_DIR=~/.claude-fillip claude"
 alias claude-work="CLAUDE_CONFIG_DIR=~/.claude-second claude"
-abbr md tsuzuri
+# abbr md tsuzuri
 
 # conf.d/omarchy.fish appends ~/.local/bin; move it to the front so local overrides win
 fish_add_path -g --move ~/.local/bin
