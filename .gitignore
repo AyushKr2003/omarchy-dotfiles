@@ -50,6 +50,7 @@ config/qutebrowser/bookmarks
 config/qutebrowser/quickmarks
 config/qutebrowser/startpage.html
 config/qutebrowser/theme.py
+config/qutebrowser/wallpaper
 
 
 config/omarchy/hooks/theme-set.d/10-owe-sync

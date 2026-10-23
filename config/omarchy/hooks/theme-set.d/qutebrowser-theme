@@ -30,6 +30,17 @@ if [[ -f $source_startpage && ! -L $source_startpage ]]; then
     mv -f -- "$temp_start" "$target_dir/startpage.html"
 fi
 
+# Sync live wallpaper (respects Hanko Sumizuri print when enabled)
+hanko_wallpaper_script=${HOME}/omarchy-dotfiles/shell/hanko/scripts/hanko-wallpaper
+if [[ -x $hanko_wallpaper_script ]]; then
+    "$hanko_wallpaper_script" --sync >/dev/null 2>&1 || true
+else
+    wallpaper_source=${HOME}/.local/state/omarchy/current/background
+    if [[ -e $wallpaper_source ]]; then
+        ln -nsf "$wallpaper_source" "$target_dir/wallpaper"
+    fi
+fi
+
 # If qutebrowser is running, reload configuration live without interrupting sessions
 if pgrep -x qutebrowser >/dev/null 2>&1; then
     qutebrowser :config-source >/dev/null 2>&1 || true

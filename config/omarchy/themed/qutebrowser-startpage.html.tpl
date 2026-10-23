@@ -31,7 +31,14 @@
         }
 
         body {
-            background-color: transparent;
+            background-color: var(--dark-bg);
+            background-image: 
+                linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45)), 
+                url('wallpaper');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
             color: var(--fg);
             font-family: 'JetBrains Mono', monospace;
             min-height: 100vh;
@@ -48,6 +55,8 @@
             width: 100%;
             max-width: 820px;
             background: var(--bg-trans);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 12px;
             box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
