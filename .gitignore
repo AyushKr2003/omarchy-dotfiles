@@ -63,4 +63,8 @@ shell/Shibumi-Shell/
 # third-party clones
 shell/Vitreus/
 shell/pleamar/
+shell/serpantinum/
 config/omarchy/plugins/hyprdrive-omarchy/
+
+config/omarchy/hooks/theme-set.d/50-hanko-kaze
+config/omarchy/hooks/theme-set.d/51-hanko-tools

@@ -160,6 +160,8 @@ PACMAN_PACKAGES=(
   libwebp-utils   # cwebp for omarchy-webp-convert
   librsvg         # omarchy-cursor-material renders Bibata SVGs
   xorg-xcursorgen # omarchy-cursor-material builds the X11 cursor set
+  papirus-icon-theme # folders for omarchy-folder-icons
+  adw-gtk-theme   # adw-gtk3: libadwaita look and colours for GTK 3 (omarchy-gtk-theme)
   qt6-imageformats # quickshell webP image support
   python-curl_cffi # for manga quickshell plugin backend
   # Add more pacman packages here as you grow this repo.
@@ -375,6 +377,35 @@ fi
 
 "$HOME/.local/bin/omarchy-cursor-material" --force --full
 echo "    Built Bibata-Material-Omarchy in the current theme accent."
+
+# ════════════════════════════════════════════════════════════════════════
+# SECTION: folder icons (follow the theme accent)
+# ════════════════════════════════════════════════════════════════════════
+# omarchy-folder-icons builds Papirus-Omarchy (Papirus with the folders in the
+# theme accent) and selects it; hooks/theme-set.d/45-folder-icons rebuilds it
+# on every theme change. The marker turns it on; `omarchy-folder-icons --off`
+# goes back to the theme's own icons.
+
+gum style --foreground 2 "==> Installing theme-coloured folder icons"
+
+mkdir -p "$HOME/.config/omarchy"
+touch "$HOME/.config/omarchy/folder-icons"
+"$HOME/.local/bin/omarchy-folder-icons"
+echo "    Built Papirus-Omarchy in the current theme accent."
+
+# ════════════════════════════════════════════════════════════════════════
+# SECTION: GTK colours (follow the theme)
+# ════════════════════════════════════════════════════════════════════════
+# omarchy-gtk-theme writes ~/.config/gtk-{3,4}.0/omarchy-theme.css from the
+# theme's colors.toml and imports it at the top of each gtk.css (your own rules
+# there stay); hooks/theme-set.d/15-gtk-theme rebuilds it on every theme change.
+# The marker turns it on; `omarchy-gtk-theme --off` takes it all out again.
+
+gum style --foreground 2 "==> Installing theme-coloured GTK overrides"
+
+touch "$HOME/.config/omarchy/gtk-theme"
+"$HOME/.local/bin/omarchy-gtk-theme"
+echo "    Built the GTK 3 and GTK 4 palette from the current theme."
 
 # ════════════════════════════════════════════════════════════════════════
 # SECTION: fievel (keyboard-driven mouse)

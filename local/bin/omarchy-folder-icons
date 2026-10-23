@@ -1,0 +1,180 @@
+#!/usr/bin/env bash
+
+# omarchy:summary=Rebuild the Papirus-Omarchy folder icons in the theme accent
+# omarchy:args=[--force] [--off] [#hex]
+
+# Tint the folder icons to the current Omarchy theme accent.
+#
+# Adapted from Ryoku's ryoku-cmd-folders (GPL-3.0-or-later,
+# github.com/Ryoku-dev/ryoku); the icons are Papirus (GPL-3.0).
+#
+# Builds a small icon theme, Papirus-Omarchy, that inherits Papirus-Dark (or
+# Papirus-Light on a light theme) and overrides only the folder icons: Papirus's
+# blue set, with its three blues rewritten to the accent (front), a darker shade
+# (back flap) and a much darker one (the symbol on the folder). If Papirus ever
+# changes those blues, it falls back to the nearest ready-made Papirus colour.
+#
+# The theme-set hook calls this on every theme change. It only acts while
+# ~/.config/omarchy/folder-icons exists (install.sh creates it); --force builds
+# anyway, --off removes it and goes back to the theme's own icons.
+#
+# omarchy-theme-set-gnome resets icon-theme to the theme's icons.theme just
+# before the hooks run, so this sets it back every time.
+#
+# The theme name never changes; each build lands in a new generation dir and is
+# published by renaming a symlink over the old one, so a GTK app resolving a
+# folder icon sees the whole old tree or the whole new one, never a half-written
+# one (Ryoku saw SIGABRTs from that). The previous generation is kept one more
+# cycle for lookups already in flight.
+
+set -u
+
+NAME=Papirus-Omarchy
+MARKER=$HOME/.config/omarchy/folder-icons
+THEME_DIR=$HOME/.local/state/omarchy/current/theme
+COLORS=$THEME_DIR/colors.toml
+SRC=/usr/share/icons/Papirus/64x64/places
+BASE=${XDG_DATA_HOME:-$HOME/.local/share}/icons
+LINK=$BASE/$NAME
+GENS=$BASE/.papirus-omarchy
+
+# Papirus blue: front, back flap, symbol.
+BLUE_FRONT="#5294e2"
+BLUE_BACK="#4877b1"
+BLUE_SYMBOL="#1d344f"
+
+force=0
+accent=""
+for arg in "$@"; do
+  case $arg in
+    --force) force=1 ;;
+    --off)
+      rm -f "$MARKER"
+      if [[ -f $THEME_DIR/icons.theme ]]; then
+        gsettings set org.gnome.desktop.interface icon-theme "$(<"$THEME_DIR/icons.theme")"
+      else
+        gsettings set org.gnome.desktop.interface icon-theme "Yaru-blue"
+      fi
+      exit 0
+      ;;
+    \#*) accent=$arg ;;
+    *) echo "Usage: omarchy-folder-icons [--force] [--off] [#hex]" >&2; exit 1 ;;
+  esac
+done
+
+((force)) || [[ -e $MARKER ]] || exit 0
+[[ -d $SRC ]] || { echo "Papirus is not installed (papirus-icon-theme)" >&2; exit 0; }
+
+# Serialise: a burst of theme switches runs one at a time and the last wins.
+exec 9>"${XDG_RUNTIME_DIR:-/tmp}/omarchy-folder-icons.lock" && flock 9
+
+toml_value() {
+  sed -n "s/^$1[[:space:]]*=[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p" "$COLORS" 2>/dev/null | head -1
+}
+
+[[ -n $accent ]] || accent=$(toml_value accent)
+[[ $accent =~ ^#[0-9A-Fa-f]{6}$ ]] || accent=$BLUE_FRONT
+accent=${accent,,}
+
+mode=$(toml_value mode)
+inherits=Papirus-Dark
+[[ $mode == light ]] && inherits=Papirus-Light
+
+# accent scaled by percent, e.g. shade "#7aa2f7" 82
+shade() {
+  local h=${1#\#} f=$2
+  printf '#%02x%02x%02x' $((16#${h:0:2} * f / 100)) $((16#${h:2:2} * f / 100)) $((16#${h:4:2} * f / 100))
+}
+
+# Nearest Papirus folder colour, for when the blues can't be rewritten.
+nearest_colour() {
+  awk -v c="$1" 'BEGIN{
+    r=strtonum("0x" substr(c,2,2))/255; g=strtonum("0x" substr(c,4,2))/255; b=strtonum("0x" substr(c,6,2))/255
+    mx=(r>g?(r>b?r:b):(g>b?g:b)); mn=(r<g?(r<b?r:b):(g<b?g:b)); d=mx-mn
+    if(d==0) h=0; else if(mx==r) h=(g-b)/d; else if(mx==g) h=(b-r)/d+2; else h=(r-g)/d+4
+    h*=60; if(h<0) h+=360; s=(mx==0?0:d/mx)
+    print (s<0.10)?"grey":(h<15||h>=345)?"red":(h<45)?"orange":(h<70)?"yellow":(h<165)?"green":(h<195)?"teal":(h<215)?"cyan":(h<255)?"blue":(h<290)?"violet":(h<330)?"magenta":"pink"
+  }'
+}
+
+stamp="$accent $inherits"
+
+# Already built for this accent and mode: just make sure it's selected.
+if [[ ! -e $LINK/.stamp || $(<"$LINK/.stamp") != "$stamp" ]]; then
+  colour=blue
+  recolour=1
+  if ! grep -qi "$BLUE_FRONT" "$SRC/folder-blue.svg"; then
+    recolour=0
+    colour=$(nearest_colour "$accent")
+    [[ -e $SRC/folder-$colour.svg ]] || colour=blue
+  fi
+
+  prev=""
+  [[ -L $LINK ]] && prev=$(basename "$(readlink "$LINK")")
+
+  gen=$(date +%s%N)
+  tmp=$GENS/build.$$
+  rm -rf "$tmp"
+  mkdir -p "$tmp/places"
+
+  for f in "$SRC/folder-$colour.svg" "$SRC"/folder-"$colour"-*.svg "$SRC"/user-"$colour"-*.svg; do
+    [[ -e $f ]] || continue
+    b=$(basename "$f")
+    d=${b/-$colour-/-}
+    d=${d/-$colour./.}
+    cp -L "$f" "$tmp/places/$d"
+  done
+
+  if ((recolour)); then
+    sed -i -e "s/$BLUE_FRONT/$accent/Ig" \
+      -e "s/$BLUE_BACK/$(shade "$accent" 82)/Ig" \
+      -e "s/$BLUE_SYMBOL/$(shade "$accent" 35)/Ig" "$tmp"/places/*.svg
+  fi
+
+  # Every name Papirus maps to folder.svg (inode-directory, …), or lookup falls
+  # through to Papirus's blue originals.
+  for f in "$SRC"/*.svg; do
+    [[ -L $f && $(readlink "$f") == folder.svg ]] || continue
+    ln -s folder.svg "$tmp/places/$(basename "$f")"
+  done
+
+  cat >"$tmp/index.theme" <<EOF
+[Icon Theme]
+Name=Papirus Omarchy
+Comment=Papirus folders in the Omarchy theme accent
+Inherits=$inherits
+Directories=places
+
+[places]
+Size=64
+MinSize=8
+MaxSize=512
+Type=Scalable
+Context=Places
+EOF
+  echo "$stamp" >"$tmp/.stamp"
+
+  # Bake the cache in before publishing so GTK re-reads the new colours; the
+  # fixed theme name alone would not bust it.
+  command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -qf "$tmp" 2>/dev/null
+  mv -T "$tmp" "$GENS/$gen"
+
+  stage=$BASE/.papirus-omarchy.link.$$
+  ln -sfn ".papirus-omarchy/$gen" "$stage"
+  [[ -e $LINK && ! -L $LINK ]] && rm -rf "$LINK"
+  mv -T "$stage" "$LINK"
+
+  # Keep the live and the previous generation; drop older ones and dead builds.
+  for d in "$GENS"/*; do
+    [[ -e $d ]] || continue
+    case $(basename "$d") in "$gen" | "$prev") continue ;; esac
+    rm -rf "$d"
+  done
+fi
+
+if [[ -n ${DBUS_SESSION_BUS_ADDRESS:-} ]] && command -v gsettings >/dev/null; then
+  cur=$(gsettings get org.gnome.desktop.interface icon-theme 2>/dev/null | tr -d "'")
+  [[ $cur == "$NAME" ]] || gsettings set org.gnome.desktop.interface icon-theme "$NAME"
+fi
+
+exit 0

@@ -1,0 +1,7 @@
+#!/bin/bash
+# Recolour GTK 3/4 apps (gtk.css) to the new theme.
+# No-op unless ~/.config/omarchy/gtk-theme exists (omarchy-gtk-theme).
+
+if command -v omarchy-gtk-theme >/dev/null; then
+  omarchy-gtk-theme || true
+fi

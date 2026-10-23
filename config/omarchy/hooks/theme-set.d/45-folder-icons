@@ -1,0 +1,7 @@
+#!/bin/bash
+# Retint the Papirus-Omarchy folder icons to the new theme accent.
+# No-op unless ~/.config/omarchy/folder-icons exists (omarchy-folder-icons).
+
+if command -v omarchy-folder-icons >/dev/null; then
+  omarchy-folder-icons || true
+fi
