@@ -178,8 +178,8 @@ omarchy-pkg-add "${PACMAN_PACKAGES[@]}"
 gum style --foreground 2 "==> Installing AUR packages"
 
 AUR_PACKAGES=(
-  herdr-bin       # terminal workspace manager for AI coding agents
   flea-bin        # keyboard-first file manager for Omarchy (Quickshell UI + Rust backend)
+  zapfast-bin     # Rust based whatsapp clinet for omarchy
   # Add more aur packages here as you grow this repo.
 )
 

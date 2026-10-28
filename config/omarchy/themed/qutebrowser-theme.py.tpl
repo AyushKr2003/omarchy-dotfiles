@@ -18,6 +18,7 @@ LIGHTER_BG_RGB = "{{ lighter_background_rgb }}"
 
 FG = "{{ foreground }}"
 ACCENT = "{{ accent }}"
+ACCENT_RGB = "{{ accent_rgb }}"
 MUTED = "{{ muted }}"
 SELECTION_BG = "{{ selection_background }}"
 SELECTION_FG = "{{ selection_foreground }}"
@@ -41,37 +42,37 @@ MODE = "{{ mode }}"
 # ------------------------------------------------------------------------------
 c.window.transparent = True
 
-# Webpage background (theme background; compositor handles window opacity/blur)
-c.colors.webpage.bg = BG
+# Webpage background (transparent allows QMainWindow wallpaper canvas to show through)
+c.colors.webpage.bg = "transparent"
 c.colors.webpage.preferred_color_scheme = MODE
 c.colors.webpage.darkmode.enabled = (MODE == "dark")
 
 # ------------------------------------------------------------------------------
-# Tab Bar Colors (Translucent & Minimal)
+# Tab Bar Colors (Direct Wallpaper Canvas with Translucent Badges)
 # ------------------------------------------------------------------------------
-# Tab bar overall background
-c.colors.tabs.bar.bg = f"rgba({DARKER_BG_RGB}, 0.75)"
+# Tab bar overall background (matches bottom status bar)
+c.colors.tabs.bar.bg = "rgba(0, 0, 0, 0.35)"
 
 # Unselected tabs
-c.colors.tabs.even.bg = f"rgba({DARK_BG_RGB}, 0.65)"
+c.colors.tabs.even.bg = "transparent"
 c.colors.tabs.even.fg = MUTED
-c.colors.tabs.odd.bg = f"rgba({DARKER_BG_RGB}, 0.65)"
+c.colors.tabs.odd.bg = "transparent"
 c.colors.tabs.odd.fg = MUTED
 
 # Selected tabs (active)
-c.colors.tabs.selected.even.bg = f"rgba({BG_RGB}, 0.95)"
+c.colors.tabs.selected.even.bg = "transparent"
 c.colors.tabs.selected.even.fg = ACCENT
-c.colors.tabs.selected.odd.bg = f"rgba({BG_RGB}, 0.95)"
+c.colors.tabs.selected.odd.bg = "transparent"
 c.colors.tabs.selected.odd.fg = ACCENT
 
 # Pinned tabs
-c.colors.tabs.pinned.even.bg = f"rgba({DARK_BG_RGB}, 0.65)"
+c.colors.tabs.pinned.even.bg = "transparent"
 c.colors.tabs.pinned.even.fg = MUTED
-c.colors.tabs.pinned.odd.bg = f"rgba({DARKER_BG_RGB}, 0.65)"
+c.colors.tabs.pinned.odd.bg = "transparent"
 c.colors.tabs.pinned.odd.fg = MUTED
-c.colors.tabs.pinned.selected.even.bg = f"rgba({BG_RGB}, 0.95)"
+c.colors.tabs.pinned.selected.even.bg = "transparent"
 c.colors.tabs.pinned.selected.even.fg = ACCENT
-c.colors.tabs.pinned.selected.odd.bg = f"rgba({BG_RGB}, 0.95)"
+c.colors.tabs.pinned.selected.odd.bg = "transparent"
 c.colors.tabs.pinned.selected.odd.fg = ACCENT
 
 # Tab indicators
@@ -83,8 +84,8 @@ c.colors.tabs.indicator.system = "none"
 # ------------------------------------------------------------------------------
 # Statusbar Colors
 # ------------------------------------------------------------------------------
-# Normal mode
-c.colors.statusbar.normal.bg = f"rgba({BG_RGB}, 0.85)"
+# Normal mode (translucent scrim over wallpaper for maximum legibility)
+c.colors.statusbar.normal.bg = "rgba(0, 0, 0, 0.35)"
 c.colors.statusbar.normal.fg = FG
 
 # Insert mode

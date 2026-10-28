@@ -36,50 +36,33 @@ end
 -- ── 1. Terminals & Editors ───────────────────────────────────────────────────
 
 o.rebind("SUPER + RETURN", "Tmux (Work)", { launch = "omarchy-launch-terminal-tmux" })
-
-
 o.rebind("SUPER + T", "Terminal", { omarchy = "terminal" })
-
 o.rebind("SUPER + SHIFT + T", "Floating Terminal", { launch = "omarchy-launch-float-terminal" })
-
-
 o.rebind("SUPER + CTRL + L", "Terminal Launcher", { launch = "omarchy-launch-float-terminal a -a" })
-
 o.rebind({ "SUPER + PAUSE", "SUPER + KP_Prior" }, "Full System Info", hl.dsp.exec_cmd("xdg-terminal-exec fish -c full_sys", { float = true, size = "1220 680" }))
-
 o.rebind("SUPER + SHIFT + N", "VS Code", { launch = "code" })
-
 
 -- ── 2. Browsers & Web Applications ──────────────────────────────────────────
 
 o.rebind("SUPER + W", "Default Browser", { omarchy = "browser" })
-
 o.rebind("SUPER + ALT + B", "QuteBrowser", { launch = "qutebrowser" })
-
 o.rebind("SUPER + B", "Zen Browser", { launch = "zen-browser" })
-
 o.rebind("SUPER + SHIFT + B", "QuteBrowser (Incognito)", { launch = "bash -c 'd=$(mktemp -d /dev/shm/qb-incognito.XXXXXX); mkdir -p \"$d/config\"; cp ~/.config/qutebrowser/{config.py,theme.py,startpage.html} \"$d/config/\" 2>/dev/null; qutebrowser --basedir \"$d\" -s content.private_browsing true file://$HOME/.config/qutebrowser/startpage.html; rm -rf \"$d\"'" })
-
-o.rebind("SUPER + SHIFT + W", "WhatsApp Web", { webapp = "https://web.whatsapp.com/", focus = true })
-
+o.rebind("SUPER + CTRL + W", "WhatsApp Web", { webapp = "https://web.whatsapp.com/", focus = true })
+o.rebind("SUPER + SHIFT + W", "WhatsApp Web", "zapfast")
 
 -- ── 3. File Managers ────────────────────────────────────────────────────────
 
 o.bind("SUPER + E", "Nautilus File Manager", { omarchy = "nautilus" })
-
 o.bind("SUPER + ALT + E", "File manager (cwd)", { omarchy = "nautilus-cwd" })
-
 o.rebind("SUPER + SHIFT + E", "Flea", { launch = "flea" })
 -- o.bind("SUPER + SHIFT + E", "Flea", { launch = "strata" })
 
 -- ── 4. Window Management & Workspaces ───────────────────────────────────────
 
 o.rebind("SUPER + Q", "Close window", hl.dsp.window.close())
-
 o.rebind("SUPER + SHIFT + Q", "Force kill window", hl.dsp.exec_cmd("hyprctl kill"))
-
 o.rebind("SUPER + Z", "Resize window", hl.dsp.window.resize(), { mouse = true })
-
 o.rebind("SUPER + SHIFT + O", "Toggle floating / tiling", hl.dsp.window.float({ action = "toggle" }))
 
 -- float at 875x600, centred and pinned; press again to unpin and tile it
@@ -144,8 +127,8 @@ hl.define_submap("float-move", function()
   end
 end)
 
-o.rebind("SUPER + L", "Lock system", "omarchy-system-lock")
 
+o.rebind("SUPER + L", "Lock system", "omarchy-system-lock")
 o.rebind("SUPER + TAB", "Omarchy overview", "omarchy-shell shell toggle omarchy-overview")
 
 -- ===== Smart next/prev workspace (skip repeated empty workspaces) =====

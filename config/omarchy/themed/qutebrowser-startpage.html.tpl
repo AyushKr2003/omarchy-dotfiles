@@ -31,14 +31,8 @@
         }
 
         body {
-            background-color: var(--dark-bg);
-            background-image: 
-                linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45)), 
-                url('wallpaper');
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            background-attachment: fixed;
+            background-color: transparent;
+            background: transparent;
             color: var(--fg);
             font-family: 'JetBrains Mono', monospace;
             min-height: 100vh;

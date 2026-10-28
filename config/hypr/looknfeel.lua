@@ -76,6 +76,9 @@ hl.config({
     -- inactive_opacity = 0.9,
 
   },
+  -- input = {
+  --   follow_mouse = 0,
+  -- },
 })
 
 -- o.window(".*", { opacity = "1 1" })
@@ -84,7 +87,27 @@ hl.config({
 -- Hanko's hard print shadow on every window.
 if bar == "hanko" then
   pcall(dofile, os.getenv("HOME") .. "/.config/omarchy/plugins/hanko.bar/style.lua")
+  -- ── Permanent Frosted Glass (Overrides Hanko's "no glass" setting) ─────────
+  -- hl.config({
+  --   decoration = {
+  --     active_opacity = 0.80,
+  --     inactive_opacity = 0.78,
+  --     blur = {
+  --       enabled = true,
+  --       size = 8,
+  --       passes = 3,
+  --       noise = 0.03,
+  --       contrast = 0.9,
+  --       brightness = 0.85,
+  --       vibrancy = 0.35,
+  --       new_optimizations = true,
+  --     },
+  --   },
+  -- })
 end
+
+-- Force full opacity (100% solid) on all windows, overriding default transparency
+o.window(".*", { opacity = "1.0 override 1.0 override" })
 
 pcall(require, "hypr.shader")
 

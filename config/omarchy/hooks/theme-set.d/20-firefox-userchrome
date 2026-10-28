@@ -112,6 +112,14 @@ else
   scheme="light"
 fi
 
+# Query Hyprland's current window rounding setting.
+# Defaults to 0 (sharp/square corners) if Hyprland is not running or unset.
+hypr_rounding=0
+if command -v hyprctl >/dev/null 2>&1; then
+  hypr_rounding=$(hyprctl getoption decoration:rounding -j 2>/dev/null | jq -r '.int // 0' 2>/dev/null || echo 0)
+fi
+[[ "$hypr_rounding" =~ ^[0-9]+$ ]] || hypr_rounding=0
+
 
 # --- find a browser's default profile, given candidate base dirs ------------
 # Firefox, LibreWolf, and Zen all share Gecko's toolkit/profile code, so
@@ -484,6 +492,151 @@ zen-workspace {
   --zen-accent-button-background: $accent !important;
 }
 CSSEOF
+
+    if ((hypr_rounding == 0)); then
+      cat >>"$chrome_dir/userChrome.css" <<CSSEOF
+
+/* --- Zen Sharp Corners (Hyprland decoration:rounding = 0) ----------------
+   Zen defines border-radius variables at :root and re-declares them on
+   #navigator-toolbox, #browser, zen-workspace, etc. We collapse all
+   radius tokens to 0px, set --zen-squircle-value to 1, and explicitly
+   strip border-radius and corner-shape on all containers and sub-surfaces. */
+:root,
+#main-window,
+#browser,
+#navigator-toolbox,
+zen-workspace,
+.zen-library-space-body {
+  --tab-border-radius: 0px !important;
+  --zen-border-radius: 0px !important;
+  --zen-webview-border-radius: 0px !important;
+  --toolbarbutton-border-radius: 0px !important;
+  --border-radius-medium: 0px !important;
+  --border-radius-small: 0px !important;
+  --panel-border-radius: 0px !important;
+  --arrowpanel-border-radius: 0px !important;
+  --arrowpanel-menuitem-border-radius: 0px !important;
+  --tooltip-border-radius: 0px !important;
+  --urlbar-icon-border-radius: 0px !important;
+  --urlbar-inner-border-radius: 0px !important;
+  --button-border-radius: 0px !important;
+  --zen-squircle-value: 1 !important;
+}
+
+/* Web content frame & container */
+#tabbrowser-tabbox #tabbrowser-tabpanels .browserSidebarContainer,
+#tabbrowser-tabbox #tabbrowser-tabpanels .browserSidebarContainer::after,
+.browserSidebarContainer,
+browser[type="content"],
+#zen-glance-overlay,
+#zen-split-views-wrapper,
+.zen-split-view-modifier {
+  border-radius: 0px !important;
+  corner-shape: unset !important;
+}
+
+/* Tabs, essentials, workspaces, and sidebar elements */
+#tabbrowser-tabs .tabbrowser-tab,
+#tabbrowser-tabs .tabbrowser-tab :is(
+  .tab-background,
+  .tab-stack,
+  .tab-content,
+  .tab-label-container,
+  .tab-icon-stack,
+  .tab-close-button,
+  .tab-reset-button,
+  .tab-reset-pin-button
+),
+.tabbrowser-tab[zen-essential] > .tab-stack > .tab-background,
+.tabbrowser-tab[zen-essential] > .tab-stack > .tab-background::before,
+.zen-essentials-container,
+.zen-essentials-container *,
+#zen-sidebar-top-buttons *,
+#zen-sidebar-foot-buttons,
+#zen-sidebar-foot-buttons *,
+#zen-sidebar-foot-buttons::before,
+#zen-sidebar-foot-buttons::after,
+#zen-workspaces-button,
+#zen-workspaces-button *,
+#zen-current-workspace-indicator,
+tab-group[split-view-group] .tab-group-container::after {
+  border-radius: 0px !important;
+}
+
+/* Omnibox / URL bar, search bar, and suggestions dropdown */
+#urlbar,
+#urlbar-background,
+.urlbar-background,
+#urlbar-container,
+#urlbar-input-container,
+#identity-box,
+#identity-icon-box,
+#notification-popup-box,
+#tracking-protection-icon-container,
+#page-action-buttons,
+#urlbar-search-mode-indicator,
+#urlbar :is(
+  .urlbar-page-action,
+  .urlbar-icon,
+  .urlbarView,
+  .urlbarView-body-inner,
+  .urlbarView-results,
+  .urlbarView-row,
+  .urlbarView-row-inner,
+  .urlbarView-favicon,
+  .urlbarView-prettyName,
+  .urlbarView-tabGroup,
+  .urlbarView-shortcutContent
+),
+#searchbar {
+  border-radius: 0px !important;
+}
+
+/* Popups, panels, tooltips, dialogs, modal alerts, media controls, and status panel */
+dialog,
+panel,
+menupopup,
+tooltip,
+.panel-subview-body,
+.tabmodalprompt-container,
+.tab-modal-box,
+tabmodalprompt,
+.tabmodalprompt-buttonContainer button,
+.tab-modal-box button,
+#statuspanel,
+#statuspanel #statuspanel-label,
+#zen-media-controls,
+#zen-media-controls * {
+  border-radius: 0px !important;
+}
+CSSEOF
+    else
+      cat >>"$chrome_dir/userChrome.css" <<CSSEOF
+
+/* --- Zen Rounded Corners (following Hyprland decoration:rounding = ${hypr_rounding}px) -- */
+:root,
+#main-window,
+#browser,
+#navigator-toolbox,
+zen-workspace,
+.zen-library-space-body {
+  --zen-border-radius: ${hypr_rounding}px !important;
+  --zen-webview-border-radius: ${hypr_rounding}px !important;
+  --panel-border-radius: ${hypr_rounding}px !important;
+  --arrowpanel-border-radius: ${hypr_rounding}px !important;
+}
+
+#tabbrowser-tabbox #tabbrowser-tabpanels .browserSidebarContainer,
+#tabbrowser-tabbox #tabbrowser-tabpanels .browserSidebarContainer::after,
+.browserSidebarContainer,
+browser[type="content"],
+#zen-glance-overlay,
+#zen-split-views-wrapper,
+.zen-split-view-modifier {
+  border-radius: ${hypr_rounding}px !important;
+}
+CSSEOF
+    fi
   else
     # Zen draws its toolbars on top of its own window background (and rounds
     # their corners); a solid fill here would only fight that.
@@ -495,6 +648,21 @@ CSSEOF
 CSSEOF
   fi
 
+  local vomnibar_radius="8px"
+  local vomnibar_input_radius="6px"
+  local vimium_radius="4px"
+  if [[ $label == Zen ]]; then
+    if ((hypr_rounding == 0)); then
+      vomnibar_radius="0px"
+      vomnibar_input_radius="0px"
+      vimium_radius="0px"
+    else
+      vomnibar_radius="${hypr_rounding}px"
+      vomnibar_input_radius="$(( hypr_rounding > 2 ? hypr_rounding - 2 : hypr_rounding ))px"
+      vimium_radius="$(( hypr_rounding > 4 ? hypr_rounding - 4 : hypr_rounding ))px"
+    fi
+  fi
+
   cat >"$chrome_dir/userContent.css" <<CSSEOF
 /* Generated by ~/.config/omarchy/hooks/theme-set.d/20-firefox-userchrome
    Do not edit by hand -- overwritten on the next theme switch. */
@@ -503,7 +671,7 @@ CSSEOF
   #vomnibar {
     background-color: $bg !important;
     border: 1px solid $muted !important;
-    border-radius: 8px !important;
+    border-radius: $vomnibar_radius !important;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4) !important;
     font-family: inherit !important;
     overflow: hidden !important;
@@ -525,7 +693,7 @@ CSSEOF
     background: $dark_bg !important;
     color: $fg !important;
     border: 1px solid $muted !important;
-    border-radius: 6px !important;
+    border-radius: $vomnibar_input_radius !important;
     padding: 8px 12px !important;
     font-size: 16px !important;
     box-shadow: none !important;
@@ -576,7 +744,7 @@ CSSEOF
   div > .vimiumHintMarker {
     background-color: $dark_bg !important;
     border: 2px solid $accent !important;
-    border-radius: 4px !important;
+    border-radius: $vimium_radius !important;
     padding: 2px 5px !important;
     box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important;
   }
@@ -592,7 +760,7 @@ CSSEOF
   div.vimiumHUD {
     background-color: $dark_bg !important;
     border: 1px solid $muted !important;
-    border-radius: 4px !important;
+    border-radius: $vimium_radius !important;
     color: $fg !important;
   }
 
@@ -612,6 +780,14 @@ CSSEOF
   local pref_line='user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);'
   if [[ ! -f $user_js ]] || ! grep -qF "$pref_line" "$user_js"; then
     echo "$pref_line" >>"$user_js"
+  fi
+  if [[ $label == Zen ]]; then
+    local zen_radius_pref="user_pref(\"zen.theme.border-radius\", $hypr_rounding);"
+    if [[ -f $user_js ]] && grep -q 'user_pref("zen.theme.border-radius"' "$user_js"; then
+      sed -i "s/user_pref(\"zen.theme.border-radius\", [0-9-]*);/$zen_radius_pref/" "$user_js"
+    else
+      echo "$zen_radius_pref" >>"$user_js"
+    fi
   fi
 
   echo "omarchy-hook firefox-userchrome: [$label] wrote $chrome_dir/userChrome.css"
