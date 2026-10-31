@@ -279,5 +279,5 @@ elseif bar == "omacale" then
   o.rebind("SUPER + ESCAPE", "Omacale session menu", "omarchy-shell omacale session")                  -- was: System menu
   o.rebind("SUPER + CTRL + SPACE", "Omacale wallpaper picker", "omarchy-shell omacale wallpapers")     -- was: Background switcher
   o.rebind("SUPER + SHIFT + CTRL + SPACE", "Omacale theme picker", "omarchy-shell omacale themes")     -- was: Theme menu
-  o.rebind("SUPER + TAB", "Omacale workspace overview", "omarchy-shell omacale overview")              -- was: Next workspace
+  -- o.rebind("SUPER + TAB", "Omacale workspace overview", "omarchy-shell omacale overview")              -- was: Next workspace
 end

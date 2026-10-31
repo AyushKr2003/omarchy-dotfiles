@@ -52,6 +52,15 @@
 -- See https://wiki.hypr.land/Configuring/Advanced-and-Cool/Gestures/
 hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 
+-- Push up for the AI console, and pull down for the Omarchy menu.
+hl.gesture({ fingers = 3, direction = "up", action = function() hl.dispatch( hl.dsp.exec_raw("omarchy-shell shell toggle omarchy-overview")) end })
+hl.gesture({ fingers = 3, direction = "down", action = function() hl.dispatch( hl.dsp.exec_raw("omarchy-shell shell toggle omarchy-overview")) end })
+
+-- Four fingers take the active window along to the neighbouring workspace.
+hl.gesture({ fingers = 4, direction = "left", action = function() hl.dispatch(hl.dsp.window.move({ workspace = "r-1" })) end })
+hl.gesture({ fingers = 4, direction = "right", action = function() hl.dispatch(hl.dsp.window.move({ workspace = "r+1" })) end })
+hl.gesture({ fingers = 4, direction = "down", action = "fullscreen" })
+
 -- Enable touchpad gestures for moving focus (helpful on scrolling layout).
 -- hl.gesture({ fingers = 3, direction = "left", action = function() hl.dispatch(hl.dsp.focus({ direction = "l" })) end })
 -- hl.gesture({ fingers = 3, direction = "right", action = function() hl.dispatch(hl.dsp.focus({ direction = "r" })) end })
