@@ -35,10 +35,11 @@ declare -A plugin_src=(
   [omacale]="$dotfiles/shell/omacale"
   [hanko]="$dotfiles/shell/hanko"
 )
-declare -A label=(
-  [omacale]="Omacale  · Caelestia-style frame, drawers, its own notifications/OSD/lock"
-  [hanko]="Hanko    · ink and paper, with Kaze 風 (the whole desk)"
-  [default]="Omarchy  · the stock bar and everything stock"
+declare -A name=([omacale]=Omacale [hanko]=Hanko [default]=Omarchy)
+declare -A desc=(
+  [omacale]="Caelestia-style frame, drawers, its own notifications/OSD/lock"
+  [hanko]="ink and paper, with Kaze 風 (the whole desk)"
+  [default]="the stock bar and everything stock"
 )
 
 say() { printf '\e[1;34m::\e[0m %s\n' "$*"; }
@@ -64,29 +65,41 @@ next_mode() {
   echo "${modes[0]}"
 }
 
-# The terminal picker: one line per bar, the active one marked.
+# The terminal picker: one row per bar ("● Name  description"), the active one
+# marked and preselected. Prints the chosen mode; returns 130 when cancelled so
+# the floating terminal closes instead of showing "Done!".
+# Rows start with a mark, never a space: gum 2 trims leading whitespace off
+# its input, which misaligned the first row.
 pick() {
-  local cur m lines=() choice
+  local cur m row rows=() selected="" choice i
   cur="$(current)"
   for m in "${modes[@]}"; do
-    if [[ $m == "$cur" ]]; then lines+=("● ${label[$m]}"); else lines+=("  ${label[$m]}"); fi
+    row="$(printf '%s %-8s %s' "$([[ $m == "$cur" ]] && echo ● || echo ○)" "${name[$m]}" "${desc[$m]}")"
+    [[ $m == "$cur" ]] && selected="$row"
+    rows+=("$row|$m")
   done
+
   if command -v gum >/dev/null 2>&1; then
-    choice="$(printf '%s\n' "${lines[@]}" | gum choose --header "Bar (now: $cur)" --selected "$(printf '%s\n' "${lines[@]}" | grep '^●')")" || exit 0
+    choice="$(printf '%s\n' "${rows[@]}" | gum choose --label-delimiter='|' \
+      --header "Switch bar  ·  now: ${name[$cur]}" --selected "$selected")" || return 130
   elif command -v fzf >/dev/null 2>&1; then
-    choice="$(printf '%s\n' "${lines[@]}" | fzf --height 7 --reverse --no-sort --prompt "bar (now: $cur) > ")" || exit 0
+    choice="$(printf '%s\n' "${rows[@]}" | fzf --height 7 --reverse --no-sort --no-info \
+      --delimiter '|' --with-nth 1 --header "now: ${name[$cur]}" --prompt 'bar > ')" || return 130
+    choice="${choice##*|}"
   else
-    local i=1
-    for m in "${lines[@]}"; do printf '%d) %s\n' "$i" "$m"; i=$((i + 1)); done
-    read -r -p "bar [1-${#modes[@]}]: " i
-    [[ $i =~ ^[1-9]$ && $i -le ${#modes[@]} ]] || exit 0
-    choice="${lines[$((i - 1))]}"
+    i=1
+    for row in "${rows[@]}"; do printf '%d) %s\n' "$i" "${row%|*}"; i=$((i + 1)); done
+    read -r -p "bar [1-${#modes[@]}]: " i || return 130
+    [[ $i =~ ^[1-9]$ && $i -le ${#modes[@]} ]] || return 130
+    choice="${modes[$((i - 1))]}"
   fi
-  [[ -n $choice ]] || exit 0
-  for m in "${modes[@]}"; do
-    [[ $choice == *"${label[$m]}" ]] && { echo "$m"; return; }
-  done
-  exit 0
+  [[ -n ${name[$choice]:-} ]] || return 130
+
+  # Picking the bar you're on restarts the shell to refresh its extras; ask.
+  if [[ $choice == "$cur" ]] && command -v gum >/dev/null 2>&1; then
+    gum confirm "Already on ${name[$cur]}. Refresh it (restarts the shell)?" || return 130
+  fi
+  echo "$choice"
 }
 
 # The plugin folder must exist before bar.id points at it.
@@ -226,13 +239,13 @@ status() {
 
 arg="${1:-}"
 if [[ -z $arg ]]; then
-  if [[ -t 0 && -t 1 ]]; then arg="$(pick)"; [[ -n $arg ]] || exit 0; else arg=next; fi
+  if [[ -t 0 && -t 1 ]]; then arg=pick; else arg=next; fi
 fi
 
 case "$arg" in
   status) status ;;
   next | toggle) switch_to "$(next_mode)" ;;
-  pick | menu) m="$(pick)"; if [[ -n $m ]]; then switch_to "$m"; fi ;;
+  pick | menu) m="$(pick)" || exit 130; switch_to "$m" ;;
   omacale | hanko | default) switch_to "$arg" ;;
   omarchy) switch_to default ;;
   -h | --help) sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//' ;;
