@@ -228,24 +228,25 @@ o.window("org.gnome.Nautilus", {
     center = true,
 })
 
+o.window("com.github.johnfactotum.Foliate", { tag = "+floating-window"})
 
 
 -- ── 9. Bar-specific binds ───────────────────────────────────────────────────
 -- Follows bar.id in ~/.config/omarchy/shell.json, so only the active bar's
 -- keys are bound. Switch bars with omarchy-bar-switch (it runs hyprctl reload).
 
--- "omacale", "hanko" or "default". looknfeel.lua uses it too.
+-- "omacale", "hanko", "meander", "atoll" or "default". looknfeel.lua uses it too.
 function o.active_bar()
   local f = io.open(os.getenv("HOME") .. "/.config/omarchy/shell.json")
   if not f then return "default" end
   local json = f:read("*a")
   f:close()
   local id = json:match('"id"%s*:%s*"([%w_-]+)%.bar"')
-  if id == "omacale" or id == "hanko" then return id end
+  if id == "omacale" or id == "hanko" or id == "meander" or id == "atoll" then return id end
   return "default"
 end
 
-o.bind("SUPER + SHIFT + CTRL + B", "Pick bar (Omacale / Hanko / Omarchy)", "omarchy-launch-floating-terminal-with-presentation omarchy-bar-switch pick")
+o.bind("SUPER + SHIFT + CTRL + B", "Pick bar (Omacale / Hanko / Meander / Atoll / Omarchy)", "omarchy-launch-floating-terminal-with-presentation omarchy-bar-switch pick")
 
 local bar = o.active_bar()
 
@@ -278,6 +279,54 @@ elseif bar == "omacale" then
   o.rebind("SUPER + ALT + SPACE", "Omacale menu", "omarchy-shell omacale menu")
   o.rebind("SUPER + ESCAPE", "Omacale session menu", "omarchy-shell omacale session")                  -- was: System menu
   o.rebind("SUPER + CTRL + SPACE", "Omacale wallpaper picker", "omarchy-shell omacale wallpapers")     -- was: Background switcher
+  o.rebind("SUPER + CTRL + SPACE", "Omacale wallpaper picker", "omarchy-shell shell toggle folio.deck wallpaper")     -- was: Background switcher
   o.rebind("SUPER + SHIFT + CTRL + SPACE", "Omacale theme picker", "omarchy-shell omacale themes")     -- was: Theme menu
+  o.rebind("SUPER + SHIFT + CTRL + SPACE", "Omacale theme picker", "omarchy-shell shell toggle folio.deck themes")     -- was: Theme menu
   -- o.rebind("SUPER + TAB", "Omacale workspace overview", "omarchy-shell omacale overview")              -- was: Next workspace
+
+elseif bar == "meander" then
+  -- Meander's own panels on SUPER + ALT (launcher A, clipboard V, quick
+  -- settings Q, notifications O, music M, network N, volume U, calendar C,
+  -- wallpapers W, settings H, bar autohide Z, screenshot X, widgets T), from
+  -- its keybinds.lua. pcall keeps Hyprland starting without it.
+  -- pcall(dofile, os.getenv("HOME") .. "/.config/omarchy/plugins/meander.bar/keybinds.lua")
+  -- The main keys, as the other bars take them. SUPER+CTRL+A/W/B and the
+  -- clock key already reach Meander's popouts through the bar contract.
+  o.rebind("SUPER + SPACE", "Meander launcher", "meander msg toggle launcher")                          -- was: Omarchy menu
+  o.rebind("SUPER + CTRL + V", "Meander clipboard", "meander msg toggle clipboard")                    -- was: Clipboard manager
+  -- o.rebind("SUPER + ESCAPE", "Meander quick settings and power", "meander msg toggle system")           -- was: System menu
+  o.rebind("SUPER + CTRL + SPACE", "Meander wallpapers", "meander msg toggle wallpaper")               -- was: Background switcher
+  o.rebind("SUPER + SHIFT + CTRL + SPACE", "Meander theme picker", "meander msg toggle themes")        -- was: Theme menu
+  o.rebind("SUPER + SHIFT + I", "Meander settings", "meander settings toggle")
+  o.bind("SUPER + N", "Meander quick settings", "meander msg toggle system")
+  o.bind("SUPER + CTRL + 0", "Meander bar focus", "meander keys bar")
+  o.bind("SUPER + U", "Meander quick actions", "meander quick toggle")
+  -- o.bind("SUPER + N", "Meander notification centre", "meander msg toggle notifications")
+
+elseif bar == "atoll" then
+  -- The same keys the other bars take, opening Atoll's notch surfaces.
+  -- (Atoll's own keybinds.lua isn't loaded: its SUPER+R and SUPER+ALT+E
+  -- clash with binds above.)
+  local function atoll(action) return "omarchy-shell atoll run " .. action end
+  o.rebind("SUPER + SPACE", "Atoll launcher", atoll("launcher"))                                      -- was: Omarchy menu
+  o.rebind("SUPER + CTRL + V", "Atoll clipboard", atoll("clipboard"))                                 -- was: Clipboard manager
+  o.rebind("SUPER + ESCAPE", "Atoll power menu", atoll("powermenu"))                                  -- was: System menu
+  o.rebind("SUPER + CTRL + SPACE", "Atoll wallpapers", atoll("wallpapers"))                           -- was: Background switcher
+  o.rebind("SUPER + SHIFT + I", "Atoll settings", atoll("config"))
+  o.bind("SUPER + D", "Atoll dashboard", atoll("dashboard"))
+  o.bind("SUPER + N", "Atoll dashboard (notifications)", atoll("dashboard-widgets"))
+  o.bind("SUPER + U", "Atoll tools (screenshot, record, lens)", atoll("tools"))
+  -- Atoll extras on SUPER + ALT
+  o.bind("SUPER + ALT + O", "Atoll overview", atoll("overview"))
+  o.bind("SUPER + ALT + PERIOD", "Atoll emoji", atoll("emoji"))
+  o.bind("SUPER + ALT + N", "Atoll notes", atoll("notes"))
+  o.bind("SUPER + ALT + T", "Atoll tmux sessions", atoll("tmux"))
+  o.bind("SUPER + ALT + A", "Atoll assistant", atoll("assistant"))
+  o.bind("SUPER + ALT + K", "Atoll kanban", atoll("dashboard-kanban"))
+  -- Atoll draws the OSD (omarchy-bar-switch turns omarchy.osd off), so
+  -- brightness keys go through it.
+  pcall(dofile, os.getenv("HOME") .. "/.config/omarchy/plugins/atoll.bar/keybinds-osd.lua")
 end
+
+-- Disable Omarchy's Right Alt push-to-talk dictation (keeps Alt+Space toggle).
+hl.unbind("ALT + Alt_R")
