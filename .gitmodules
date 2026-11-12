@@ -19,3 +19,6 @@
 [submodule "shell/Atoll"]
 	path = shell/Atoll
 	url = https://github.com/AyushKr2003/Ambxst
+[submodule "folio"]
+	path = folio
+	url = https://github.com/AyushKr2003/folio.git
