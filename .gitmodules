@@ -16,3 +16,6 @@
 [submodule "shell/meander"]
 	path = shell/meander
 	url = https://github.com/AyushKr2003/meander.git
+[submodule "shell/Atoll"]
+	path = shell/Atoll
+	url = https://github.com/AyushKr2003/Ambxst
