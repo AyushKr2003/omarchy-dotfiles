@@ -160,7 +160,6 @@ PACMAN_PACKAGES=(
   libwebp-utils   # cwebp for omarchy-webp-convert
   librsvg         # omarchy-cursor-material renders Bibata SVGs
   xorg-xcursorgen # omarchy-cursor-material builds the X11 cursor set
-  papirus-icon-theme # folders for omarchy-folder-icons
   adw-gtk-theme   # adw-gtk3: libadwaita look and colours for GTK 3 (omarchy-gtk-theme)
   qt6-imageformats # quickshell webP image support
   python-curl_cffi # for manga quickshell plugin backend
@@ -377,21 +376,6 @@ fi
 
 "$HOME/.local/bin/omarchy-cursor-material" --force --full
 echo "    Built Bibata-Material-Omarchy in the current theme accent."
-
-# ════════════════════════════════════════════════════════════════════════
-# SECTION: folder icons (follow the theme accent)
-# ════════════════════════════════════════════════════════════════════════
-# omarchy-folder-icons builds Papirus-Omarchy (Papirus with the folders in the
-# theme accent) and selects it; hooks/theme-set.d/45-folder-icons rebuilds it
-# on every theme change. The marker turns it on; `omarchy-folder-icons --off`
-# goes back to the theme's own icons.
-
-gum style --foreground 2 "==> Installing theme-coloured folder icons"
-
-mkdir -p "$HOME/.config/omarchy"
-touch "$HOME/.config/omarchy/folder-icons"
-"$HOME/.local/bin/omarchy-folder-icons"
-echo "    Built Papirus-Omarchy in the current theme accent."
 
 # ════════════════════════════════════════════════════════════════════════
 # SECTION: GTK colours (follow the theme)

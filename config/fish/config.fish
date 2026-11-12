@@ -25,5 +25,5 @@ alias claude-work="CLAUDE_CONFIG_DIR=~/.claude-second claude"
 fish_add_path -g --move ~/.local/bin
 set -gx CHROME_EXECUTABLE chromium
 fish_add_path ~/.config/composer/vendor/bin
-fish_add_path -g -p /home/shadow/develop/flutter/bin
+fish_add_path -g -p /home/shadow/Development/flutter/bin
 alias php php82

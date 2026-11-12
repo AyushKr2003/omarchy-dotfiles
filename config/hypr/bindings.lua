@@ -222,7 +222,8 @@ o.bind("mouse:275", "Orbit Release", "~/.config/omarchy/plugins/local.orbit/scri
 -- Flea 
 o.window("com.thisisgm.flea", { tag = "+floating-window" })
 o.window("io.github.lgse.Strata", { tag = "+floating-window" })
-o.window("org.gnome.Nautilus", {
+-- Folio (Omarchy's file manager, replaced Nautilus)
+o.window("^folio$", {
     float  = true,
     size   = { "min(1500, monitor_w * 0.92)", "min(850, monitor_h * 0.88)" },
     center = true,
@@ -317,12 +318,12 @@ elseif bar == "atoll" then
   o.bind("SUPER + N", "Atoll dashboard (notifications)", atoll("dashboard-widgets"))
   o.bind("SUPER + U", "Atoll tools (screenshot, record, lens)", atoll("tools"))
   -- Atoll extras on SUPER + ALT
-  o.bind("SUPER + ALT + O", "Atoll overview", atoll("overview"))
-  o.bind("SUPER + ALT + PERIOD", "Atoll emoji", atoll("emoji"))
+  -- o.bind("SUPER + ALT + O", "Atoll overview", atoll("overview"))
+  -- o.bind("SUPER + ALT + PERIOD", "Atoll emoji", atoll("emoji"))
   o.bind("SUPER + ALT + N", "Atoll notes", atoll("notes"))
   o.bind("SUPER + ALT + T", "Atoll tmux sessions", atoll("tmux"))
   o.bind("SUPER + ALT + A", "Atoll assistant", atoll("assistant"))
-  o.bind("SUPER + ALT + K", "Atoll kanban", atoll("dashboard-kanban"))
+  o.rebind("SUPER + A", "Atoll kanban", atoll("dashboard-kanban"))
   -- Atoll draws the OSD (omarchy-bar-switch turns omarchy.osd off), so
   -- brightness keys go through it.
   pcall(dofile, os.getenv("HOME") .. "/.config/omarchy/plugins/atoll.bar/keybinds-osd.lua")
