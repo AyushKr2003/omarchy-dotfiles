@@ -45,9 +45,7 @@ o.rebind("SUPER + SHIFT + N", "VS Code", { launch = "code" })
 -- ── 2. Browsers & Web Applications ──────────────────────────────────────────
 
 o.rebind("SUPER + W", "Default Browser", { omarchy = "browser" })
-o.rebind("SUPER + ALT + B", "QuteBrowser", { launch = "qutebrowser" })
 o.rebind("SUPER + B", "Zen Browser", { launch = "zen-browser" })
-o.rebind("SUPER + SHIFT + B", "QuteBrowser (Incognito)", { launch = "bash -c 'd=$(mktemp -d /dev/shm/qb-incognito.XXXXXX); mkdir -p \"$d/config\"; cp ~/.config/qutebrowser/{config.py,theme.py,startpage.html} \"$d/config/\" 2>/dev/null; qutebrowser --basedir \"$d\" -s content.private_browsing true file://$HOME/.config/qutebrowser/startpage.html; rm -rf \"$d\"'" })
 o.rebind("SUPER + CTRL + W", "WhatsApp Web", { webapp = "https://web.whatsapp.com/", focus = true })
 o.rebind("SUPER + SHIFT + W", "WhatsApp Web", "zapfast")
 
@@ -299,6 +297,7 @@ elseif bar == "meander" then
   o.rebind("SUPER + CTRL + SPACE", "Meander wallpapers", "meander msg toggle wallpaper")               -- was: Background switcher
   o.rebind("SUPER + SHIFT + CTRL + SPACE", "Meander theme picker", "meander msg toggle themes")        -- was: Theme menu
   o.rebind("SUPER + SHIFT + I", "Meander settings", "meander settings toggle")
+  o.bind("SUPER + D", "Meander dashboard", "meander msg toggle calendar")
   o.bind("SUPER + N", "Meander quick settings", "meander msg toggle system")
   o.bind("SUPER + CTRL + 0", "Meander bar focus", "meander keys bar")
   o.bind("SUPER + U", "Meander quick actions", "meander quick toggle")
