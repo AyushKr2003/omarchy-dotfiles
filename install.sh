@@ -153,8 +153,6 @@ PACMAN_PACKAGES=(
   jq              # required for symlinks.json parsing
   omarchy-fish    # Omarchy's own fish package (from pkgs.omarchy.org, not AUR)
   yazi            # terminal file manager
-  qutebrowser     # keyboard-driven browser
-  python-adblock  # adblock backend for qutebrowser
   socat           # fievel-notify listens on Hyprland's event socket
   inotify-tools   # rsw (fish) watches for file changes
   libwebp-utils   # cwebp for omarchy-webp-convert
