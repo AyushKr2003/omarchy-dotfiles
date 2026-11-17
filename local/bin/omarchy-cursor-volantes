@@ -281,7 +281,7 @@ def main():
             apply_live()
     else:
         subprocess.Popen([sys.executable, os.path.abspath(__file__), "--x11only", acc],
-                         start_new_session=True,
+                         start_new_session=True, stdin=subprocess.DEVNULL,
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 

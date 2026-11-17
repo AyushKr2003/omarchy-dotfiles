@@ -9,7 +9,7 @@
 -- hooks). Switch with omarchy-cursor-switch (SUPER+SHIFT+CTRL+C), which
 -- rewrites the line below. Stock cursor: "volantes_cursors".
 local cursor_theme = "Volantes-Omarchy"
-local cursor_size = 24
+local cursor_size = 28
 
 hl.env("XCURSOR_THEME", cursor_theme)
 hl.env("XCURSOR_SIZE", tostring(cursor_size))
