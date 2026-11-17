@@ -1,0 +1,8 @@
+#!/bin/bash
+# Recolour the Volantes-Omarchy cursor to the new theme accent.
+# No-op unless that cursor is selected (cursor_theme in hypr/autostart.lua;
+# switch with omarchy-cursor-switch).
+
+if command -v omarchy-cursor-volantes >/dev/null; then
+  omarchy-cursor-volantes || true
+fi

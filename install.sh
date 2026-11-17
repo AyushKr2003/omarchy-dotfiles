@@ -376,6 +376,30 @@ fi
 echo "    Built Bibata-Material-Omarchy in the current theme accent."
 
 # ════════════════════════════════════════════════════════════════════════
+# SECTION: Volantes cursor (follows the theme accent)
+# ════════════════════════════════════════════════════════════════════════
+# omarchy-cursor-volantes rebuilds Volantes-Omarchy from the Volantes SVG
+# source (rendered with rsvg-convert, no Inkscape) on every theme change while
+# it is selected (hooks/theme-set.d/41-cursor-volantes). Switch between it and
+# Bibata with omarchy-cursor-switch (SUPER+SHIFT+CTRL+C).
+
+gum style --foreground 2 "==> Installing Volantes cursor"
+
+VOLANTES_COMMIT="b13a4bbf6bd1d7e85fadf7f2ecc44acc198f8d01"
+VOLANTES_SRC="$HOME/.local/share/omarchy-cursor-volantes/volantes"
+
+if [[ $(git -C "$VOLANTES_SRC" rev-parse HEAD 2>/dev/null) == "$VOLANTES_COMMIT" ]]; then
+  echo "    Volantes source already at pinned commit, skipping clone."
+else
+  rm -rf "$VOLANTES_SRC"
+  git clone -q https://github.com/varlesh/volantes-cursors.git "$VOLANTES_SRC"
+  git -C "$VOLANTES_SRC" checkout -q "$VOLANTES_COMMIT"
+fi
+
+"$HOME/.local/bin/omarchy-cursor-volantes" --force --full
+echo "    Built Volantes-Omarchy in the current theme accent."
+
+# ════════════════════════════════════════════════════════════════════════
 # SECTION: GTK colours (follow the theme)
 # ════════════════════════════════════════════════════════════════════════
 # omarchy-gtk-theme writes ~/.config/gtk-{3,4}.0/omarchy-theme.css from the

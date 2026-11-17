@@ -1,0 +1,166 @@
+#!/usr/bin/env bash
+# Switch the pointer between the two accent-coloured cursors.
+#
+#   omarchy-cursor-switch                     pick one in the terminal (gum/fzf);
+#                                             `next` when there is no terminal
+#   omarchy-cursor-switch [bibata|volantes]   switch to that cursor
+#   omarchy-cursor-switch pick                the same picker (SUPER+SHIFT+CTRL+C opens
+#                                             it in a floating terminal)
+#   omarchy-cursor-switch next                cycle bibata → volantes
+#   omarchy-cursor-switch size [N]            set the size in pixels (12-64); no N
+#                                             picks one in the terminal, or prints it
+#   omarchy-cursor-switch status              print the active cursor and size
+#
+# Both follow the theme accent: the theme-set hooks (40-cursor-material,
+# 41-cursor-volantes) rebuild whichever one is selected. The choice is stored
+# as cursor_theme / cursor_size in hypr/autostart.lua, so it survives a restart, and the
+# switch ends with `hyprctl reload` (autostart.lua applies it on reload).
+set -euo pipefail
+
+autostart="$HOME/omarchy-dotfiles/config/hypr/autostart.lua"
+modes=(bibata volantes)
+sizes=(16 20 22 24 28 32 36 40 48)
+size_min=12 size_max=64
+
+declare -A theme=([bibata]=Bibata-Material-Omarchy [volantes]=Volantes-Omarchy)
+declare -A builder=([bibata]=omarchy-cursor-material [volantes]=omarchy-cursor-volantes)
+declare -A name=([bibata]=Bibata [volantes]=Volantes)
+declare -A desc=(
+  [bibata]="Material Bibata: rounded, accent outline on a dark body"
+  [volantes]="Volantes: sharp, accent outline on a dark body"
+)
+
+say() { printf '\e[1;34m::\e[0m %s\n' "$*"; }
+die() { printf '\e[1;31m!!\e[0m %s\n' "$*" >&2; exit 1; }
+
+current() {
+  local t
+  t="$(sed -nE 's/^local cursor_theme = "([^"]*)".*/\1/p' "$autostart" 2>/dev/null | head -1)"
+  case $t in
+    Volantes-Omarchy) echo volantes ;;
+    *) echo bibata ;;
+  esac
+}
+
+current_size() {
+  sed -nE 's/^local cursor_size = ([0-9]+).*/\1/p' "$autostart" 2>/dev/null | head -1
+}
+
+# The size picker; prints the chosen size, returns 130 when cancelled.
+pick_size() {
+  local cur n rows=() selected="" choice
+  cur="$(current_size)"
+  for n in "${sizes[@]}"; do
+    rows+=("$([[ $n == "$cur" ]] && echo ● || echo ○) $n px")
+    [[ $n == "$cur" ]] && selected="${rows[-1]}"
+  done
+  if command -v gum >/dev/null 2>&1; then
+    choice="$(printf '%s\n' "${rows[@]}" | gum choose --header "Cursor size  ·  now: $cur px" \
+      ${selected:+--selected "$selected"})" || return 130
+  elif command -v fzf >/dev/null 2>&1; then
+    choice="$(printf '%s\n' "${rows[@]}" | fzf --height 12 --reverse --no-sort --no-info \
+      --header "now: $cur px" --prompt 'size > ')" || return 130
+  else
+    read -r -p "size in px ($size_min-$size_max, now $cur): " choice || return 130
+  fi
+  choice="${choice//[!0-9]/}"
+  [[ -n $choice ]] || return 130
+  echo "$choice"
+}
+
+set_size() {
+  local n="$1"
+  [[ $n =~ ^[0-9]+$ ]] && ((n >= size_min && n <= size_max)) \
+    || die "the size is $size_min to $size_max pixels"
+  [[ -f $autostart ]] || die "$autostart not found"
+  say "cursor size: $(current_size) → $n px"
+  sed -i -E "s/^local cursor_size = [0-9]+/local cursor_size = $n/" "$autostart"
+  # autostart.lua re-runs setcursor + gsettings on reload.
+  hyprctl reload >/dev/null || say "hyprctl reload failed; run: hyprctl reload"
+  notify-send -a "Cursor" "Cursor size" "Now: $n px" 2>/dev/null || true
+  say "done: $n px"
+}
+
+next_mode() {
+  local cur i
+  cur="$(current)"
+  for i in "${!modes[@]}"; do
+    [[ ${modes[$i]} == "$cur" ]] && { echo "${modes[$(((i + 1) % ${#modes[@]}))]}"; return; }
+  done
+  echo "${modes[0]}"
+}
+
+# One row per cursor ("● Name  description"), the active one marked and
+# preselected. Rows start with a mark: gum trims leading whitespace.
+pick() {
+  local cur m row rows=() selected="" choice i
+  cur="$(current)"
+  for m in "${modes[@]}"; do
+    row="$(printf '%s %-9s %s' "$([[ $m == "$cur" ]] && echo ● || echo ○)" "${name[$m]}" "${desc[$m]}")"
+    [[ $m == "$cur" ]] && selected="$row"
+    rows+=("$row|$m")
+  done
+  rows+=("$(printf '%s %-9s %s' ↕ Size "now $(current_size) px, change it")|size")
+
+  if command -v gum >/dev/null 2>&1; then
+    choice="$(printf '%s\n' "${rows[@]}" | gum choose --label-delimiter='|' \
+      --header "Switch cursor  ·  now: ${name[$cur]}, $(current_size) px" --selected "$selected")" || return 130
+  elif command -v fzf >/dev/null 2>&1; then
+    choice="$(printf '%s\n' "${rows[@]}" | fzf --height 7 --reverse --no-sort --no-info \
+      --delimiter '|' --with-nth 1 --header "now: ${name[$cur]}" --prompt 'cursor > ')" || return 130
+    choice="${choice##*|}"
+  else
+    i=1
+    for row in "${rows[@]}"; do printf '%d) %s\n' "$i" "${row%|*}"; i=$((i + 1)); done
+    read -r -p "cursor [1-${#rows[@]}]: " i || return 130
+    [[ $i =~ ^[1-9]$ && $i -le ${#rows[@]} ]] || return 130
+    choice="${rows[$((i - 1))]##*|}"
+  fi
+  [[ $choice == size || -n ${name[$choice]:-} ]] || return 130
+  echo "$choice"
+}
+
+switch_to() {
+  local target="$1" t="${theme[$1]}"
+  [[ -f $autostart ]] || die "$autostart not found"
+  command -v "${builder[$target]}" >/dev/null || die "${builder[$target]} not on PATH"
+  say "cursor: $(current) → $target"
+
+  # Build before selecting it, so Hyprland never points at a missing theme.
+  # --full builds the X11 cursors too (XWayland/GTK) on the first switch.
+  if [[ -d $HOME/.local/share/icons/$t/cursors ]]; then
+    say "building $t in the theme accent"
+    "${builder[$target]}" --force
+  else
+    say "building $t in the theme accent (first time, with X11 cursors)"
+    "${builder[$target]}" --force --full
+  fi
+
+  sed -i -E "s/^local cursor_theme = \"[^\"]*\"/local cursor_theme = \"$t\"/" "$autostart"
+  hyprctl reload >/dev/null || say "hyprctl reload failed; run: hyprctl reload"
+  # The hook only rebuilt X11 in the background if this was already selected;
+  # make sure the selected one's X11 cursors match the accent now.
+  "${builder[$target]}" >/dev/null 2>&1 || true
+  notify-send -a "Cursor" "Cursor switched" "Now using: ${name[$target]}" 2>/dev/null || true
+  say "done: $target"
+}
+
+arg="${1:-}"
+if [[ -z $arg ]]; then
+  if [[ -t 0 && -t 1 ]]; then arg=pick; else arg=next; fi
+fi
+
+case "$arg" in
+  status) printf '%s %s px\n' "$(current)" "$(current_size)" ;;
+  size)
+    if [[ -n ${2:-} ]]; then set_size "$2"
+    elif [[ -t 0 && -t 1 ]]; then n="$(pick_size)" || exit 130; set_size "$n"
+    else current_size; fi ;;
+  next | toggle) switch_to "$(next_mode)" ;;
+  pick | menu)
+    m="$(pick)" || exit 130
+    if [[ $m == size ]]; then n="$(pick_size)" || exit 130; set_size "$n"; else switch_to "$m"; fi ;;
+  bibata | volantes) switch_to "$arg" ;;
+  -h | --help) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//' ;;
+  *) die "unknown cursor '$arg' (bibata | volantes | next | pick | size [N] | status)" ;;
+esac

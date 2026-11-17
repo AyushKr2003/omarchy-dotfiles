@@ -4,10 +4,12 @@
 -- o.launch_on_start("hyprpm reload")
 
 -- BEGIN CURSOR CONFIG
--- "Bibata-Material-Omarchy" follows the theme accent (omarchy-cursor-material,
--- rebuilt by the theme-set hook). Previous cursor: "volantes_cursors".
-local cursor_theme = "Bibata-Material-Omarchy"
-local cursor_size = 22
+-- "Bibata-Material-Omarchy" and "Volantes-Omarchy" follow the theme accent
+-- (omarchy-cursor-material / omarchy-cursor-volantes, rebuilt by the theme-set
+-- hooks). Switch with omarchy-cursor-switch (SUPER+SHIFT+CTRL+C), which
+-- rewrites the line below. Stock cursor: "volantes_cursors".
+local cursor_theme = "Volantes-Omarchy"
+local cursor_size = 24
 
 hl.env("XCURSOR_THEME", cursor_theme)
 hl.env("XCURSOR_SIZE", tostring(cursor_size))

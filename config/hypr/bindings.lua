@@ -213,7 +213,8 @@ o.bind("mouse:275", "Orbit Release", "~/.config/omarchy/plugins/local.orbit/scri
 -- ── 7. Keyboard Mouse Control ─────────────────────────────────────────────
 
 -- Handled by fievel (~/.config/fievel/fievel.config), not Hyprland:
--- SUPER + CTRL + M toggles mouse mode. fievel reads the keyboard directly.
+-- SUPER + CTRL + M toggles mouse mode. fievel reads the keyboard directly and
+-- fires with extra keys held too, so nothing else may use SUPER + (SHIFT +) CTRL + M.
 
 -- ── 8. Window Rules ─────────────────────────────────────────────────────────
 
@@ -246,6 +247,7 @@ function o.active_bar()
 end
 
 o.bind("SUPER + SHIFT + CTRL + B", "Pick bar (Omacale / Hanko / Meander / Atoll / Omarchy)", "omarchy-launch-floating-terminal-with-presentation omarchy-bar-switch pick")
+o.bind("SUPER + SHIFT + CTRL + C", "Pick cursor and size (Bibata / Volantes)", "omarchy-launch-floating-terminal-with-presentation omarchy-cursor-switch pick")
 
 local bar = o.active_bar()
 
