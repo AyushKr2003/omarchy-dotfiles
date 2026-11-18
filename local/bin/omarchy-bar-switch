@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Switch the Omarchy shell bar between Omacale, Hanko, Meander, Atoll and Omarchy's default.
+# Switch the Omarchy shell bar between Omacale, Hanko, Meander and Omarchy's default.
 #
 #   omarchy-bar-switch                           pick one in the terminal (gum/fzf);
 #                                                `next` when there is no terminal
-#   omarchy-bar-switch [omacale|hanko|meander|atoll|default]  switch to that bar
+#   omarchy-bar-switch [omacale|hanko|meander|default]  switch to that bar
 #   omarchy-bar-switch pick                      the same picker (SUPER+SHIFT+CTRL+B opens it
 #                                                in a floating terminal)
-#   omarchy-bar-switch next                      cycle omacale → hanko → meander → atoll → default
+#   omarchy-bar-switch next                      cycle omacale → hanko → meander → default
 #   omarchy-bar-switch status                    print the active bar and its extras
 #
 # Each bar brings its extras and takes them away again when you leave it:
@@ -20,12 +20,6 @@
 #   meander  its own notifications, polkit, lock, OSD, dock and wallpaper:
 #            `meander-setup enable` hands Omarchy's over in shell.json and
 #            `meander-setup disable` gives back exactly what it took.
-#   atoll    its notifications, OSD and dock: Omarchy's are switched off and
-#            Omarchy's background is switched on (Atoll draws none); the
-#            lock screen gets Atoll's look (atoll.lock, a clone of
-#            omarchy.lock that keeps Omarchy's PAM/idle/suspend service);
-#            the ones it switched off are remembered and switched back on
-#            when you leave. Its `atoll` command is linked on first switch.
 #   default  Omarchy's own everything.
 # Hyprland keybinds and look'n'feel follow `bar.id` in shell.json (see
 # bindings.lua and looknfeel.lua), so the switch ends with `hyprctl reload`.
@@ -38,21 +32,19 @@ omacale_scripts="$plugins/omacale.bar/scripts"
 hanko="$dotfiles/shell/hanko/scripts/hanko"
 state="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy-bar-switch"
 hanko_state="$state/hanko"
-modes=(omacale hanko meander atoll default)
+modes=(omacale hanko meander default)
 
 declare -A plugin_src=(
   [omacale]="$dotfiles/shell/omacale"
   [hanko]="$dotfiles/shell/hanko"
   [meander]="$dotfiles/shell/meander"
-  [atoll]="$dotfiles/shell/Atoll"
 )
 meander_setup="$dotfiles/shell/meander/bin/meander-setup"
-declare -A name=([omacale]=Omacale [hanko]=Hanko [meander]=Meander [atoll]=Atoll [default]=Omarchy)
+declare -A name=([omacale]=Omacale [hanko]=Hanko [meander]=Meander [default]=Omarchy)
 declare -A desc=(
   [omacale]="Caelestia-style frame, drawers, its own notifications/OSD/lock"
   [hanko]="ink and paper, with Kaze 風 (the whole desk)"
   [meander]="Serpantinum-style desk: morphing popouts, dock, widgets, its own lock"
-  [atoll]="Ambxst-style notch: launcher, dashboard, dock, its own notifications/OSD"
   [default]="the stock bar and everything stock"
 )
 
@@ -67,7 +59,6 @@ current() {
     omacale.bar) echo omacale ;;
     hanko.bar) echo hanko ;;
     meander.bar) echo meander ;;
-    atoll.bar) echo atoll ;;
     *) echo default ;;
   esac
 }
@@ -136,13 +127,7 @@ omacale_handovers() {
   say "omacale: $action notifications, OSD and lock screen"
   python3 "$omacale_scripts/notif-popups" "$action" --no-restart >/dev/null || warn "notif-popups $action failed"
   python3 "$omacale_scripts/osd-handover" "$action" >/dev/null || warn "osd-handover $action failed"
-  # Its remove takes any clone of omarchy.lock, Atoll's (atoll.lock) too;
-  # that one is Atoll's to give back.
-  if [[ $action == remove && -d $plugins/atoll.lock ]]; then
-    :
-  else
-    python3 "$omacale_scripts/lock-screen" "$action" >/dev/null || warn "lock-screen $action failed"
-  fi
+  python3 "$omacale_scripts/lock-screen" "$action" >/dev/null || warn "lock-screen $action failed"
 }
 
 omacale_off() {
@@ -222,80 +207,6 @@ meander_off() {
   fi
 }
 
-# ── Atoll ───────────────────────────────────────────────────────────────────
-# Atoll draws notifications, OSD and dock itself, so Omarchy's are switched
-# off while it is the bar. Only the ones that were still on get recorded, and
-# only those are switched back on when you leave.
-atoll_state="$state/atoll-disabled"
-atoll_takes=(omarchy.notifications omarchy.osd omarchy.dock)
-# Atoll leaves the wallpaper to Omarchy: omarchy.background is switched on
-# while it is the bar (and off again on leaving, if it was off before).
-atoll_bg_state="$state/atoll-enabled-background"
-# Atoll's lock screen: a clone of omarchy.lock (atoll.lock) that keeps
-# Omarchy's lock service and swaps in Atoll's view.
-atoll_lock="${plugin_src[atoll]}/scripts/lock-handover"
-
-# edit_shell_json FILTER ID... : the IDs reach the filter as $ids.
-# Never replaces shell.json with an empty result.
-edit_shell_json() {
-  local filter="$1" tmp ids
-  shift
-  ids="$(printf '%s\n' "$@" | jq -Rn '[inputs | select(length > 0)]')"
-  tmp="$(mktemp "$shell_json.XXXXXX")"
-  if jq --argjson ids "$ids" "$filter" "$shell_json" >"$tmp" && [[ -s $tmp ]]; then
-    mv -f "$tmp" "$shell_json"
-  else
-    rm -f "$tmp"; warn "could not update $shell_json"
-  fi
-}
-
-atoll_on() {
-  local id taken=()
-  if [[ ! -e $HOME/.local/bin/atoll ]]; then
-    say "atoll: linking its command (first switch)"
-    mkdir -p "$HOME/.local/bin"
-    ln -s "${plugin_src[atoll]}/bin/atoll" "$HOME/.local/bin/atoll"
-  fi
-  for id in "${atoll_takes[@]}"; do
-    jq -e --arg id "$id" '(.disabledPlugins // []) | index($id)' "$shell_json" >/dev/null 2>&1 || taken+=("$id")
-  done
-  mkdir -p "$state"
-  # Keep what an earlier switch recorded (a refresh finds them already off).
-  { [[ -f $atoll_state ]] && cat "$atoll_state"; ((${#taken[@]})) && printf '%s\n' "${taken[@]}"; true; } | sort -u >"$atoll_state.tmp"
-  mv -f "$atoll_state.tmp" "$atoll_state"
-  if jq -e '(.disabledPlugins // []) | index("omarchy.background")' "$shell_json" >/dev/null 2>&1; then
-    say "atoll: switching on Omarchy's background"
-    edit_shell_json '.disabledPlugins = ((.disabledPlugins // []) - $ids)' omarchy.background
-    touch "$atoll_bg_state"
-  fi
-  if ((${#taken[@]})); then
-    say "atoll: taking over ${taken[*]}"
-    edit_shell_json '.disabledPlugins = ((.disabledPlugins // []) + $ids | unique)' "${taken[@]}"
-  fi
-  if [[ -x $atoll_lock ]]; then
-    say "atoll: its lock screen (on Omarchy's lock service)"
-    "$atoll_lock" install >/dev/null || warn "atoll lock screen failed; Omarchy's stays"
-  fi
-}
-
-atoll_off() {
-  if [[ -f $atoll_bg_state ]]; then
-    say "atoll: Omarchy's background off again (as before Atoll)"
-    edit_shell_json '.disabledPlugins = ((.disabledPlugins // []) + $ids | unique)' omarchy.background
-    rm -f "$atoll_bg_state"
-  fi
-  if [[ -x $atoll_lock && $("$atoll_lock" status) == installed ]]; then
-    say "atoll: giving the lock screen back to Omarchy"
-    "$atoll_lock" remove >/dev/null || warn "atoll lock-handover remove failed"
-  fi
-  [[ -s $atoll_state ]] || return 0
-  local ids
-  mapfile -t ids <"$atoll_state"
-  say "atoll: giving Omarchy back ${ids[*]}"
-  edit_shell_json '.disabledPlugins = ((.disabledPlugins // []) - $ids)' "${ids[@]}"
-  rm -f "$atoll_state"
-}
-
 # ── Switching ───────────────────────────────────────────────────────────────
 set_bar_id() {
   local filter tmp
@@ -322,11 +233,10 @@ switch_to() {
   # Already there: put its extras back (refreshing them), take nothing away.
   if [[ $target == "$from" ]]; then
     case $target in
-      hanko) omacale_off; atoll_off; hanko_on ;;
-      omacale) hanko_off; meander_off; atoll_off; omacale_handovers install; omarchy restart shell >/dev/null 2>&1 || true ;;
-      meander) hanko_off; omacale_off; atoll_off; meander_on; omarchy restart shell >/dev/null 2>&1 || true ;;
-      atoll) hanko_off; omacale_off; meander_off; atoll_on; omarchy restart shell >/dev/null 2>&1 || true ;;
-      default) hanko_off; omacale_off; meander_off; atoll_off; omarchy restart shell >/dev/null 2>&1 || true ;;
+      hanko) omacale_off; hanko_on ;;
+      omacale) hanko_off; meander_off; omacale_handovers install; omarchy restart shell >/dev/null 2>&1 || true ;;
+      meander) hanko_off; omacale_off; meander_on; omarchy restart shell >/dev/null 2>&1 || true ;;
+      default) hanko_off; omacale_off; meander_off; omarchy restart shell >/dev/null 2>&1 || true ;;
     esac
     say "done: $target"
     return
@@ -336,11 +246,9 @@ switch_to() {
   # Meander's handover given back, then the target's own extras on.
   hanko_off
   meander_off
-  atoll_off
   if [[ $target == omacale ]]; then omacale_handovers install; else omacale_off; fi
 
   # Meander sets bar.id itself (and records the bar it replaced).
-  [[ $target == atoll ]] && atoll_on
   if [[ $target == meander ]]; then meander_on; else set_bar_id "$target"; fi
   hyprctl reload >/dev/null || warn "hyprctl reload failed"
   omarchy restart shell >/dev/null 2>&1 || warn "shell restart failed; run: omarchy restart shell"
@@ -357,7 +265,6 @@ status() {
   echo "$cur"
   [[ -x $hanko ]] && printf '  hanko   desk=%s cursor=%s tools=%s sumi=%s\n' \
     "$(hk_status desk)" "$(hk_status cursor)" "$(hk_status tools)" "$(hk_status sumi)"
-  [[ -s $atoll_state ]] && printf '  atoll took over: %s\n' "$(paste -sd, "$atoll_state" | sed 's/,/, /g')"
   [[ -x $meander_setup ]] && printf '  meander handed over: %s\n' \
     "$(jq -r '(.addedDisabled // []) | if length == 0 then "nothing" else join(", ") end' "${XDG_STATE_HOME:-$HOME/.local/state}/meander/install.json" 2>/dev/null || echo nothing)"
   if [[ -d $omacale_scripts ]]; then
@@ -376,8 +283,8 @@ case "$arg" in
   status) status ;;
   next | toggle) switch_to "$(next_mode)" ;;
   pick | menu) m="$(pick)" || exit 130; switch_to "$m" ;;
-  omacale | hanko | meander | atoll | default) switch_to "$arg" ;;
+  omacale | hanko | meander | default) switch_to "$arg" ;;
   omarchy) switch_to default ;;
-  -h | --help) sed -n '2,28p' "$0" | sed 's/^# \{0,1\}//' ;;
-  *) die "unknown mode '$arg' (omacale | hanko | meander | atoll | default | next | pick | status)" ;;
+  -h | --help) sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//' ;;
+  *) die "unknown mode '$arg' (omacale | hanko | meander | default | next | pick | status)" ;;
 esac

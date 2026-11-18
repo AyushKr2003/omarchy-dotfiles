@@ -16,12 +16,6 @@ if bar == "meander" then
   pcall(dofile, os.getenv("HOME") .. "/.config/omarchy/plugins/meander.bar/meander.lua")
 end
 
--- Atoll's look'n'feel (Ambxst's: 2/4 gaps, 16px corners, soft shadow, popin
--- windows and a slide-fade between workspaces on one ease curve), the same way.
-if bar == "atoll" then
-  pcall(dofile, os.getenv("HOME") .. "/.config/omarchy/plugins/atoll.bar/atoll.lua")
-end
-
 -- https://wiki.hypr.land/Configuring/Basics/Variables/#general
 -- hl.config({
 --   general = {

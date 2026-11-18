@@ -235,18 +235,18 @@ o.window("com.github.johnfactotum.Foliate", { tag = "+floating-window"})
 -- Follows bar.id in ~/.config/omarchy/shell.json, so only the active bar's
 -- keys are bound. Switch bars with omarchy-bar-switch (it runs hyprctl reload).
 
--- "omacale", "hanko", "meander", "atoll" or "default". looknfeel.lua uses it too.
+-- "omacale", "hanko", "meander" or "default". looknfeel.lua uses it too.
 function o.active_bar()
   local f = io.open(os.getenv("HOME") .. "/.config/omarchy/shell.json")
   if not f then return "default" end
   local json = f:read("*a")
   f:close()
   local id = json:match('"id"%s*:%s*"([%w_-]+)%.bar"')
-  if id == "omacale" or id == "hanko" or id == "meander" or id == "atoll" then return id end
+  if id == "omacale" or id == "hanko" or id == "meander" then return id end
   return "default"
 end
 
-o.bind("SUPER + SHIFT + CTRL + B", "Pick bar (Omacale / Hanko / Meander / Atoll / Omarchy)", "omarchy-launch-floating-terminal-with-presentation omarchy-bar-switch pick")
+o.bind("SUPER + SHIFT + CTRL + B", "Pick bar (Omacale / Hanko / Meander / Omarchy)", "omarchy-launch-floating-terminal-with-presentation omarchy-bar-switch pick")
 o.bind("SUPER + SHIFT + CTRL + C", "Pick cursor and size (Bibata / Volantes)", "omarchy-launch-floating-terminal-with-presentation omarchy-cursor-switch pick")
 
 local bar = o.active_bar()
@@ -304,30 +304,6 @@ elseif bar == "meander" then
   o.bind("SUPER + CTRL + 0", "Meander bar focus", "meander keys bar")
   o.bind("SUPER + U", "Meander quick actions", "meander quick toggle")
   -- o.bind("SUPER + N", "Meander notification centre", "meander msg toggle notifications")
-
-elseif bar == "atoll" then
-  -- The same keys the other bars take, opening Atoll's notch surfaces.
-  -- (Atoll's own keybinds.lua isn't loaded: its SUPER+R and SUPER+ALT+E
-  -- clash with binds above.)
-  local function atoll(action) return "omarchy-shell atoll run " .. action end
-  o.rebind("SUPER + SPACE", "Atoll launcher", atoll("launcher"))                                      -- was: Omarchy menu
-  o.rebind("SUPER + CTRL + V", "Atoll clipboard", atoll("clipboard"))                                 -- was: Clipboard manager
-  o.rebind("SUPER + ESCAPE", "Atoll power menu", atoll("powermenu"))                                  -- was: System menu
-  o.rebind("SUPER + CTRL + SPACE", "Atoll wallpapers", atoll("wallpapers"))                           -- was: Background switcher
-  o.rebind("SUPER + SHIFT + I", "Atoll settings", atoll("config"))
-  o.bind("SUPER + D", "Atoll dashboard", atoll("dashboard"))
-  o.bind("SUPER + N", "Atoll dashboard (notifications)", atoll("dashboard-widgets"))
-  o.bind("SUPER + U", "Atoll tools (screenshot, record, lens)", atoll("tools"))
-  -- Atoll extras on SUPER + ALT
-  -- o.bind("SUPER + ALT + O", "Atoll overview", atoll("overview"))
-  -- o.bind("SUPER + ALT + PERIOD", "Atoll emoji", atoll("emoji"))
-  o.bind("SUPER + ALT + N", "Atoll notes", atoll("notes"))
-  o.bind("SUPER + ALT + T", "Atoll tmux sessions", atoll("tmux"))
-  o.bind("SUPER + ALT + A", "Atoll assistant", atoll("assistant"))
-  o.rebind("SUPER + A", "Atoll kanban", atoll("dashboard-kanban"))
-  -- Atoll draws the OSD (omarchy-bar-switch turns omarchy.osd off), so
-  -- brightness keys go through it.
-  pcall(dofile, os.getenv("HOME") .. "/.config/omarchy/plugins/atoll.bar/keybinds-osd.lua")
 end
 
 -- Disable Omarchy's Right Alt push-to-talk dictation (keeps Alt+Space toggle).
